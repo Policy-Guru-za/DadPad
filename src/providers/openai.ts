@@ -225,6 +225,29 @@ function parseUnknownProviderError(error: unknown): Error {
   return new OpenAIProviderError("unknown", "Unexpected error while contacting OpenAI.");
 }
 
+function getStreamErrorMessage(payload: unknown): string | null {
+  if (typeof payload !== "object" || payload === null) {
+    return null;
+  }
+
+  const typed = payload as {
+    type?: string;
+    error?: { message?: string };
+    message?: string;
+  };
+
+  const directErrorMessage = typed.error?.message;
+  if (typeof directErrorMessage === "string" && directErrorMessage.trim()) {
+    return directErrorMessage;
+  }
+
+  if ((typed.type === "error" || typed.type === "response.error") && typeof typed.message === "string") {
+    return typed.message;
+  }
+
+  return null;
+}
+
 export async function streamPolishWithOpenAI({
   apiKey,
   inputText,
@@ -242,6 +265,8 @@ export async function streamPolishWithOpenAI({
   const mergedSignal = mergeAbortSignals([signal, timeoutController.signal]);
   let outputText = "";
   let responseId: string | undefined;
+  let sawDoneEvent = false;
+  let sawDeltaEvent = false;
 
   try {
     const response = await fetch(OPENAI_RESPONSES_URL, {
@@ -271,6 +296,7 @@ export async function streamPolishWithOpenAI({
 
     await readEventStream(response.body, (event) => {
       if (event.data === "[DONE]") {
+        sawDoneEvent = true;
         return;
       }
 
@@ -278,7 +304,15 @@ export async function streamPolishWithOpenAI({
       try {
         parsed = JSON.parse(event.data);
       } catch {
-        return;
+        throw new OpenAIProviderError(
+          "unknown",
+          "OpenAI stream returned malformed JSON. Original text preserved.",
+        );
+      }
+
+      const streamErrorMessage = getStreamErrorMessage(parsed);
+      if (streamErrorMessage) {
+        throw new OpenAIProviderError("server", streamErrorMessage);
       }
 
       if (typeof parsed === "object" && parsed !== null) {
@@ -293,9 +327,24 @@ export async function streamPolishWithOpenAI({
         return;
       }
 
+      sawDeltaEvent = true;
       outputText += delta;
       onDelta(delta);
     });
+
+    if (!sawDoneEvent) {
+      throw new OpenAIProviderError(
+        "unknown",
+        "OpenAI stream ended unexpectedly before completion. Original text preserved.",
+      );
+    }
+
+    if (!sawDeltaEvent || !outputText.trim()) {
+      throw new OpenAIProviderError(
+        "unknown",
+        "OpenAI returned empty output. Original text preserved.",
+      );
+    }
 
     return { outputText, responseId };
   } catch (error) {
