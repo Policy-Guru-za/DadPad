@@ -1,0 +1,109 @@
+# -----------------------------
+# OS / Filesystem noise
+# -----------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# -----------------------------
+# Editor / IDE
+# -----------------------------
+.idea/
+*.iml
+*.suo
+*.njsproj
+*.sln
+*.swp
+*.swo
+*~
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+
+# -----------------------------
+# Logs / diagnostics
+# -----------------------------
+logs/
+*.log
+*.out
+*.err
+*.stackdump
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# -----------------------------
+# Runtime files
+# -----------------------------
+*.pid
+*.pid.lock
+*.seed
+
+# -----------------------------
+# Dependencies / package managers
+# -----------------------------
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.bun/
+jspm_packages/
+
+# -----------------------------
+# Build output / caches
+# -----------------------------
+.next/
+out/
+dist/
+build/
+coverage/
+.nyc_output/
+.turbo/
+.vercel/
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+# -----------------------------
+# Test artifacts
+# -----------------------------
+playwright-report/
+test-results/
+blob-report/
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
+
+# -----------------------------
+# Environment / secrets
+# Keep examples committed
+# -----------------------------
+.env
+.env.*
+!.env.example
+!.env*.example
+
+# -----------------------------
+# Local databases
+# -----------------------------
+prisma/dev.db*
+prisma/*.db*
+*.sqlite
+*.sqlite3
+
+# -----------------------------
+# Temporary directories
+# -----------------------------
+tmp/
+temp/
