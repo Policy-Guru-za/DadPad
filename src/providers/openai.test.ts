@@ -131,10 +131,60 @@ describe("streamTransformWithOpenAI", () => {
     expect(deltas).toEqual(["Hello"]);
   });
 
-  it("fails safe when stream ends with deltas but no terminal event", async () => {
+  it("marks output as truncated when stream ends with deltas but no terminal event", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       body: createSseBody([JSON.stringify({ type: "response.output_text.delta", delta: "Partial" })]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "source",
+      mode: "polish",
+      timeoutMs: 5_000,
+      onDelta: () => undefined,
+    });
+
+    expect(result.outputText).toBe("Partial");
+    expect(result.truncatedByProvider).toBe(true);
+  });
+
+  it("uses terminal payload output when stream contains no delta events", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: createSseBody([
+        JSON.stringify({
+          type: "response.completed",
+          response: {
+            id: "resp_terminal",
+            output: [{ content: [{ text: "Terminal output text." }] }],
+          },
+        }),
+      ]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const deltas: string[] = [];
+    const result = await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "source",
+      mode: "polish",
+      timeoutMs: 5_000,
+      onDelta: (delta) => {
+        deltas.push(delta);
+      },
+    });
+
+    expect(result.outputText).toBe("Terminal output text.");
+    expect(result.responseId).toBe("resp_terminal");
+    expect(deltas).toEqual(["Terminal output text."]);
+  });
+
+  it("fails safe when stream has no output deltas", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: createSseBody([JSON.stringify({ type: "response.completed" })]),
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -146,6 +196,6 @@ describe("streamTransformWithOpenAI", () => {
         timeoutMs: 5_000,
         onDelta: () => undefined,
       }),
-    ).rejects.toThrow("OpenAI stream ended unexpectedly before completion");
+    ).rejects.toThrow("OpenAI returned empty output");
   });
 });

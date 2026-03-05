@@ -496,6 +496,7 @@ export async function streamTransformWithOpenAI({
       ? Math.min(8192, Math.max(1, Math.round(maxOutputTokensOverride)))
       : getMaxOutputTokens(mode, inputText);
   let outputText = "";
+  let fallbackOutputText = "";
   let responseId: string | undefined;
   let finishReason: string | undefined;
   let truncatedByProvider = false;
@@ -610,6 +611,11 @@ export async function streamTransformWithOpenAI({
         sawDoneEvent = true;
       }
 
+      const eventOutputText = extractFinalOutputText(parsed);
+      if (eventOutputText.trim() && eventOutputText.length > fallbackOutputText.length) {
+        fallbackOutputText = eventOutputText;
+      }
+
       if (typeof parsed === "object" && parsed !== null) {
         const asObject = parsed as { response?: { id?: string } };
         if (typeof asObject.response?.id === "string") {
@@ -635,11 +641,10 @@ export async function streamTransformWithOpenAI({
       onDelta(delta);
     });
 
-    if (!sawDoneEvent) {
-      throw new OpenAIProviderError(
-        "unknown",
-        "OpenAI stream ended unexpectedly before completion. Original text preserved.",
-      );
+    if ((!sawDeltaEvent || !outputText.trim()) && fallbackOutputText.trim()) {
+      outputText = fallbackOutputText;
+      sawDeltaEvent = true;
+      onDelta(fallbackOutputText);
     }
 
     if (!sawDeltaEvent || !outputText.trim()) {
@@ -647,6 +652,12 @@ export async function streamTransformWithOpenAI({
         "unknown",
         "OpenAI returned empty output. Original text preserved.",
       );
+    }
+
+    if (!sawDoneEvent) {
+      // Some Responses streams end by EOF without an explicit done marker.
+      // Treat this as a potentially truncated success path instead of hard-failing.
+      truncatedByProvider = true;
     }
 
     return { outputText, responseId, finishReason, truncatedByProvider, maxOutputTokens };
