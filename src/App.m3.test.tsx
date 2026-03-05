@@ -198,6 +198,62 @@ describe("M4 direct mode wiring", () => {
   });
 });
 
+describe("M7 casual/professional mode wiring", () => {
+  it("casual button uses casual mode and commits streamed output on success", async () => {
+    streamTransformWithOpenAIMock.mockImplementation(async ({ mode, onDelta }) => {
+      if (mode !== "casual") {
+        throw new Error(`expected casual mode, got ${mode}`);
+      }
+
+      onDelta("Hey team, quick update.");
+      return { outputText: "Hey team, quick update." };
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+
+    await user.type(editor, "This is a longer paragraph that should sound more casual.");
+    await user.click(screen.getByRole("button", { name: "Casual" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("Hey team, quick update.");
+      expect(screen.getByText(/Casual complete in/)).toBeTruthy();
+      expect(screen.getByText("Last mode: Casual")).toBeTruthy();
+      expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
+        expect.objectContaining({ mode: "casual" }),
+      );
+    });
+  });
+
+  it("professional button uses professional mode and commits streamed output on success", async () => {
+    streamTransformWithOpenAIMock.mockImplementation(async ({ mode, onDelta }) => {
+      if (mode !== "professional") {
+        throw new Error(`expected professional mode, got ${mode}`);
+      }
+
+      onDelta("Good morning team. Please review the attached plan.");
+      return { outputText: "Good morning team. Please review the attached plan." };
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+
+    await user.type(editor, "can you all quickly check this and tell me what you think");
+    await user.click(screen.getByRole("button", { name: "Professional" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("Good morning team. Please review the attached plan.");
+      expect(screen.getByText(/Professional complete in/)).toBeTruthy();
+      expect(screen.getByText("Last mode: Professional")).toBeTruthy();
+      expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
+        expect.objectContaining({ mode: "professional" }),
+      );
+    });
+  });
+});
+
 describe("M5 placeholder fail-safe", () => {
   it("restores original text when placeholder tokens are altered by the model output", async () => {
     streamTransformWithOpenAIMock.mockImplementation(async ({ inputText, onDelta }) => {

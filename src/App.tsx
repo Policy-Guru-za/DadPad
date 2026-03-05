@@ -10,7 +10,7 @@ import {
 import { endsWithNaturalTerminator } from "./utils/truncation";
 
 type TransformMode = "Polish" | "Casual" | "Professional" | "Direct";
-type WiredTransformMode = "Polish" | "Direct";
+type WiredTransformMode = TransformMode;
 
 const TRANSFORM_MODES: TransformMode[] = [
   "Polish",
@@ -89,11 +89,15 @@ function mapProviderError(error: unknown): string {
   return "Transform failed. Original text restored.";
 }
 
-function isWiredMode(mode: TransformMode): mode is WiredTransformMode {
-  return mode === "Polish" || mode === "Direct";
-}
+function toProviderMode(mode: WiredTransformMode): "polish" | "casual" | "professional" | "direct" {
+  if (mode === "Casual") {
+    return "casual";
+  }
 
-function toProviderMode(mode: WiredTransformMode): "polish" | "direct" {
+  if (mode === "Professional") {
+    return "professional";
+  }
+
   if (mode === "Direct") {
     return "direct";
   }
@@ -129,7 +133,7 @@ function App() {
 
     const sourceText = options.sourceText ?? text;
     if (!sourceText.trim()) {
-      setStatusMessage("Add text before running Polish.");
+      setStatusMessage("Add text before running a transform.");
       return;
     }
 
@@ -230,13 +234,7 @@ function App() {
   };
 
   const handleTransformClick = (mode: TransformMode): void => {
-    if (isWiredMode(mode)) {
-      void handleTransform(mode);
-      return;
-    }
-
-    setLastMode(mode);
-    setStatusMessage(`"${mode}" is not wired yet. M4 includes Polish + Direct only.`);
+    void handleTransform(mode);
   };
 
   const handleCancel = (): void => {

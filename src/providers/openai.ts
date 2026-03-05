@@ -24,6 +24,18 @@ It should read like a competent human wrote it carefully, not like a transcript.
 Preserve the original level of assertiveness.
 Keep approximate length: you may slightly tighten, and you may modestly expand if it makes the writing more elegant or easier to read.`;
 
+const CASUAL_MODE_INSTRUCTION = `Mode: CASUAL
+Rewrite to sound casual, friendly, and conversational.
+Use a relaxed tone and contractions where natural.
+Keep it clean and readable (not slangy, not childish).
+Keep approximate length; light tightening allowed.`;
+
+const PROFESSIONAL_MODE_INSTRUCTION = `Mode: PROFESSIONAL
+Rewrite to sound professional, neutral, and polished for a workplace email.
+Clear, calm, and well-structured.
+Not stiff and not overly verbose.
+Keep approximate length; light tightening allowed.`;
+
 const DIRECT_MODE_INSTRUCTION = `Mode: DIRECT
 Rewrite to be concise and direct.
 Prefer short sentences.
@@ -52,7 +64,7 @@ export class OpenAIProviderError extends Error {
   }
 }
 
-export type OpenAITransformMode = "polish" | "direct";
+export type OpenAITransformMode = "polish" | "casual" | "professional" | "direct";
 
 export type StreamTransformArgs = {
   apiKey: string;
@@ -347,6 +359,14 @@ function getStreamErrorMessage(payload: unknown): string | null {
 }
 
 function getModeInstruction(mode: OpenAITransformMode): string {
+  if (mode === "casual") {
+    return CASUAL_MODE_INSTRUCTION;
+  }
+
+  if (mode === "professional") {
+    return PROFESSIONAL_MODE_INSTRUCTION;
+  }
+
   if (mode === "direct") {
     return DIRECT_MODE_INSTRUCTION;
   }
