@@ -64,6 +64,7 @@ jspm_packages/
 .next/
 out/
 dist/
+dist-ssr/
 build/
 coverage/
 .nyc_output/
@@ -93,6 +94,7 @@ cypress/downloads/
 .env.*
 !.env.example
 !.env*.example
+*.local
 
 # -----------------------------
 # Local databases
