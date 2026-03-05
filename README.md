@@ -38,3 +38,8 @@ pnpm tauri dev
 pnpm build
 pnpm tauri build
 ```
+
+## Security Notes
+
+- Use `.env.local` with `VITE_OPENAI_API_KEY` for private local development only.
+- Do not ship/distribute builds that rely on `VITE_OPENAI_API_KEY` from frontend env injection.
