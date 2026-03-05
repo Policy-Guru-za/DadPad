@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import "./App.css";
-import { OpenAIProviderError, streamPolishWithOpenAI } from "./providers/openai";
+import { OpenAIProviderError, streamTransformWithOpenAI } from "./providers/openai";
 
 type TransformMode = "Polish" | "Casual" | "Professional" | "Direct";
+type WiredTransformMode = "Polish" | "Direct";
 
 const TRANSFORM_MODES: TransformMode[] = [
   "Polish",
@@ -60,7 +61,19 @@ function mapProviderError(error: unknown): string {
     return error.message;
   }
 
-  return "Polish failed. Original text restored.";
+  return "Transform failed. Original text restored.";
+}
+
+function isWiredMode(mode: TransformMode): mode is WiredTransformMode {
+  return mode === "Polish" || mode === "Direct";
+}
+
+function toProviderMode(mode: WiredTransformMode): "polish" | "direct" {
+  if (mode === "Direct") {
+    return "direct";
+  }
+
+  return "polish";
 }
 
 function App() {
@@ -72,6 +85,7 @@ function App() {
   const [warning, setWarning] = useState("None");
   const [isStreaming, setIsStreaming] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
+  const [activeStreamMode, setActiveStreamMode] = useState<WiredTransformMode | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const undoCheckpointRef = useRef<string | null>(null);
@@ -79,7 +93,7 @@ function App() {
   const wordCount = useMemo(() => countWords(text), [text]);
   const charCount = text.length;
 
-  const handlePolishTransform = async (): Promise<void> => {
+  const handleTransform = async (mode: WiredTransformMode): Promise<void> => {
     if (isStreaming) {
       return;
     }
@@ -103,20 +117,22 @@ function App() {
     setCanUndo(false);
 
     setIsStreaming(true);
+    setActiveStreamMode(mode);
     setCopyFeedback("");
-    setLastMode("Polish");
+    setLastMode(mode);
     setLatencyMs(null);
     setWarning("None");
-    setStatusMessage("Polish in progress...");
+    setStatusMessage(`${mode} in progress...`);
     setText("");
 
     const startedAt = performance.now();
     let streamedOutput = "";
 
     try {
-      await streamPolishWithOpenAI({
+      await streamTransformWithOpenAI({
         apiKey,
         inputText: sourceText,
+        mode: toProviderMode(mode),
         signal: controller.signal,
         onDelta: (delta) => {
           streamedOutput += delta;
@@ -126,7 +142,7 @@ function App() {
 
       const elapsed = Math.round(performance.now() - startedAt);
       setLatencyMs(elapsed);
-      setStatusMessage(`Polish complete in ${elapsed} ms.`);
+      setStatusMessage(`${mode} complete in ${elapsed} ms.`);
       setCanUndo(true);
     } catch (error) {
       setText(undoCheckpointRef.current ?? sourceText);
@@ -137,7 +153,7 @@ function App() {
 
       if (controller.signal.aborted) {
         setWarning("None");
-        setStatusMessage("Polish cancelled. Original text restored.");
+        setStatusMessage(`${mode} cancelled. Original text restored.`);
       } else {
         const friendlyMessage = mapProviderError(error);
         setWarning(friendlyMessage);
@@ -146,17 +162,18 @@ function App() {
     } finally {
       abortControllerRef.current = null;
       setIsStreaming(false);
+      setActiveStreamMode(null);
     }
   };
 
   const handleTransformClick = (mode: TransformMode): void => {
-    if (mode === "Polish") {
-      void handlePolishTransform();
+    if (isWiredMode(mode)) {
+      void handleTransform(mode);
       return;
     }
 
     setLastMode(mode);
-    setStatusMessage(`"${mode}" is not wired yet. M2 includes Polish only.`);
+    setStatusMessage(`"${mode}" is not wired yet. M4 includes Polish + Direct only.`);
   };
 
   const handleCancel = (): void => {
@@ -164,7 +181,7 @@ function App() {
       return;
     }
 
-    setStatusMessage("Cancelling...");
+    setStatusMessage(`Cancelling ${activeStreamMode ?? "transform"}...`);
     abortControllerRef.current?.abort();
   };
 
@@ -207,7 +224,7 @@ function App() {
               disabled={isStreaming}
               onClick={() => handleTransformClick(mode)}
             >
-              {mode === "Polish" && isStreaming ? "Polish (Streaming...)" : mode}
+              {mode === activeStreamMode && isStreaming ? `${mode} (Streaming...)` : mode}
             </button>
           ))}
         </div>

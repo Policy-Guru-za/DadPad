@@ -8,6 +8,7 @@
 ## User Preferences
 - Strict gates: do not move past Gate A or Gate B without explicit approval.
 - M2 scope fixed: OpenAI Responses API only, Polish button only, no token protection/config/encryption yet.
+- User is the only one who commits changes; never auto-commit.
 
 ## Patterns That Work
 - Verify streaming/cancel behavior with Playwright + abort-aware mocked SSE stream before claiming gate completion.
@@ -17,4 +18,4 @@
 - Mocking SSE without abort support makes cancel tests unreliable.
 
 ## Domain Notes
-- Current app phase: M3 complete (explicit one-step undo semantics + cancel/error restoration tests).
+- Current app phase: M4 complete (Direct mode wired via streaming path with shorter output heuristic).

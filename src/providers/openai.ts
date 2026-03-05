@@ -24,6 +24,14 @@ It should read like a competent human wrote it carefully, not like a transcript.
 Preserve the original level of assertiveness.
 Keep approximate length: you may slightly tighten, and you may modestly expand if it makes the writing more elegant or easier to read.`;
 
+const DIRECT_MODE_INSTRUCTION = `Mode: DIRECT
+Rewrite to be concise and direct.
+Prefer short sentences.
+Remove filler and softening language that doesn't add meaning.
+Make requests and next steps explicit.
+Use bullet points when it improves clarity.
+Shorten meaningfully, but do not remove essential information.`;
+
 const USER_WRAPPER_PREFIX = `Rewrite the text below.
 
 [BEGIN TEXT]
@@ -44,9 +52,12 @@ export class OpenAIProviderError extends Error {
   }
 }
 
-export type StreamPolishArgs = {
+export type OpenAITransformMode = "polish" | "direct";
+
+export type StreamTransformArgs = {
   apiKey: string;
   inputText: string;
+  mode: OpenAITransformMode;
   model?: string;
   temperature?: number;
   signal?: AbortSignal;
@@ -54,7 +65,7 @@ export type StreamPolishArgs = {
   onDelta: (delta: string) => void;
 };
 
-export type StreamPolishResult = {
+export type StreamTransformResult = {
   outputText: string;
   responseId?: string;
 };
@@ -248,21 +259,41 @@ function getStreamErrorMessage(payload: unknown): string | null {
   return null;
 }
 
-export async function streamPolishWithOpenAI({
+function getModeInstruction(mode: OpenAITransformMode): string {
+  if (mode === "direct") {
+    return DIRECT_MODE_INSTRUCTION;
+  }
+
+  return POLISH_MODE_INSTRUCTION;
+}
+
+export function getMaxOutputTokens(mode: OpenAITransformMode, inputText: string): number {
+  const inputTokens = Math.max(1, Math.round(inputText.length / 4));
+
+  if (mode === "direct") {
+    return Math.min(8192, Math.round(inputTokens * 0.8) + 96);
+  }
+
+  return Math.min(8192, Math.round(inputTokens * 1.3) + 128);
+}
+
+export async function streamTransformWithOpenAI({
   apiKey,
   inputText,
+  mode,
   model = DEFAULT_OPENAI_MODEL,
   temperature = 0.2,
   signal,
   timeoutMs = 30_000,
   onDelta,
-}: StreamPolishArgs): Promise<StreamPolishResult> {
+}: StreamTransformArgs): Promise<StreamTransformResult> {
   const timeoutController = new AbortController();
   const timeoutId = window.setTimeout(() => {
     timeoutController.abort(new DOMException("Timed out", "TimeoutError"));
   }, timeoutMs);
 
   const mergedSignal = mergeAbortSignals([signal, timeoutController.signal]);
+  const maxOutputTokens = getMaxOutputTokens(mode, inputText);
   let outputText = "";
   let responseId: string | undefined;
   let sawDoneEvent = false;
@@ -280,7 +311,8 @@ export async function streamPolishWithOpenAI({
         model,
         temperature,
         stream: true,
-        instructions: `${BASE_SYSTEM_PROMPT}\n\n${POLISH_MODE_INSTRUCTION}`,
+        max_output_tokens: maxOutputTokens,
+        instructions: `${BASE_SYSTEM_PROMPT}\n\n${getModeInstruction(mode)}`,
         input: `${USER_WRAPPER_PREFIX}${inputText}${USER_WRAPPER_SUFFIX}`,
       }),
     });

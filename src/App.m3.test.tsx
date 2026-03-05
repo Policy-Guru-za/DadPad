@@ -15,22 +15,22 @@ const hoisted = vi.hoisted(() => {
   }
 
   return {
-    streamPolishWithOpenAIMock: vi.fn(),
+    streamTransformWithOpenAIMock: vi.fn(),
     MockOpenAIProviderError,
   };
 });
 
-const { streamPolishWithOpenAIMock, MockOpenAIProviderError } = hoisted;
+const { streamTransformWithOpenAIMock, MockOpenAIProviderError } = hoisted;
 
 vi.mock("./providers/openai", () => ({
   DEFAULT_OPENAI_MODEL: "gpt-5-nano-2025-08-07",
   OpenAIProviderError: hoisted.MockOpenAIProviderError,
-  streamPolishWithOpenAI: hoisted.streamPolishWithOpenAIMock,
+  streamTransformWithOpenAI: hoisted.streamTransformWithOpenAIMock,
 }));
 
 beforeEach(() => {
   vi.stubEnv("VITE_OPENAI_API_KEY", "test-key");
-  streamPolishWithOpenAIMock.mockReset();
+  streamTransformWithOpenAIMock.mockReset();
 });
 
 afterEach(() => {
@@ -39,7 +39,7 @@ afterEach(() => {
 
 describe("M3 transform resilience", () => {
   it("cancel restores original text after partial stream and resets action state", async () => {
-    streamPolishWithOpenAIMock.mockImplementation(async ({ signal, onDelta }) => {
+    streamTransformWithOpenAIMock.mockImplementation(async ({ signal, onDelta }) => {
       onDelta("partial stream");
 
       await new Promise((_, reject) => {
@@ -91,7 +91,7 @@ describe("M3 transform resilience", () => {
   });
 
   it("stream error restores original text and surfaces error status", async () => {
-    streamPolishWithOpenAIMock.mockImplementation(async ({ onDelta }) => {
+    streamTransformWithOpenAIMock.mockImplementation(async ({ onDelta }) => {
       onDelta("partial output");
       throw new MockOpenAIProviderError(
         "server",
@@ -118,6 +118,82 @@ describe("M3 transform resilience", () => {
         ),
       ).toBeTruthy();
       expect(undoButton.disabled).toBe(true);
+    });
+  });
+});
+
+describe("M4 direct mode wiring", () => {
+  it("direct button uses direct mode and commits streamed output on success", async () => {
+    streamTransformWithOpenAIMock.mockImplementation(async ({ mode, onDelta }) => {
+      if (mode !== "direct") {
+        throw new Error(`expected direct mode, got ${mode}`);
+      }
+
+      onDelta("Short");
+      onDelta(" output.");
+      return { outputText: "Short output." };
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+
+    await user.type(editor, "Longer source text that should be tightened.");
+    await user.click(screen.getByRole("button", { name: "Direct" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("Short output.");
+      expect(screen.getByText(/Direct complete in/)).toBeTruthy();
+      expect(screen.getByText("Last mode: Direct")).toBeTruthy();
+      expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
+        expect.objectContaining({ mode: "direct" }),
+      );
+    });
+  });
+
+  it("cancel in direct mode restores original text after partial stream", async () => {
+    streamTransformWithOpenAIMock.mockImplementation(async ({ signal, mode, onDelta }) => {
+      if (mode === "direct") {
+        onDelta("partial direct");
+      }
+
+      await new Promise((_, reject) => {
+        if (signal?.aborted) {
+          reject(new DOMException("Aborted", "AbortError"));
+          return;
+        }
+
+        signal?.addEventListener(
+          "abort",
+          () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          },
+          { once: true },
+        );
+      });
+
+      return { outputText: "partial direct" };
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+
+    await user.type(editor, "direct original");
+    await user.click(screen.getByRole("button", { name: "Direct" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("partial direct");
+      expect(
+        (screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled,
+      ).toBe(false);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("direct original");
+      expect(screen.getByText("Direct cancelled. Original text restored.")).toBeTruthy();
     });
   });
 });
