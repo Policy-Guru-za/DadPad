@@ -428,12 +428,13 @@ function App() {
               className="settings-input"
               type="password"
               value={settingsDraft.openaiApiKey}
-              onChange={(event) =>
+              onChange={(event) => {
+                const nextOpenAiApiKey = event.currentTarget.value;
                 setSettingsDraft((current) => ({
                   ...current,
-                  openaiApiKey: event.currentTarget.value,
-                }))
-              }
+                  openaiApiKey: nextOpenAiApiKey,
+                }));
+              }}
               placeholder="sk-..."
               autoComplete="off"
             />
@@ -446,12 +447,13 @@ function App() {
               className="settings-input"
               type="text"
               value={settingsDraft.model}
-              onChange={(event) =>
+              onChange={(event) => {
+                const nextModel = event.currentTarget.value;
                 setSettingsDraft((current) => ({
                   ...current,
-                  model: event.currentTarget.value,
-                }))
-              }
+                  model: nextModel,
+                }));
+              }}
             />
 
             <label className="settings-field" htmlFor="temperature">
@@ -465,26 +467,28 @@ function App() {
               max={2}
               step={0.1}
               value={settingsDraft.temperature}
-              onChange={(event) =>
+              onChange={(event) => {
+                const nextTemperatureRaw = Number(event.currentTarget.value);
                 setSettingsDraft((current) => ({
                   ...current,
-                  temperature: Number.isFinite(Number(event.currentTarget.value))
-                    ? Number(event.currentTarget.value)
+                  temperature: Number.isFinite(nextTemperatureRaw)
+                    ? nextTemperatureRaw
                     : current.temperature,
-                }))
-              }
+                }));
+              }}
             />
 
             <label className="settings-checkbox">
               <input
                 type="checkbox"
                 checked={settingsDraft.streaming}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const nextStreaming = event.currentTarget.checked;
                   setSettingsDraft((current) => ({
                     ...current,
-                    streaming: event.currentTarget.checked,
-                  }))
-                }
+                    streaming: nextStreaming,
+                  }));
+                }}
               />
               Streaming
             </label>
@@ -493,12 +497,13 @@ function App() {
               <input
                 type="checkbox"
                 checked={settingsDraft.tokenProtection}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const nextTokenProtection = event.currentTarget.checked;
                   setSettingsDraft((current) => ({
                     ...current,
-                    tokenProtection: event.currentTarget.checked,
-                  }))
-                }
+                    tokenProtection: nextTokenProtection,
+                  }));
+                }}
               />
               Token protection
             </label>

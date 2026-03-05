@@ -86,6 +86,23 @@ describe("M8 settings gating", () => {
       );
     });
   });
+
+  it("allows pasting API key into settings without renderer crash", async () => {
+    render(<App />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+
+    const apiKeyInput = screen.getByLabelText("OpenAI API key") as HTMLInputElement;
+    await user.click(apiKeyInput);
+    await user.clear(apiKeyInput);
+    await user.paste("sk-proj-testkey-1234567890");
+
+    await waitFor(() => {
+      expect(apiKeyInput.value).toBe("sk-proj-testkey-1234567890");
+      expect(screen.getByRole("button", { name: "Save Settings" })).toBeTruthy();
+    });
+  });
 });
 
 describe("M3 transform resilience", () => {
