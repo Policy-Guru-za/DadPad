@@ -335,17 +335,8 @@ function isLengthTruncationReason(reason: string | undefined): boolean {
 }
 
 function parseResponseError(status: number, bodyText: string): OpenAIProviderError {
-  let parsedMessage = "";
-
-  try {
-    const parsed = JSON.parse(bodyText) as { error?: { message?: string } };
-    parsedMessage = parsed.error?.message ?? "";
-  } catch {
-    parsedMessage = "";
-  }
-
-  const fallbackMessage = bodyText || "OpenAI request failed.";
-  const message = parsedMessage || fallbackMessage;
+  const parsedMessage = extractErrorMessage(bodyText);
+  const message = parsedMessage || bodyText || "OpenAI request failed.";
 
   if (status === 401) {
     return new OpenAIProviderError("auth", "OpenAI API key is invalid or missing.");
@@ -361,6 +352,28 @@ function parseResponseError(status: number, bodyText: string): OpenAIProviderErr
   }
 
   return new OpenAIProviderError("unknown", message);
+}
+
+function extractErrorMessage(bodyText: string): string {
+  try {
+    const parsed = JSON.parse(bodyText) as { error?: { message?: string } };
+    return parsed.error?.message ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function shouldRetryWithoutTemperature(
+  status: number,
+  bodyText: string,
+  usedTemperature: boolean,
+): boolean {
+  if (!usedTemperature || status < 400 || status >= 500) {
+    return false;
+  }
+
+  const message = (extractErrorMessage(bodyText) || bodyText).toLowerCase();
+  return message.includes("unsupported parameter") && message.includes("temperature");
 }
 
 function parseUnknownProviderError(error: unknown): Error {
@@ -467,24 +480,37 @@ export async function streamTransformWithOpenAI({
   let truncatedByProvider = false;
   let sawDoneEvent = false;
   let sawDeltaEvent = false;
+  let includeTemperature = typeof temperature === "number" && Number.isFinite(temperature);
 
   try {
-    const response = await fetch(OPENAI_RESPONSES_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      signal: mergedSignal,
-      body: JSON.stringify({
-        model,
-        temperature,
-        stream: streaming,
-        max_output_tokens: maxOutputTokens,
-        instructions: `${BASE_SYSTEM_PROMPT}\n\n${getModeInstruction(mode)}`,
-        input: `${USER_WRAPPER_PREFIX}${inputText}${USER_WRAPPER_SUFFIX}`,
-      }),
-    });
+    const makeRequest = async (withTemperature: boolean): Promise<Response> =>
+      fetch(OPENAI_RESPONSES_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        signal: mergedSignal,
+        body: JSON.stringify({
+          model,
+          ...(withTemperature ? { temperature } : {}),
+          stream: streaming,
+          max_output_tokens: maxOutputTokens,
+          instructions: `${BASE_SYSTEM_PROMPT}\n\n${getModeInstruction(mode)}`,
+          input: `${USER_WRAPPER_PREFIX}${inputText}${USER_WRAPPER_SUFFIX}`,
+        }),
+      });
+
+    let response = await makeRequest(includeTemperature);
+    if (!response.ok) {
+      const bodyText = await response.text();
+      if (shouldRetryWithoutTemperature(response.status, bodyText, includeTemperature)) {
+        includeTemperature = false;
+        response = await makeRequest(false);
+      } else {
+        throw parseResponseError(response.status, bodyText);
+      }
+    }
 
     if (!response.ok) {
       const bodyText = await response.text();
