@@ -60,6 +60,7 @@ Codex must:
 - Stop and check in at explicit gates (below).
 - Never run create/scaffold commands with --force from repo root.
 - Never add, delete or alter any files or folder outside of the project root. Ask the user if there is any confusion with this.
+- Never automatically commit files to git. The User does this manually.
 
 ### Claude (frontend-only assistant)
 Claude may be used ONLY for:
