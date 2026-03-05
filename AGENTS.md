@@ -58,6 +58,8 @@ Codex must:
 - Refuse scope creep; if uncertain, stop and ask.
 - When blocked, present options + tradeoffs; do not silently pick a risky path.
 - Stop and check in at explicit gates (below).
+- Never run create/scaffold commands with --force from repo root.
+- Never add, delete or alter any files or folder outside of the project root. Ask the user if there is any confusion with this.
 
 ### Claude (frontend-only assistant)
 Claude may be used ONLY for:
@@ -78,6 +80,9 @@ Do not paste API keys to any model or tool.
 
 ## Operating mode (how we work)
 We follow a staged workflow inspired by: Discovery → Planning → Building → Polish → Handoff.
+
+### 0) The Napkin
+- Do this first: *Always* read /Users/ryanlaubscher/Projects/PolishPad/docs/napkin/SKILL.md before you start any new session. Follow the instructions in this document.
 
 ### 1) Discovery (one-time at repo start)
 - Confirm the doc set exists and is consistent.
