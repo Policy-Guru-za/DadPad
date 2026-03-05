@@ -3,6 +3,7 @@
 ## Corrections
 - 2026-03-05 | self | Ran scaffold with `--force` at repo root and wiped `/SOT` before restoring from git | Never use `--force` scaffold at repo root; scaffold into temp dir or non-empty-safe flow only.
 - 2026-03-05 | self | Initial streaming mock ignored `AbortSignal`, causing false cancel behavior during verification | For cancel tests, mock streams must observe `init.signal` and throw `AbortError` on abort.
+- 2026-03-05 | self | Vitest mock failed because hoisted module factory referenced a class declared later | Keep mocked classes/functions inside `vi.hoisted` and reference through the hoisted object.
 
 ## User Preferences
 - Strict gates: do not move past Gate A or Gate B without explicit approval.
@@ -10,9 +11,10 @@
 
 ## Patterns That Work
 - Verify streaming/cancel behavior with Playwright + abort-aware mocked SSE stream before claiming gate completion.
+- Keep undo checkpoint in a ref that is written once at transform start and only cleared on undo/error/cancel.
 
 ## Patterns That Don't Work
 - Mocking SSE without abort support makes cancel tests unreliable.
 
 ## Domain Notes
-- Current app phase: M2 in progress (first functional Polish transform loop only).
+- Current app phase: M3 complete (explicit one-step undo semantics + cancel/error restoration tests).

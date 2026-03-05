@@ -71,9 +71,10 @@ function App() {
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [warning, setWarning] = useState("None");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [canUndo, setCanUndo] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
-  const undoSnapshotRef = useRef("");
+  const undoCheckpointRef = useRef<string | null>(null);
 
   const wordCount = useMemo(() => countWords(text), [text]);
   const charCount = text.length;
@@ -98,7 +99,8 @@ function App() {
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
-    undoSnapshotRef.current = sourceText;
+    undoCheckpointRef.current = sourceText;
+    setCanUndo(false);
 
     setIsStreaming(true);
     setCopyFeedback("");
@@ -125,8 +127,13 @@ function App() {
       const elapsed = Math.round(performance.now() - startedAt);
       setLatencyMs(elapsed);
       setStatusMessage(`Polish complete in ${elapsed} ms.`);
+      setCanUndo(true);
     } catch (error) {
-      setText(undoSnapshotRef.current);
+      setText(undoCheckpointRef.current ?? sourceText);
+      undoCheckpointRef.current = null;
+      setCanUndo(false);
+      setLatencyMs(null);
+      setCopyFeedback("");
 
       if (controller.signal.aborted) {
         setWarning("None");
@@ -153,7 +160,26 @@ function App() {
   };
 
   const handleCancel = (): void => {
+    if (!isStreaming) {
+      return;
+    }
+
+    setStatusMessage("Cancelling...");
     abortControllerRef.current?.abort();
+  };
+
+  const handleUndo = (): void => {
+    if (isStreaming || !canUndo || undoCheckpointRef.current === null) {
+      return;
+    }
+
+    setText(undoCheckpointRef.current);
+    undoCheckpointRef.current = null;
+    setCanUndo(false);
+    setLatencyMs(null);
+    setWarning("None");
+    setCopyFeedback("");
+    setStatusMessage("Undo restored pre-transform text.");
   };
 
   const handleCopy = async (): Promise<void> => {
@@ -194,14 +220,22 @@ function App() {
           >
             Cancel
           </button>
-        <button
-          type="button"
-          className="copy-button"
-          onClick={handleCopy}
-          disabled={text.length === 0 || isStreaming}
-        >
-          Copy
-        </button>
+          <button
+            type="button"
+            className="undo-button"
+            onClick={handleUndo}
+            disabled={isStreaming || !canUndo}
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            className="copy-button"
+            onClick={handleCopy}
+            disabled={text.length === 0 || isStreaming}
+          >
+            Copy
+          </button>
         </div>
       </header>
 

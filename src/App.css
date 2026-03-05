@@ -65,7 +65,8 @@ body {
 
 .mode-button,
 .copy-button,
-.cancel-button {
+.cancel-button,
+.undo-button {
   appearance: none;
   border: 1px solid #c7d2e0;
   border-radius: 10px;
@@ -80,14 +81,16 @@ body {
 
 .mode-button:hover,
 .copy-button:hover,
-.cancel-button:hover {
+.cancel-button:hover,
+.undo-button:hover {
   border-color: #2563eb;
   background: #eff6ff;
 }
 
 .mode-button:active,
 .copy-button:active,
-.cancel-button:active {
+.cancel-button:active,
+.undo-button:active {
   transform: translateY(1px);
 }
 
@@ -107,6 +110,10 @@ body {
   min-width: 86px;
 }
 
+.undo-button {
+  min-width: 86px;
+}
+
 .copy-button:disabled {
   background: #cbd5e1;
   border-color: #cbd5e1;
@@ -115,7 +122,8 @@ body {
 }
 
 .cancel-button:disabled,
-.mode-button:disabled {
+.mode-button:disabled,
+.undo-button:disabled {
   border-color: #cbd5e1;
   background: #f8fafc;
   color: #64748b;
@@ -197,7 +205,8 @@ body {
 
   .mode-button,
   .copy-button,
-  .cancel-button {
+  .cancel-button,
+  .undo-button {
     flex: 1 1 46%;
   }
 
