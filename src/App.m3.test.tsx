@@ -16,11 +16,18 @@ const hoisted = vi.hoisted(() => {
 
   return {
     streamTransformWithOpenAIMock: vi.fn(),
+    readAppSettingsMock: vi.fn(),
+    writeAppSettingsMock: vi.fn(),
     MockOpenAIProviderError,
   };
 });
 
-const { streamTransformWithOpenAIMock, MockOpenAIProviderError } = hoisted;
+const {
+  streamTransformWithOpenAIMock,
+  readAppSettingsMock,
+  writeAppSettingsMock,
+  MockOpenAIProviderError,
+} = hoisted;
 
 vi.mock("./providers/openai", () => ({
   DEFAULT_OPENAI_MODEL: "gpt-5-nano-2025-08-07",
@@ -28,13 +35,57 @@ vi.mock("./providers/openai", () => ({
   streamTransformWithOpenAI: hoisted.streamTransformWithOpenAIMock,
 }));
 
+vi.mock("./settings/config", () => ({
+  DEFAULT_APP_SETTINGS: {
+    openaiApiKey: "",
+    model: "gpt-5-nano-2025-08-07",
+    temperature: 0.2,
+    streaming: true,
+    tokenProtection: true,
+  },
+  readAppSettings: hoisted.readAppSettingsMock,
+  writeAppSettings: hoisted.writeAppSettingsMock,
+}));
+
+const TEST_SETTINGS = {
+  openaiApiKey: "test-key",
+  model: "gpt-5-nano-2025-08-07",
+  temperature: 0.2,
+  streaming: true,
+  tokenProtection: true,
+};
+
 beforeEach(() => {
-  vi.stubEnv("VITE_OPENAI_API_KEY", "test-key");
   streamTransformWithOpenAIMock.mockReset();
+  readAppSettingsMock.mockReset();
+  writeAppSettingsMock.mockReset();
+  readAppSettingsMock.mockResolvedValue(TEST_SETTINGS);
+  writeAppSettingsMock.mockImplementation(async (settings) => settings);
 });
 
 afterEach(() => {
-  vi.unstubAllEnvs();
+  vi.clearAllMocks();
+});
+
+describe("M8 settings gating", () => {
+  it("disables transform buttons when API key is missing", async () => {
+    readAppSettingsMock.mockResolvedValue({
+      ...TEST_SETTINGS,
+      openaiApiKey: "",
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Set API key in Settings.")).toBeTruthy();
+      expect((screen.getByRole("button", { name: "Polish" }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+      expect((screen.getByRole("button", { name: "Direct" }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+    });
+  });
 });
 
 describe("M3 transform resilience", () => {

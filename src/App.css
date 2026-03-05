@@ -67,7 +67,9 @@ body {
 .copy-button,
 .cancel-button,
 .undo-button,
-.retry-button {
+.retry-button,
+.settings-button,
+.save-settings-button {
   appearance: none;
   border: 1px solid #c7d2e0;
   border-radius: 10px;
@@ -84,7 +86,9 @@ body {
 .copy-button:hover,
 .cancel-button:hover,
 .undo-button:hover,
-.retry-button:hover {
+.retry-button:hover,
+.settings-button:hover,
+.save-settings-button:hover {
   border-color: #2563eb;
   background: #eff6ff;
 }
@@ -93,7 +97,9 @@ body {
 .copy-button:active,
 .cancel-button:active,
 .undo-button:active,
-.retry-button:active {
+.retry-button:active,
+.settings-button:active,
+.save-settings-button:active {
   transform: translateY(1px);
 }
 
@@ -115,6 +121,10 @@ body {
 
 .undo-button {
   min-width: 86px;
+}
+
+.settings-button {
+  min-width: 128px;
 }
 
 .retry-button {
@@ -142,11 +152,88 @@ body {
 
 .cancel-button:disabled,
 .mode-button:disabled,
-.undo-button:disabled {
+.undo-button:disabled,
+.settings-button:disabled,
+.save-settings-button:disabled {
   border-color: #cbd5e1;
   background: #f8fafc;
   color: #64748b;
   cursor: not-allowed;
+}
+
+.settings-warning {
+  margin: 0;
+  color: #b45309;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.settings-panel {
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fbff;
+}
+
+.settings-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.settings-field {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.settings-input {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.92rem;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.settings-input:focus {
+  outline: 2px solid #93c5fd;
+  outline-offset: 0;
+}
+
+.settings-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.settings-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.save-settings-button {
+  min-width: 132px;
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #f8fafc;
+}
+
+.save-settings-button:hover {
+  background: #0d9488;
+  border-color: #0d9488;
+}
+
+.settings-message {
+  color: #7c2d12;
+  font-size: 0.86rem;
+  font-weight: 600;
 }
 
 .editor-panel {
@@ -225,8 +312,13 @@ body {
   .mode-button,
   .copy-button,
   .cancel-button,
-  .undo-button {
+  .undo-button,
+  .settings-button {
     flex: 1 1 46%;
+  }
+
+  .settings-form {
+    grid-template-columns: 1fr;
   }
 
   .editor-panel,

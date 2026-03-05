@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { OpenAIProviderError, streamTransformWithOpenAI } from "./providers/openai";
 import {
@@ -7,6 +7,12 @@ import {
   encodeProtectedSpans,
   validatePlaceholders,
 } from "./protect/placeholders";
+import {
+  AppSettings,
+  DEFAULT_APP_SETTINGS,
+  readAppSettings,
+  writeAppSettings,
+} from "./settings/config";
 import { endsWithNaturalTerminator } from "./utils/truncation";
 
 type TransformMode = "Polish" | "Casual" | "Professional" | "Direct";
@@ -21,6 +27,7 @@ const TRANSFORM_MODES: TransformMode[] = [
 
 const FOOTER_HINT = "Transforms apply to the current editor text.";
 const TRUNCATION_WARNING_MESSAGE = "Output may be truncated.";
+const MISSING_API_KEY_MESSAGE = "Set API key in Settings.";
 
 type TransformOptions = {
   sourceText?: string;
@@ -116,12 +123,52 @@ function App() {
   const [canUndo, setCanUndo] = useState(false);
   const [activeStreamMode, setActiveStreamMode] = useState<WiredTransformMode | null>(null);
   const [retryContext, setRetryContext] = useState<RetryContext | null>(null);
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
+  const [settingsDraft, setSettingsDraft] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState("");
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const undoCheckpointRef = useRef<string | null>(null);
 
   const wordCount = useMemo(() => countWords(text), [text]);
   const charCount = text.length;
+  const apiKeyMissing = settings.openaiApiKey.trim().length === 0;
+  const transformsDisabled = isStreaming || !isSettingsLoaded || apiKeyMissing;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const loaded = await readAppSettings();
+        if (cancelled) {
+          return;
+        }
+
+        setSettings(loaded);
+        setSettingsDraft(loaded);
+        setStatusMessage(loaded.openaiApiKey ? FOOTER_HINT : MISSING_API_KEY_MESSAGE);
+      } catch {
+        if (cancelled) {
+          return;
+        }
+
+        setSettingsMessage("Unable to load settings.");
+        setStatusMessage("Unable to load settings.");
+      } finally {
+        if (!cancelled) {
+          setIsSettingsLoaded(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleTransform = async (
     mode: WiredTransformMode,
@@ -137,15 +184,19 @@ function App() {
       return;
     }
 
-    const apiKey = (import.meta.env.VITE_OPENAI_API_KEY ?? "").trim();
+    const apiKey = settings.openaiApiKey.trim();
     if (!apiKey) {
       setWarning("Missing API key");
-      setStatusMessage("Set VITE_OPENAI_API_KEY in .env.local, then restart.");
+      setStatusMessage(MISSING_API_KEY_MESSAGE);
       return;
     }
 
+    const shouldProtect = settings.tokenProtection;
     const controller = new AbortController();
-    const { encodedText, mapping } = encodeProtectedSpans(sourceText);
+    const encoded = shouldProtect
+      ? encodeProtectedSpans(sourceText)
+      : { encodedText: sourceText, mapping: [] };
+    const { encodedText, mapping } = encoded;
     abortControllerRef.current = controller;
     undoCheckpointRef.current = options.undoCheckpointText ?? sourceText;
     setCanUndo(false);
@@ -168,6 +219,9 @@ function App() {
         apiKey,
         inputText: encodedText,
         mode: toProviderMode(mode),
+        model: settings.model,
+        temperature: settings.temperature,
+        streaming: settings.streaming,
         maxOutputTokens: options.maxOutputTokens,
         signal: controller.signal,
         onDelta: (delta) => {
@@ -176,10 +230,12 @@ function App() {
         },
       });
 
-      const decodedText = decodePlaceholders(streamedOutput, mapping);
-      const validation = validatePlaceholders(decodedText, mapping);
-      if (!validation.ok) {
-        throw new OpenAIProviderError("unknown", validation.error);
+      const decodedText = shouldProtect ? decodePlaceholders(streamedOutput, mapping) : streamedOutput;
+      if (shouldProtect) {
+        const validation = validatePlaceholders(decodedText, mapping);
+        if (!validation.ok) {
+          throw new OpenAIProviderError("unknown", validation.error);
+        }
       }
 
       setText(decodedText);
@@ -273,6 +329,28 @@ function App() {
     });
   };
 
+  const handleSettingsSave = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    if (isSavingSettings) {
+      return;
+    }
+
+    setIsSavingSettings(true);
+    setSettingsMessage("");
+
+    try {
+      const saved = await writeAppSettings(settingsDraft);
+      setSettings(saved);
+      setSettingsDraft(saved);
+      setStatusMessage(saved.openaiApiKey ? "Settings saved." : MISSING_API_KEY_MESSAGE);
+    } catch {
+      setSettingsMessage("Unable to save settings.");
+      setStatusMessage("Unable to save settings.");
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
   const handleCopy = async (): Promise<void> => {
     try {
       await writeClipboard(text);
@@ -295,7 +373,7 @@ function App() {
               key={mode}
               type="button"
               className="mode-button"
-              disabled={isStreaming}
+              disabled={transformsDisabled}
               onClick={() => handleTransformClick(mode)}
             >
               {mode === activeStreamMode && isStreaming ? `${mode} (Streaming...)` : mode}
@@ -327,8 +405,113 @@ function App() {
           >
             Copy
           </button>
+          <button
+            type="button"
+            className="settings-button"
+            onClick={() => setIsSettingsOpen((open) => !open)}
+          >
+            {isSettingsOpen ? "Hide Settings" : "Settings"}
+          </button>
         </div>
       </header>
+
+      {apiKeyMissing ? <p className="settings-warning">{MISSING_API_KEY_MESSAGE}</p> : null}
+
+      {isSettingsOpen ? (
+        <section className="settings-panel" aria-label="Settings">
+          <form className="settings-form" onSubmit={handleSettingsSave}>
+            <label className="settings-field" htmlFor="openai-api-key">
+              OpenAI API key
+            </label>
+            <input
+              id="openai-api-key"
+              className="settings-input"
+              type="password"
+              value={settingsDraft.openaiApiKey}
+              onChange={(event) =>
+                setSettingsDraft((current) => ({
+                  ...current,
+                  openaiApiKey: event.currentTarget.value,
+                }))
+              }
+              placeholder="sk-..."
+              autoComplete="off"
+            />
+
+            <label className="settings-field" htmlFor="model-name">
+              Model
+            </label>
+            <input
+              id="model-name"
+              className="settings-input"
+              type="text"
+              value={settingsDraft.model}
+              onChange={(event) =>
+                setSettingsDraft((current) => ({
+                  ...current,
+                  model: event.currentTarget.value,
+                }))
+              }
+            />
+
+            <label className="settings-field" htmlFor="temperature">
+              Temperature
+            </label>
+            <input
+              id="temperature"
+              className="settings-input"
+              type="number"
+              min={0}
+              max={2}
+              step={0.1}
+              value={settingsDraft.temperature}
+              onChange={(event) =>
+                setSettingsDraft((current) => ({
+                  ...current,
+                  temperature: Number.isFinite(Number(event.currentTarget.value))
+                    ? Number(event.currentTarget.value)
+                    : current.temperature,
+                }))
+              }
+            />
+
+            <label className="settings-checkbox">
+              <input
+                type="checkbox"
+                checked={settingsDraft.streaming}
+                onChange={(event) =>
+                  setSettingsDraft((current) => ({
+                    ...current,
+                    streaming: event.currentTarget.checked,
+                  }))
+                }
+              />
+              Streaming
+            </label>
+
+            <label className="settings-checkbox">
+              <input
+                type="checkbox"
+                checked={settingsDraft.tokenProtection}
+                onChange={(event) =>
+                  setSettingsDraft((current) => ({
+                    ...current,
+                    tokenProtection: event.currentTarget.checked,
+                  }))
+                }
+              />
+              Token protection
+            </label>
+
+            <div className="settings-actions">
+              <button type="submit" className="save-settings-button" disabled={isSavingSettings}>
+                {isSavingSettings ? "Saving..." : "Save Settings"}
+              </button>
+              <span className="settings-message">{settingsMessage}</span>
+            </div>
+          </form>
+        </section>
+      ) : null}
 
       <section className="editor-panel">
         <label className="sr-only" htmlFor="editor">

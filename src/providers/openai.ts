@@ -72,6 +72,7 @@ export type StreamTransformArgs = {
   mode: OpenAITransformMode;
   model?: string;
   temperature?: number;
+  streaming?: boolean;
   maxOutputTokens?: number;
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -211,6 +212,60 @@ function asString(value: unknown): string | undefined {
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function extractFinalOutputText(payload: unknown): string {
+  const root = asObject(payload);
+  if (!root) {
+    return "";
+  }
+
+  const directText = root.output_text;
+  if (typeof directText === "string") {
+    return directText;
+  }
+  if (Array.isArray(directText)) {
+    return directText.filter((value): value is string => typeof value === "string").join("");
+  }
+
+  const response = asObject(root.response);
+  if (!response) {
+    return "";
+  }
+
+  const responseOutputText = response.output_text;
+  if (typeof responseOutputText === "string") {
+    return responseOutputText;
+  }
+  if (Array.isArray(responseOutputText)) {
+    return responseOutputText
+      .filter((value): value is string => typeof value === "string")
+      .join("");
+  }
+
+  const output = Array.isArray(response.output) ? response.output : [];
+  let combined = "";
+  for (const item of output) {
+    const itemObject = asObject(item);
+    if (!itemObject) {
+      continue;
+    }
+
+    const content = Array.isArray(itemObject.content) ? itemObject.content : [];
+    for (const contentItem of content) {
+      const contentObject = asObject(contentItem);
+      if (!contentObject) {
+        continue;
+      }
+
+      const textValue = contentObject.text;
+      if (typeof textValue === "string") {
+        combined += textValue;
+      }
+    }
+  }
+
+  return combined;
 }
 
 function extractFinishReason(payload: unknown): string | undefined {
@@ -390,6 +445,7 @@ export async function streamTransformWithOpenAI({
   mode,
   model = DEFAULT_OPENAI_MODEL,
   temperature = 0.2,
+  streaming = true,
   maxOutputTokens: maxOutputTokensOverride,
   signal,
   timeoutMs = 30_000,
@@ -423,7 +479,7 @@ export async function streamTransformWithOpenAI({
       body: JSON.stringify({
         model,
         temperature,
-        stream: true,
+        stream: streaming,
         max_output_tokens: maxOutputTokens,
         instructions: `${BASE_SYSTEM_PROMPT}\n\n${getModeInstruction(mode)}`,
         input: `${USER_WRAPPER_PREFIX}${inputText}${USER_WRAPPER_SUFFIX}`,
@@ -437,6 +493,48 @@ export async function streamTransformWithOpenAI({
 
     if (!response.body) {
       throw new OpenAIProviderError("unknown", "OpenAI returned no response body.");
+    }
+
+    if (!streaming) {
+      let parsed: unknown;
+      try {
+        parsed = await response.json();
+      } catch {
+        throw new OpenAIProviderError(
+          "unknown",
+          "OpenAI returned malformed JSON. Original text preserved.",
+        );
+      }
+
+      const finishReasonFromPayload = extractFinishReason(parsed);
+      if (finishReasonFromPayload) {
+        finishReason = finishReasonFromPayload;
+        if (isLengthTruncationReason(finishReasonFromPayload)) {
+          truncatedByProvider = true;
+        }
+      }
+
+      const outputTextFromPayload = extractFinalOutputText(parsed);
+      if (!outputTextFromPayload.trim()) {
+        throw new OpenAIProviderError(
+          "unknown",
+          "OpenAI returned empty output. Original text preserved.",
+        );
+      }
+
+      outputText = outputTextFromPayload;
+      onDelta(outputTextFromPayload);
+
+      if (typeof parsed === "object" && parsed !== null) {
+        const parsedObject = parsed as { id?: string; response?: { id?: string } };
+        if (typeof parsedObject.response?.id === "string") {
+          responseId = parsedObject.response.id;
+        } else if (typeof parsedObject.id === "string") {
+          responseId = parsedObject.id;
+        }
+      }
+
+      return { outputText, responseId, finishReason, truncatedByProvider, maxOutputTokens };
     }
 
     await readEventStream(response.body, (event) => {

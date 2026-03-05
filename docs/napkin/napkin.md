@@ -5,6 +5,7 @@
 - 2026-03-05 | self | Initial streaming mock ignored `AbortSignal`, causing false cancel behavior during verification | For cancel tests, mock streams must observe `init.signal` and throw `AbortError` on abort.
 - 2026-03-05 | self | Vitest mock failed because hoisted module factory referenced a class declared later | Keep mocked classes/functions inside `vi.hoisted` and reference through the hoisted object.
 - 2026-03-05 | self | Used `apply_patch` through `exec_command` and triggered tool warning | Use the dedicated `apply_patch` tool directly for patch edits.
+- 2026-03-05 | self | Trimmed `response.output[].content[].text` fragments while assembling non-stream output, collapsing spaces/newlines | Never trim model text fragments during assembly; preserve chunk bytes exactly and add regression test.
 
 ## User Preferences
 - Strict gates: do not move past Gate A or Gate B without explicit approval.
