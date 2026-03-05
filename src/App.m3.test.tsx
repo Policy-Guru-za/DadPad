@@ -197,3 +197,34 @@ describe("M4 direct mode wiring", () => {
     });
   });
 });
+
+describe("M5 placeholder fail-safe", () => {
+  it("restores original text when placeholder tokens are altered by the model output", async () => {
+    streamTransformWithOpenAIMock.mockImplementation(async ({ inputText, onDelta }) => {
+      const tokenMatch = inputText.match(/__PZPTOK\d{3}__/);
+      if (!tokenMatch) {
+        throw new Error("Expected encoded placeholder token in input.");
+      }
+
+      const alteredOutput = inputText.replace(tokenMatch[0], "__PZPTOK999__");
+      onDelta(alteredOutput);
+      return { outputText: alteredOutput };
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+
+    const originalText = "Please review https://example.com/spec and respond.";
+    await user.type(editor, originalText);
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe(originalText);
+      expect(screen.getByText("Protected content mismatch. Original text preserved.")).toBeTruthy();
+      expect(
+        screen.getByText("Warnings: Protected content mismatch. Original text preserved."),
+      ).toBeTruthy();
+    });
+  });
+});

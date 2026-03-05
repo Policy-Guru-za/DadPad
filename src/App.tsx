@@ -1,6 +1,12 @@
 import { useMemo, useRef, useState } from "react";
 import "./App.css";
 import { OpenAIProviderError, streamTransformWithOpenAI } from "./providers/openai";
+import {
+  PROTECTED_CONTENT_MISMATCH_MESSAGE,
+  decodePlaceholders,
+  encodeProtectedSpans,
+  validatePlaceholders,
+} from "./protect/placeholders";
 
 type TransformMode = "Polish" | "Casual" | "Professional" | "Direct";
 type WiredTransformMode = "Polish" | "Direct";
@@ -54,6 +60,11 @@ function mapProviderError(error: unknown): string {
     if (error.code === "network") {
       return "Network error contacting OpenAI. Check your connection.";
     }
+
+    if (error.message.startsWith(PROTECTED_CONTENT_MISMATCH_MESSAGE)) {
+      return PROTECTED_CONTENT_MISMATCH_MESSAGE;
+    }
+
     return error.message;
   }
 
@@ -112,6 +123,7 @@ function App() {
     }
 
     const controller = new AbortController();
+    const { encodedText, mapping } = encodeProtectedSpans(sourceText);
     abortControllerRef.current = controller;
     undoCheckpointRef.current = sourceText;
     setCanUndo(false);
@@ -131,7 +143,7 @@ function App() {
     try {
       await streamTransformWithOpenAI({
         apiKey,
-        inputText: sourceText,
+        inputText: encodedText,
         mode: toProviderMode(mode),
         signal: controller.signal,
         onDelta: (delta) => {
@@ -140,6 +152,13 @@ function App() {
         },
       });
 
+      const decodedText = decodePlaceholders(streamedOutput, mapping);
+      const validation = validatePlaceholders(decodedText, mapping);
+      if (!validation.ok) {
+        throw new OpenAIProviderError("unknown", validation.error);
+      }
+
+      setText(decodedText);
       const elapsed = Math.round(performance.now() - startedAt);
       setLatencyMs(elapsed);
       setStatusMessage(`${mode} complete in ${elapsed} ms.`);
