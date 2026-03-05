@@ -66,7 +66,8 @@ body {
 .mode-button,
 .copy-button,
 .cancel-button,
-.undo-button {
+.undo-button,
+.retry-button {
   appearance: none;
   border: 1px solid #c7d2e0;
   border-radius: 10px;
@@ -82,7 +83,8 @@ body {
 .mode-button:hover,
 .copy-button:hover,
 .cancel-button:hover,
-.undo-button:hover {
+.undo-button:hover,
+.retry-button:hover {
   border-color: #2563eb;
   background: #eff6ff;
 }
@@ -90,7 +92,8 @@ body {
 .mode-button:active,
 .copy-button:active,
 .cancel-button:active,
-.undo-button:active {
+.undo-button:active,
+.retry-button:active {
   transform: translateY(1px);
 }
 
@@ -112,6 +115,22 @@ body {
 
 .undo-button {
   min-width: 86px;
+}
+
+.retry-button {
+  border-color: #c3dafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.retry-button:disabled {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: not-allowed;
 }
 
 .copy-button:disabled {

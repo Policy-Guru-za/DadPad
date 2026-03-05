@@ -228,3 +228,95 @@ describe("M5 placeholder fail-safe", () => {
     });
   });
 });
+
+describe("M6 truncation warning and retry", () => {
+  it("retry uses original input, increases max tokens, and undo restores first-pass text", async () => {
+    const originalText = "Original source text that needs another pass";
+    let callCount = 0;
+
+    streamTransformWithOpenAIMock.mockImplementation(
+      async ({ inputText, mode, maxOutputTokens, onDelta }) => {
+        callCount += 1;
+
+        if (callCount === 1) {
+          expect(mode).toBe("direct");
+          expect(inputText).toBe(originalText);
+          expect(maxOutputTokens).toBeUndefined();
+          onDelta("First pass still incomplete");
+          return {
+            outputText: "First pass still incomplete",
+            maxOutputTokens: 200,
+            truncatedByProvider: false,
+          };
+        }
+
+        expect(mode).toBe("direct");
+        expect(inputText).toBe(originalText);
+        expect(maxOutputTokens).toBe(300);
+        onDelta("Second pass complete.");
+        return {
+          outputText: "Second pass complete.",
+          maxOutputTokens: 300,
+          truncatedByProvider: false,
+        };
+      },
+    );
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+
+    await user.type(editor, originalText);
+    await user.click(screen.getByRole("button", { name: "Direct" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("First pass still incomplete");
+      expect(screen.getByText("Warnings: Output may be truncated.")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Retry (more room)" })).toBeTruthy();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Retry (more room)" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("Second pass complete.");
+      expect(screen.queryByRole("button", { name: "Retry (more room)" })).toBeNull();
+      expect(screen.getByText("Warnings: None")).toBeTruthy();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("First pass still incomplete");
+      expect(screen.getByText("Undo restored pre-transform text.")).toBeTruthy();
+    });
+
+    expect(streamTransformWithOpenAIMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not offer retry when max token budget is already capped", async () => {
+    streamTransformWithOpenAIMock.mockImplementation(async ({ mode, onDelta }) => {
+      expect(mode).toBe("direct");
+      onDelta("Output clipped");
+      return {
+        outputText: "Output clipped",
+        maxOutputTokens: 8192,
+        truncatedByProvider: true,
+      };
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+
+    await user.type(editor, "source text");
+    await user.click(screen.getByRole("button", { name: "Direct" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("Output clipped");
+      expect(screen.getByText("Warnings: Output may be truncated.")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Retry (more room)" })).toBeNull();
+    });
+
+    expect(streamTransformWithOpenAIMock).toHaveBeenCalledTimes(1);
+  });
+});

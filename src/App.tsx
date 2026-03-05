@@ -7,6 +7,7 @@ import {
   encodeProtectedSpans,
   validatePlaceholders,
 } from "./protect/placeholders";
+import { endsWithNaturalTerminator } from "./utils/truncation";
 
 type TransformMode = "Polish" | "Casual" | "Professional" | "Direct";
 type WiredTransformMode = "Polish" | "Direct";
@@ -19,6 +20,19 @@ const TRANSFORM_MODES: TransformMode[] = [
 ];
 
 const FOOTER_HINT = "Transforms apply to the current editor text.";
+const TRUNCATION_WARNING_MESSAGE = "Output may be truncated.";
+
+type TransformOptions = {
+  sourceText?: string;
+  maxOutputTokens?: number;
+  undoCheckpointText?: string;
+};
+
+type RetryContext = {
+  mode: WiredTransformMode;
+  sourceText: string;
+  nextMaxOutputTokens: number;
+};
 
 function countWords(value: string): number {
   const trimmed = value.trim();
@@ -97,6 +111,7 @@ function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
   const [activeStreamMode, setActiveStreamMode] = useState<WiredTransformMode | null>(null);
+  const [retryContext, setRetryContext] = useState<RetryContext | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const undoCheckpointRef = useRef<string | null>(null);
@@ -104,12 +119,15 @@ function App() {
   const wordCount = useMemo(() => countWords(text), [text]);
   const charCount = text.length;
 
-  const handleTransform = async (mode: WiredTransformMode): Promise<void> => {
+  const handleTransform = async (
+    mode: WiredTransformMode,
+    options: TransformOptions = {},
+  ): Promise<void> => {
     if (isStreaming) {
       return;
     }
 
-    const sourceText = text;
+    const sourceText = options.sourceText ?? text;
     if (!sourceText.trim()) {
       setStatusMessage("Add text before running Polish.");
       return;
@@ -125,11 +143,12 @@ function App() {
     const controller = new AbortController();
     const { encodedText, mapping } = encodeProtectedSpans(sourceText);
     abortControllerRef.current = controller;
-    undoCheckpointRef.current = sourceText;
+    undoCheckpointRef.current = options.undoCheckpointText ?? sourceText;
     setCanUndo(false);
 
     setIsStreaming(true);
     setActiveStreamMode(mode);
+    setRetryContext(null);
     setCopyFeedback("");
     setLastMode(mode);
     setLatencyMs(null);
@@ -141,10 +160,11 @@ function App() {
     let streamedOutput = "";
 
     try {
-      await streamTransformWithOpenAI({
+      const result = await streamTransformWithOpenAI({
         apiKey,
         inputText: encodedText,
         mode: toProviderMode(mode),
+        maxOutputTokens: options.maxOutputTokens,
         signal: controller.signal,
         onDelta: (delta) => {
           streamedOutput += delta;
@@ -161,14 +181,38 @@ function App() {
       setText(decodedText);
       const elapsed = Math.round(performance.now() - startedAt);
       setLatencyMs(elapsed);
-      setStatusMessage(`${mode} complete in ${elapsed} ms.`);
       setCanUndo(true);
+
+      const providerSignalledTruncation = result.truncatedByProvider;
+      const missingNaturalTerminator = !endsWithNaturalTerminator(decodedText);
+      if (providerSignalledTruncation || missingNaturalTerminator) {
+        const retrySourceText = undoCheckpointRef.current ?? sourceText;
+        const nextMaxOutputTokens = Math.min(
+          8192,
+          Math.max(result.maxOutputTokens + 1, Math.round(result.maxOutputTokens * 1.5)),
+        );
+        setWarning(TRUNCATION_WARNING_MESSAGE);
+        setStatusMessage(`${mode} complete in ${elapsed} ms. ${TRUNCATION_WARNING_MESSAGE}`);
+        if (nextMaxOutputTokens > result.maxOutputTokens) {
+          setRetryContext({
+            mode,
+            sourceText: retrySourceText,
+            nextMaxOutputTokens,
+          });
+        } else {
+          setRetryContext(null);
+        }
+      } else {
+        setWarning("None");
+        setStatusMessage(`${mode} complete in ${elapsed} ms.`);
+      }
     } catch (error) {
       setText(undoCheckpointRef.current ?? sourceText);
       undoCheckpointRef.current = null;
       setCanUndo(false);
       setLatencyMs(null);
       setCopyFeedback("");
+      setRetryContext(null);
 
       if (controller.signal.aborted) {
         setWarning("None");
@@ -214,8 +258,21 @@ function App() {
     setCanUndo(false);
     setLatencyMs(null);
     setWarning("None");
+    setRetryContext(null);
     setCopyFeedback("");
     setStatusMessage("Undo restored pre-transform text.");
+  };
+
+  const handleRetryMoreRoom = (): void => {
+    if (isStreaming || retryContext === null) {
+      return;
+    }
+
+    void handleTransform(retryContext.mode, {
+      sourceText: retryContext.sourceText,
+      maxOutputTokens: retryContext.nextMaxOutputTokens,
+      undoCheckpointText: text,
+    });
   };
 
   const handleCopy = async (): Promise<void> => {
@@ -296,6 +353,16 @@ function App() {
         <span>Last mode: {lastMode ?? "None"}</span>
         <span>Latency: {latencyMs === null ? "--" : `${latencyMs} ms`}</span>
         <span>Warnings: {warning}</span>
+        {retryContext ? (
+          <button
+            type="button"
+            className="retry-button"
+            onClick={handleRetryMoreRoom}
+            disabled={isStreaming}
+          >
+            Retry (more room)
+          </button>
+        ) : null}
         <span className="copy-feedback">{copyFeedback}</span>
       </footer>
       <p className="footer-hint">{statusMessage}</p>

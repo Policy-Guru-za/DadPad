@@ -60,6 +60,7 @@ export type StreamTransformArgs = {
   mode: OpenAITransformMode;
   model?: string;
   temperature?: number;
+  maxOutputTokens?: number;
   signal?: AbortSignal;
   timeoutMs?: number;
   onDelta: (delta: string) => void;
@@ -68,6 +69,9 @@ export type StreamTransformArgs = {
 export type StreamTransformResult = {
   outputText: string;
   responseId?: string;
+  finishReason?: string;
+  truncatedByProvider: boolean;
+  maxOutputTokens: number;
 };
 
 type SSEEvent = {
@@ -180,6 +184,89 @@ function extractDelta(payload: unknown): string {
   return "";
 }
 
+function asObject(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function asString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function extractFinishReason(payload: unknown): string | undefined {
+  const root = asObject(payload);
+  if (!root) {
+    return undefined;
+  }
+
+  const reasons: Array<string | undefined> = [];
+  reasons.push(asString(root.finish_reason));
+  reasons.push(asString(root.stop_reason));
+
+  const response = asObject(root.response);
+  if (response) {
+    reasons.push(asString(response.finish_reason));
+    reasons.push(asString(response.stop_reason));
+
+    const incompleteDetails = asObject(response.incomplete_details);
+    if (incompleteDetails) {
+      reasons.push(asString(incompleteDetails.reason));
+    }
+
+    const output = Array.isArray(response.output) ? response.output : [];
+    for (const item of output) {
+      const itemObject = asObject(item);
+      if (!itemObject) {
+        continue;
+      }
+
+      reasons.push(asString(itemObject.finish_reason));
+      const itemIncompleteDetails = asObject(itemObject.incomplete_details);
+      if (itemIncompleteDetails) {
+        reasons.push(asString(itemIncompleteDetails.reason));
+      }
+
+      const content = Array.isArray(itemObject.content) ? itemObject.content : [];
+      for (const contentItem of content) {
+        const contentObject = asObject(contentItem);
+        if (!contentObject) {
+          continue;
+        }
+
+        reasons.push(asString(contentObject.finish_reason));
+        const contentIncompleteDetails = asObject(contentObject.incomplete_details);
+        if (contentIncompleteDetails) {
+          reasons.push(asString(contentIncompleteDetails.reason));
+        }
+      }
+    }
+  }
+
+  const rootIncompleteDetails = asObject(root.incomplete_details);
+  if (rootIncompleteDetails) {
+    reasons.push(asString(rootIncompleteDetails.reason));
+  }
+
+  return reasons.find((value): value is string => Boolean(value));
+}
+
+function isLengthTruncationReason(reason: string | undefined): boolean {
+  if (!reason) {
+    return false;
+  }
+
+  const normalized = reason.toLowerCase();
+  return normalized === "length" || normalized === "max_output_tokens" || normalized === "max_tokens";
+}
+
 function parseResponseError(status: number, bodyText: string): OpenAIProviderError {
   let parsedMessage = "";
 
@@ -283,6 +370,7 @@ export async function streamTransformWithOpenAI({
   mode,
   model = DEFAULT_OPENAI_MODEL,
   temperature = 0.2,
+  maxOutputTokens: maxOutputTokensOverride,
   signal,
   timeoutMs = 30_000,
   onDelta,
@@ -293,9 +381,14 @@ export async function streamTransformWithOpenAI({
   }, timeoutMs);
 
   const mergedSignal = mergeAbortSignals([signal, timeoutController.signal]);
-  const maxOutputTokens = getMaxOutputTokens(mode, inputText);
+  const maxOutputTokens =
+    typeof maxOutputTokensOverride === "number" && Number.isFinite(maxOutputTokensOverride)
+      ? Math.min(8192, Math.max(1, Math.round(maxOutputTokensOverride)))
+      : getMaxOutputTokens(mode, inputText);
   let outputText = "";
   let responseId: string | undefined;
+  let finishReason: string | undefined;
+  let truncatedByProvider = false;
   let sawDoneEvent = false;
   let sawDeltaEvent = false;
 
@@ -354,6 +447,14 @@ export async function streamTransformWithOpenAI({
         }
       }
 
+      const eventFinishReason = extractFinishReason(parsed);
+      if (eventFinishReason) {
+        finishReason = eventFinishReason;
+        if (isLengthTruncationReason(eventFinishReason)) {
+          truncatedByProvider = true;
+        }
+      }
+
       const delta = extractDelta(parsed);
       if (!delta) {
         return;
@@ -378,7 +479,7 @@ export async function streamTransformWithOpenAI({
       );
     }
 
-    return { outputText, responseId };
+    return { outputText, responseId, finishReason, truncatedByProvider, maxOutputTokens };
   } catch (error) {
     throw parseUnknownProviderError(error);
   } finally {
