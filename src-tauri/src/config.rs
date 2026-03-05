@@ -239,7 +239,11 @@ fn load_config_in_directory(base_dir: &Path) -> Result<AppConfig, ConfigError> {
     }
 
     let payload = fs::read(encrypted_path)?;
-    decrypt_config(&payload, &key)
+    match decrypt_config(&payload, &key) {
+        Ok(config) => Ok(config),
+        Err(ConfigError::Crypto(_)) | Err(ConfigError::Serde(_)) => Ok(AppConfig::default()),
+        Err(error) => Err(error),
+    }
 }
 
 fn save_config_in_directory(base_dir: &Path, config: AppConfig) -> Result<(), ConfigError> {
@@ -304,5 +308,16 @@ mod tests {
         assert!(key_path(base_dir).exists());
         assert!(config_path(base_dir).exists());
     }
-}
 
+    #[test]
+    fn corrupted_config_fails_safe_to_default() {
+        let temp_directory = tempdir().expect("create temporary directory");
+        let base_dir = temp_directory.path();
+
+        let _ = load_config_in_directory(base_dir).expect("load defaults and create key");
+        fs::write(config_path(base_dir), b"not-valid-encrypted-content").expect("write corrupt config");
+
+        let loaded = load_config_in_directory(base_dir).expect("load corrupted config safely");
+        assert_eq!(loaded, AppConfig::default());
+    }
+}
