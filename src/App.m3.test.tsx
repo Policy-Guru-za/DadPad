@@ -188,6 +188,29 @@ describe("M3 transform resilience", () => {
       expect(undoButton.disabled).toBe(true);
     });
   });
+
+  it("commits canonical provider output after streaming preview diverges", async () => {
+    streamTransformWithOpenAIMock.mockImplementation(async ({ onDelta }) => {
+      onDelta("\n");
+      return {
+        outputText: "Hello.",
+        truncatedByProvider: false,
+        maxOutputTokens: 128,
+      };
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+
+    await user.type(editor, "source text");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("Hello.");
+      expect(screen.getByText(/Polish complete in/)).toBeTruthy();
+    });
+  });
 });
 
 describe("M4 direct mode wiring", () => {

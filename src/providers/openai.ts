@@ -214,25 +214,38 @@ function asString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function extractEventType(payload: unknown): string | undefined {
-  const root = asObject(payload);
-  if (!root) {
-    return undefined;
+function collectTextFromContentParts(content: unknown[]): string {
+  let combined = "";
+
+  for (const contentItem of content) {
+    const contentObject = asObject(contentItem);
+    if (!contentObject) {
+      continue;
+    }
+
+    const textValue = contentObject.text;
+    if (typeof textValue === "string") {
+      combined += textValue;
+    }
   }
 
-  return asString(root.type);
+  return combined;
 }
 
-function isTerminalStreamEventType(eventType: string | undefined): boolean {
-  if (!eventType) {
-    return false;
+function collectTextFromOutputItems(output: unknown[]): string {
+  let combined = "";
+
+  for (const item of output) {
+    const itemObject = asObject(item);
+    if (!itemObject) {
+      continue;
+    }
+
+    const content = Array.isArray(itemObject.content) ? itemObject.content : [];
+    combined += collectTextFromContentParts(content);
   }
 
-  return (
-    eventType === "response.completed" ||
-    eventType === "response.done" ||
-    eventType === "response.output_text.done"
-  );
+  return combined;
 }
 
 function extractFinalOutputText(payload: unknown): string {
@@ -247,6 +260,31 @@ function extractFinalOutputText(payload: unknown): string {
   }
   if (Array.isArray(directText)) {
     return directText.filter((value): value is string => typeof value === "string").join("");
+  }
+
+  const rootText = root.text;
+  if (typeof rootText === "string") {
+    return rootText;
+  }
+
+  const part = asObject(root.part);
+  if (part && typeof part.text === "string") {
+    return part.text;
+  }
+
+  const item = asObject(root.item);
+  if (item) {
+    const itemContent = Array.isArray(item.content) ? item.content : [];
+    const itemText = collectTextFromContentParts(itemContent);
+    if (itemText) {
+      return itemText;
+    }
+  }
+
+  const rootOutput = Array.isArray(root.output) ? root.output : [];
+  const rootOutputText = collectTextFromOutputItems(rootOutput);
+  if (rootOutputText) {
+    return rootOutputText;
   }
 
   const response = asObject(root.response);
@@ -265,28 +303,7 @@ function extractFinalOutputText(payload: unknown): string {
   }
 
   const output = Array.isArray(response.output) ? response.output : [];
-  let combined = "";
-  for (const item of output) {
-    const itemObject = asObject(item);
-    if (!itemObject) {
-      continue;
-    }
-
-    const content = Array.isArray(itemObject.content) ? itemObject.content : [];
-    for (const contentItem of content) {
-      const contentObject = asObject(contentItem);
-      if (!contentObject) {
-        continue;
-      }
-
-      const textValue = contentObject.text;
-      if (typeof textValue === "string") {
-        combined += textValue;
-      }
-    }
-  }
-
-  return combined;
+  return collectTextFromOutputItems(output);
 }
 
 function extractFinishReason(payload: unknown): string | undefined {
@@ -500,7 +517,6 @@ export async function streamTransformWithOpenAI({
   let responseId: string | undefined;
   let finishReason: string | undefined;
   let truncatedByProvider = false;
-  let sawDoneEvent = false;
   let sawDeltaEvent = false;
   let includeTemperature = typeof temperature === "number" && Number.isFinite(temperature);
 
@@ -587,7 +603,6 @@ export async function streamTransformWithOpenAI({
 
     await readEventStream(response.body, (event) => {
       if (event.data === "[DONE]") {
-        sawDoneEvent = true;
         return;
       }
 
@@ -604,11 +619,6 @@ export async function streamTransformWithOpenAI({
       const streamErrorMessage = getStreamErrorMessage(parsed);
       if (streamErrorMessage) {
         throw new OpenAIProviderError("server", streamErrorMessage);
-      }
-
-      const eventType = extractEventType(parsed);
-      if (isTerminalStreamEventType(eventType)) {
-        sawDoneEvent = true;
       }
 
       const eventOutputText = extractFinalOutputText(parsed);
@@ -642,9 +652,12 @@ export async function streamTransformWithOpenAI({
     });
 
     if ((!sawDeltaEvent || !outputText.trim()) && fallbackOutputText.trim()) {
+      const hadRenderedPreview = outputText.length > 0;
       outputText = fallbackOutputText;
       sawDeltaEvent = true;
-      onDelta(fallbackOutputText);
+      if (!hadRenderedPreview) {
+        onDelta(fallbackOutputText);
+      }
     }
 
     if (!sawDeltaEvent || !outputText.trim()) {
@@ -652,12 +665,6 @@ export async function streamTransformWithOpenAI({
         "unknown",
         "OpenAI returned empty output. Original text preserved.",
       );
-    }
-
-    if (!sawDoneEvent) {
-      // Some Responses streams end by EOF without an explicit done marker.
-      // Treat this as a potentially truncated success path instead of hard-failing.
-      truncatedByProvider = true;
     }
 
     return { outputText, responseId, finishReason, truncatedByProvider, maxOutputTokens };

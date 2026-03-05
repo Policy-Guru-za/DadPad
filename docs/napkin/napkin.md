@@ -15,6 +15,9 @@
 ## Patterns That Work
 - Verify streaming/cancel behavior with Playwright + abort-aware mocked SSE stream before claiming gate completion.
 - Keep undo checkpoint in a ref that is written once at transform start and only cleared on undo/error/cancel.
+- Treat provider `result.outputText` as canonical at completion; streamed deltas are preview-only and can diverge on terminal fallback paths.
+- Placeholder tokens must skip literal `__PZPTOK###__` strings already present in source text, and validation must require exactly one occurrence per token.
+- OpenAI Responses streams can deliver final text via `response.output_text.done`, `response.content_part.done`, or `response.output_item.done`; do not assume only delta events or a populated `response.completed.response.output`.
 
 ## Patterns That Don't Work
 - Mocking SSE without abort support makes cancel tests unreliable.

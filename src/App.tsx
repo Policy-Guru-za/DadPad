@@ -230,7 +230,8 @@ function App() {
         },
       });
 
-      const decodedText = shouldProtect ? decodePlaceholders(streamedOutput, mapping) : streamedOutput;
+      const finalOutput = result.outputText;
+      const decodedText = shouldProtect ? decodePlaceholders(finalOutput, mapping) : finalOutput;
       if (shouldProtect) {
         const validation = validatePlaceholders(decodedText, mapping);
         if (!validation.ok) {

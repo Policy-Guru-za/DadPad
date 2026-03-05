@@ -63,17 +63,45 @@ describe("placeholder protection", () => {
     expect(roundTrip(text)).toBe(text);
   });
 
-  it("allows literal placeholder-like text that was not encoded", () => {
-    const text = "Keep __PZPTOK777__ as-is and visit https://polishpad.dev/docs.";
+  it("skips literal placeholder tokens already present in source text", () => {
+    const text = "Keep __PZPTOK001__ as-is and visit https://polishpad.dev/docs.";
     const { encodedText, mapping } = encodeProtectedSpans(text);
 
     expect(mapping).toHaveLength(1);
+    expect(mapping[0]?.token).not.toBe("__PZPTOK001__");
+    expect(encodedText).toContain("__PZPTOK001__");
 
     const decodedText = decodePlaceholders(encodedText, mapping);
     const validation = validatePlaceholders(decodedText, mapping);
 
     expect(validation.ok).toBe(true);
     expect(decodedText).toBe(text);
+  });
+
+  it("rejects duplicated placeholder tokens during validation", () => {
+    const text = "Visit https://polishpad.dev/docs now.";
+    const { encodedText, mapping } = encodeProtectedSpans(text);
+    const duplicatedOutput = encodedText.replace("__PZPTOK001__", "__PZPTOK001__ and __PZPTOK001__");
+
+    decodePlaceholders(duplicatedOutput, mapping);
+    const validation = validatePlaceholders(duplicatedOutput, mapping);
+
+    expect(validation).toEqual({
+      ok: false,
+      error: "Protected content mismatch. Original text preserved. Token __PZPTOK001__ appeared 2 times.",
+    });
+  });
+
+  it("protects currency, dates, times, and ids", () => {
+    const text = "Meet at 14:30 on 2026-03-05 with budget $42.50 and ref AB123456.";
+    const { mapping } = encodeProtectedSpans(text);
+    const kinds = mapping.map((entry) => entry.kind);
+
+    expect(kinds).toContain("time");
+    expect(kinds).toContain("date");
+    expect(kinds).toContain("currency");
+    expect(kinds).toContain("id");
+    expect(roundTrip(text)).toBe(text);
   });
 
   it("allows literal placeholder-like text when mapping is empty", () => {

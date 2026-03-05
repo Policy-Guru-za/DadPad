@@ -131,10 +131,10 @@ describe("streamTransformWithOpenAI", () => {
     expect(deltas).toEqual(["Hello"]);
   });
 
-  it("marks output as truncated when stream ends with deltas but no terminal event", async () => {
+  it("does not label EOF-ended streams truncated without a length signal", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      body: createSseBody([JSON.stringify({ type: "response.output_text.delta", delta: "Partial" })]),
+      body: createSseBody([JSON.stringify({ type: "response.output_text.delta", delta: "Complete." })]),
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -146,8 +146,8 @@ describe("streamTransformWithOpenAI", () => {
       onDelta: () => undefined,
     });
 
-    expect(result.outputText).toBe("Partial");
-    expect(result.truncatedByProvider).toBe(true);
+    expect(result.outputText).toBe("Complete.");
+    expect(result.truncatedByProvider).toBe(false);
   });
 
   it("uses terminal payload output when stream contains no delta events", async () => {
@@ -179,6 +179,85 @@ describe("streamTransformWithOpenAI", () => {
     expect(result.outputText).toBe("Terminal output text.");
     expect(result.responseId).toBe("resp_terminal");
     expect(deltas).toEqual(["Terminal output text."]);
+  });
+
+  it("uses response.output_text.done text when no delta events are present", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: createSseBody([
+        JSON.stringify({
+          type: "response.output_text.done",
+          text: "Done event output.",
+        }),
+      ]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const deltas: string[] = [];
+    const result = await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "source",
+      mode: "polish",
+      timeoutMs: 5_000,
+      onDelta: (delta) => {
+        deltas.push(delta);
+      },
+    });
+
+    expect(result.outputText).toBe("Done event output.");
+    expect(deltas).toEqual(["Done event output."]);
+  });
+
+  it("uses response.content_part.done text when no delta events are present", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: createSseBody([
+        JSON.stringify({
+          type: "response.content_part.done",
+          part: {
+            type: "output_text",
+            text: "Part event output.",
+          },
+        }),
+      ]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "source",
+      mode: "polish",
+      timeoutMs: 5_000,
+      onDelta: () => undefined,
+    });
+
+    expect(result.outputText).toBe("Part event output.");
+  });
+
+  it("uses response.output_item.done content text when no delta events are present", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: createSseBody([
+        JSON.stringify({
+          type: "response.output_item.done",
+          item: {
+            type: "message",
+            content: [{ type: "output_text", text: "Item event output." }],
+          },
+        }),
+      ]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "source",
+      mode: "polish",
+      timeoutMs: 5_000,
+      onDelta: () => undefined,
+    });
+
+    expect(result.outputText).toBe("Item event output.");
   });
 
   it("fails safe when stream has no output deltas", async () => {

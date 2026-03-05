@@ -2,6 +2,7 @@ export const PROTECTED_CONTENT_MISMATCH_MESSAGE =
   "Protected content mismatch. Original text preserved.";
 
 const PLACEHOLDER_TOKEN_PREFIX = "__PZPTOK";
+const PLACEHOLDER_TOKEN_PATTERN = /__PZPTOK\d+__/g;
 
 type MatchPattern = {
   name: string;
@@ -51,6 +52,19 @@ const MATCH_PATTERNS: MatchPattern[] = [
   {
     name: "email",
     regex: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
+  },
+  {
+    name: "currency",
+    regex: /(?:[$£€¥]\s?\d[\d,]*(?:\.\d+)?|\bR\s?\d[\d,]*(?:\.\d+)?)/g,
+  },
+  {
+    name: "date",
+    regex:
+      /\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4})\b/gi,
+  },
+  {
+    name: "time",
+    regex: /\b(?:[01]?\d|2[0-3]):[0-5]\d(?:\s?[AaPp][Mm])?\b/g,
   },
   {
     name: "phone",
@@ -113,6 +127,30 @@ function toToken(index: number): string {
   return `${PLACEHOLDER_TOKEN_PREFIX}${String(index).padStart(3, "0")}__`;
 }
 
+function collectReservedTokens(text: string): Set<string> {
+  return new Set(text.match(PLACEHOLDER_TOKEN_PATTERN) ?? []);
+}
+
+function createAvailableTokens(text: string, count: number): string[] {
+  const reservedTokens = collectReservedTokens(text);
+  const tokens: string[] = [];
+  let index = 1;
+
+  while (tokens.length < count) {
+    const token = toToken(index);
+    index += 1;
+
+    if (reservedTokens.has(token)) {
+      continue;
+    }
+
+    reservedTokens.add(token);
+    tokens.push(token);
+  }
+
+  return tokens;
+}
+
 export function encodeProtectedSpans(text: string): {
   encodedText: string;
   mapping: PlaceholderMapping;
@@ -129,9 +167,10 @@ export function encodeProtectedSpans(text: string): {
   let cursor = 0;
   let encodedText = "";
   const mapping: PlaceholderMapping = [];
+  const tokens = createAvailableTokens(text, spans.length);
 
   spans.forEach((span, index) => {
-    const token = toToken(index + 1);
+    const token = tokens[index] as string;
     encodedText += text.slice(cursor, span.start);
     encodedText += token;
     cursor = span.end;
@@ -181,6 +220,13 @@ export function validatePlaceholders(
       return {
         ok: false,
         error: `${PROTECTED_CONTENT_MISMATCH_MESSAGE} Missing or altered token ${entry.token}.`,
+      };
+    }
+
+    if (entry.replacements !== 1) {
+      return {
+        ok: false,
+        error: `${PROTECTED_CONTENT_MISMATCH_MESSAGE} Token ${entry.token} appeared ${entry.replacements} times.`,
       };
     }
   }
