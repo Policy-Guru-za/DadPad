@@ -1,6 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { streamTransformWithOpenAI } from "./openai";
 
+function createSseBody(events: string[]): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const event of events) {
+        controller.enqueue(encoder.encode(`data: ${event}\n\n`));
+      }
+      controller.close();
+    },
+  });
+}
+
 describe("streamTransformWithOpenAI", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -88,5 +100,52 @@ describe("streamTransformWithOpenAI", () => {
 
     expect(firstRequestBody.temperature).toBe(0.2);
     expect(secondRequestBody.temperature).toBeUndefined();
+  });
+
+  it("accepts terminal response.completed stream event even without [DONE]", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: createSseBody([
+        JSON.stringify({ type: "response.output_text.delta", delta: "Hello" }),
+        JSON.stringify({
+          type: "response.completed",
+          response: { id: "resp_123", finish_reason: "stop" },
+        }),
+      ]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const deltas: string[] = [];
+    const result = await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "source",
+      mode: "polish",
+      timeoutMs: 5_000,
+      onDelta: (delta) => {
+        deltas.push(delta);
+      },
+    });
+
+    expect(result.outputText).toBe("Hello");
+    expect(result.responseId).toBe("resp_123");
+    expect(deltas).toEqual(["Hello"]);
+  });
+
+  it("fails safe when stream ends with deltas but no terminal event", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: createSseBody([JSON.stringify({ type: "response.output_text.delta", delta: "Partial" })]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      streamTransformWithOpenAI({
+        apiKey: "test-key",
+        inputText: "source",
+        mode: "polish",
+        timeoutMs: 5_000,
+        onDelta: () => undefined,
+      }),
+    ).rejects.toThrow("OpenAI stream ended unexpectedly before completion");
   });
 });

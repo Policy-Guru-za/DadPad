@@ -214,6 +214,27 @@ function asString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function extractEventType(payload: unknown): string | undefined {
+  const root = asObject(payload);
+  if (!root) {
+    return undefined;
+  }
+
+  return asString(root.type);
+}
+
+function isTerminalStreamEventType(eventType: string | undefined): boolean {
+  if (!eventType) {
+    return false;
+  }
+
+  return (
+    eventType === "response.completed" ||
+    eventType === "response.done" ||
+    eventType === "response.output_text.done"
+  );
+}
+
 function extractFinalOutputText(payload: unknown): string {
   const root = asObject(payload);
   if (!root) {
@@ -582,6 +603,11 @@ export async function streamTransformWithOpenAI({
       const streamErrorMessage = getStreamErrorMessage(parsed);
       if (streamErrorMessage) {
         throw new OpenAIProviderError("server", streamErrorMessage);
+      }
+
+      const eventType = extractEventType(parsed);
+      if (isTerminalStreamEventType(eventType)) {
+        sawDoneEvent = true;
       }
 
       if (typeof parsed === "object" && parsed !== null) {
