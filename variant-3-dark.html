@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PolishPad — Variant 3: Dark Cinematic</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0c;
+    --surface: #111114;
+    --surface-2: #18181c;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-hover: rgba(255, 255, 255, 0.12);
+    --text: #e8e6e3;
+    --text-soft: #8a8990;
+    --text-muted: #5a5960;
+    --electric: #00e5ff;
+    --electric-dim: rgba(0, 229, 255, 0.08);
+    --electric-glow: rgba(0, 229, 255, 0.15);
+    --amber: #ffb020;
+    --amber-dim: rgba(255, 176, 32, 0.1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    position: relative;
+  }
+
+  /* Subtle grid pattern */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+  }
+
+  /* Top glow */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 400px;
+    background: radial-gradient(ellipse, var(--electric-glow) 0%, transparent 70%);
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 820px;
+    position: relative;
+    z-index: 1;
+    animation: reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes reveal {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .brand-mark {
+    width: 8px;
+    height: 8px;
+    background: var(--electric);
+    border-radius: 2px;
+    box-shadow: 0 0 12px var(--electric-glow), 0 0 4px var(--electric);
+    animation: pulse 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .brand h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  .version {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--text-muted);
+    background: var(--surface-2);
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    letter-spacing: 1px;
+  }
+
+  .actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 400;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: 0.5px;
+  }
+
+  .btn:hover {
+    border-color: var(--border-hover);
+    color: var(--text-soft);
+    background: var(--surface-2);
+  }
+
+  .btn-primary {
+    background: var(--electric-dim);
+    border-color: rgba(0, 229, 255, 0.2);
+    color: var(--electric);
+  }
+
+  .btn-primary:hover {
+    background: rgba(0, 229, 255, 0.15);
+    border-color: rgba(0, 229, 255, 0.35);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.1);
+  }
+
+  .btn-settings {
+    border-color: var(--border);
+    color: var(--text-muted);
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  .polish-trigger {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 24px;
+    background: var(--electric);
+    color: var(--bg);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    box-shadow: 0 0 20px var(--electric-glow);
+  }
+
+  .polish-trigger:hover {
+    box-shadow: 0 0 32px rgba(0, 229, 255, 0.3);
+    transform: translateY(-1px);
+  }
+
+  .divider-v {
+    width: 1px;
+    height: 28px;
+    background: var(--border);
+  }
+
+  .tone-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+  }
+
+  .tone-tag {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .tone-options {
+    display: flex;
+    gap: 4px;
+  }
+
+  .tone-opt {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .tone-opt:hover {
+    border-color: var(--electric);
+    color: var(--electric);
+    background: var(--electric-dim);
+  }
+
+  .tone-opt.locked {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  .unlock-tag {
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.6;
+    font-style: italic;
+  }
+
+  /* Editor */
+  .editor-area {
+    margin-bottom: 20px;
+  }
+
+  .editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding: 0 4px;
+  }
+
+  .editor-label {
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .line-count {
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.5;
+  }
+
+  .editor-frame {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.3s ease;
+    position: relative;
+  }
+
+  .editor-frame:focus-within {
+    border-color: rgba(0, 229, 255, 0.25);
+    box-shadow: 0 0 0 3px var(--electric-dim);
+  }
+
+  /* Line numbers gutter */
+  .editor-inner {
+    display: flex;
+    position: relative;
+  }
+
+  .gutter {
+    width: 48px;
+    padding: 24px 0;
+    background: rgba(255,255,255,0.01);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6.5px;
+    padding-top: 28px;
+  }
+
+  .gutter span {
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.4;
+    line-height: 1.7;
+  }
+
+  textarea {
+    flex: 1;
+    min-height: 400px;
+    padding: 24px 28px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 1.7;
+    color: var(--text);
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: vertical;
+  }
+
+  textarea::placeholder {
+    color: var(--text-muted);
+    font-style: normal;
+  }
+
+  /* Cursor line highlight simulation */
+  .editor-frame::after {
+    content: '';
+    position: absolute;
+    top: 24px;
+    left: 0;
+    right: 0;
+    height: 26px;
+    background: rgba(0, 229, 255, 0.03);
+    pointer-events: none;
+    border-left: 2px solid var(--electric);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .editor-frame:focus-within::after {
+    opacity: 1;
+  }
+
+  /* Footer */
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px;
+  }
+
+  .stats {
+    display: flex;
+    gap: 20px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 300;
+  }
+
+  .stat-val {
+    color: var(--text-soft);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-sep {
+    opacity: 0.3;
+  }
+
+  .footer-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .footer-note {
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.5;
+  }
+
+  .attribution {
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    background: #22c55e;
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <h1>PolishPad</h1>
+      <span class="version">v1.0</span>
+    </div>
+    <div class="actions">
+      <button class="btn">Cancel</button>
+      <button class="btn">Undo</button>
+      <button class="btn btn-primary">Copy</button>
+      <button class="btn btn-settings">Settings</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="polish-trigger">Polish</button>
+    <div class="divider-v"></div>
+    <div class="tone-section">
+      <span class="tone-tag">After Polish</span>
+      <div class="tone-options">
+        <button class="tone-opt locked">Casual</button>
+        <button class="tone-opt locked">Professional</button>
+        <button class="tone-opt locked">Direct</button>
+      </div>
+      <span class="unlock-tag">Unlocks after one Polish pass</span>
+    </div>
+  </div>
+
+  <div class="editor-area">
+    <div class="editor-header">
+      <span class="editor-label">Input</span>
+      <span class="line-count">Ln 1, Col 1</span>
+    </div>
+    <div class="editor-frame">
+      <div class="editor-inner">
+        <div class="gutter">
+          <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+          <span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+          <span>11</span><span>12</span><span>13</span><span>14</span><span>15</span>
+        </div>
+        <textarea placeholder="Paste or write text here. Polish first, then choose a tone if needed."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="stats">
+      <span><span class="stat-val">0</span> words</span>
+      <span class="stat-sep">·</span>
+      <span><span class="stat-val">0</span> chars</span>
+      <span class="stat-sep">·</span>
+      <span>Mode: None</span>
+      <span class="stat-sep">·</span>
+      <span>Latency: —</span>
+      <span class="stat-sep">·</span>
+      <span>Warnings: None</span>
+    </div>
+    <div class="footer-right">
+      <div class="status-dot"></div>
+      <span class="attribution">@laup30 · 🇿🇦 Cape Town</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

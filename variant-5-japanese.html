@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PolishPad — Variant 5: Wabi-Sabi Minimal</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Karla:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sumi: #1c1b18;
+    --charcoal: #363530;
+    --warm-gray: #7a7870;
+    --ash: #a8a49c;
+    --washi: #eae6de;
+    --paper: #f4f1eb;
+    --snow: #faf8f4;
+    --vermillion: #c5453a;
+    --vermillion-soft: rgba(197, 69, 58, 0.08);
+    --vermillion-border: rgba(197, 69, 58, 0.2);
+    --indigo: #3d5a80;
+    --indigo-soft: rgba(61, 90, 128, 0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Karla', sans-serif;
+    background: var(--paper);
+    color: var(--sumi);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 720px;
+    position: relative;
+    animation: breathe 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes breathe {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Enso circle decoration */
+  .enso {
+    position: absolute;
+    top: -80px;
+    right: -40px;
+    width: 200px;
+    height: 200px;
+    opacity: 0.04;
+    pointer-events: none;
+  }
+
+  /* Header — extreme simplicity */
+  .header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 48px;
+  }
+
+  .brand-area {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .brand-jp {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 11px;
+    font-weight: 300;
+    color: var(--ash);
+    letter-spacing: 4px;
+  }
+
+  .brand h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 32px;
+    font-weight: 300;
+    color: var(--sumi);
+    letter-spacing: 1px;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+  }
+
+  .btn {
+    font-family: 'Karla', sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: var(--warm-gray);
+    cursor: pointer;
+    transition: color 0.2s ease;
+    letter-spacing: 0.3px;
+  }
+
+  .btn:hover {
+    color: var(--sumi);
+  }
+
+  .btn-copy {
+    background: var(--sumi);
+    color: var(--paper);
+    border-radius: 2px;
+    font-weight: 500;
+  }
+
+  .btn-copy:hover {
+    background: var(--charcoal);
+    color: var(--snow);
+  }
+
+  .btn-settings {
+    border: 1px solid var(--washi);
+    border-radius: 2px;
+    color: var(--ash);
+  }
+
+  .btn-settings:hover {
+    border-color: var(--ash);
+    color: var(--warm-gray);
+  }
+
+  /* Horizontal rule — ink brush style */
+  .ink-line {
+    width: 100%;
+    height: 1px;
+    background: var(--sumi);
+    margin-bottom: 36px;
+    position: relative;
+    opacity: 0.12;
+  }
+
+  .ink-line::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: -1px;
+    width: 48px;
+    height: 3px;
+    background: var(--vermillion);
+    opacity: 0.6;
+  }
+
+  /* Controls — floating above */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 36px;
+  }
+
+  .polish-btn {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 16px;
+    font-weight: 400;
+    padding: 10px 32px;
+    background: transparent;
+    color: var(--sumi);
+    border: 1.5px solid var(--sumi);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 1px;
+    position: relative;
+  }
+
+  .polish-btn::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 100%;
+    background: var(--sumi);
+    transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 0;
+  }
+
+  .polish-btn span {
+    position: relative;
+    z-index: 1;
+    transition: color 0.35s ease;
+  }
+
+  .polish-btn:hover::before {
+    width: 100%;
+  }
+
+  .polish-btn:hover span {
+    color: var(--paper);
+  }
+
+  .tone-area {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .tone-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--ash);
+    font-weight: 400;
+  }
+
+  .tone-group {
+    display: flex;
+    gap: 2px;
+  }
+
+  .tone {
+    font-family: 'Karla', sans-serif;
+    font-size: 12px;
+    font-weight: 300;
+    padding: 6px 14px;
+    background: transparent;
+    border: 1px solid var(--washi);
+    color: var(--ash);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .tone:first-child { border-radius: 2px 0 0 2px; }
+  .tone:last-child { border-radius: 0 2px 2px 0; }
+
+  .tone:hover {
+    border-color: var(--vermillion-border);
+    color: var(--vermillion);
+    background: var(--vermillion-soft);
+  }
+
+  .tone.locked {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  /* Editor — clean paper feel */
+  .editor-section {
+    margin-bottom: 32px;
+    position: relative;
+  }
+
+  .editor-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--ash);
+    font-weight: 400;
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .editor-frame {
+    background: var(--snow);
+    border: 1px solid var(--washi);
+    position: relative;
+    transition: all 0.3s ease;
+  }
+
+  .editor-frame:focus-within {
+    border-color: rgba(28, 27, 24, 0.15);
+    box-shadow: 0 8px 40px rgba(28, 27, 24, 0.04);
+  }
+
+  /* Vertical writing direction hint on left */
+  .editor-frame::before {
+    content: '文';
+    position: absolute;
+    left: -32px;
+    top: 20px;
+    font-size: 14px;
+    color: var(--washi);
+    writing-mode: vertical-rl;
+    font-family: serif;
+    letter-spacing: 12px;
+    pointer-events: none;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 400px;
+    padding: 32px 36px;
+    font-family: 'Karla', sans-serif;
+    font-size: 15px;
+    font-weight: 300;
+    line-height: 2;
+    color: var(--sumi);
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: vertical;
+  }
+
+  textarea::placeholder {
+    color: var(--ash);
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 300;
+    font-size: 16px;
+  }
+
+  /* Bottom rule */
+  .bottom-line {
+    width: 100%;
+    height: 1px;
+    background: var(--washi);
+    margin-bottom: 16px;
+  }
+
+  /* Footer */
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .stats {
+    display: flex;
+    gap: 24px;
+    font-size: 11px;
+    color: var(--ash);
+    font-weight: 300;
+  }
+
+  .stat-val {
+    font-weight: 500;
+    color: var(--warm-gray);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .footer-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .footer-note {
+    font-size: 11px;
+    color: var(--ash);
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+  }
+
+  .attribution {
+    font-size: 10px;
+    color: var(--ash);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Hanko stamp */
+  .hanko {
+    width: 24px;
+    height: 24px;
+    border: 1.5px solid var(--vermillion);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--vermillion);
+    opacity: 0.5;
+    font-family: serif;
+    transform: rotate(-3deg);
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Enso circle -->
+  <svg class="enso" viewBox="0 0 200 200">
+    <circle cx="100" cy="100" r="80" fill="none" stroke="#1c1b18" stroke-width="8" stroke-linecap="round" stroke-dasharray="420 80" transform="rotate(-30 100 100)"/>
+  </svg>
+
+  <div class="header">
+    <div class="brand-area">
+      <span class="brand-jp">磨く — to polish</span>
+      <h1>PolishPad</h1>
+    </div>
+    <div class="header-actions">
+      <button class="btn">Cancel</button>
+      <button class="btn">Undo</button>
+      <button class="btn btn-copy">Copy</button>
+      <button class="btn btn-settings">Settings</button>
+    </div>
+  </div>
+
+  <div class="ink-line"></div>
+
+  <div class="controls">
+    <button class="polish-btn"><span>Polish</span></button>
+    <div class="tone-area">
+      <span class="tone-label">After polish</span>
+      <div class="tone-group">
+        <button class="tone locked">Casual</button>
+        <button class="tone locked">Professional</button>
+        <button class="tone locked">Direct</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="editor-section">
+    <span class="editor-label">Your text</span>
+    <div class="editor-frame">
+      <textarea placeholder="Paste or write text here. Polish first, then choose a tone if needed."></textarea>
+    </div>
+  </div>
+
+  <div class="bottom-line"></div>
+
+  <div class="footer">
+    <div class="stats">
+      <span><span class="stat-val">0</span> words</span>
+      <span><span class="stat-val">0</span> chars</span>
+      <span>Mode: None</span>
+      <span>Latency: —</span>
+      <span>Warnings: None</span>
+    </div>
+    <div class="footer-right">
+      <span class="footer-note">Transforms apply to current text</span>
+      <span class="attribution">@laup30 · 🇿🇦 Cape Town</span>
+      <div class="hanko">P</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

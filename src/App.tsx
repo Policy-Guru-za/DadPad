@@ -1,4 +1,13 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  ClipboardEvent,
+  FormEvent,
+  SyntheticEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import "./App.css";
 import { OpenAIProviderError, streamTransformWithOpenAI } from "./providers/openai";
 import {
@@ -14,36 +23,23 @@ import {
   readAppSettings,
   writeAppSettings,
 } from "./settings/config";
-import { endsWithNaturalTerminator } from "./utils/truncation";
 
 type TransformMode = "Polish" | "Casual" | "Professional" | "Direct";
 type WiredTransformMode = TransformMode;
+type ToneMode = Exclude<TransformMode, "Polish">;
 
-const TRANSFORM_MODES: TransformMode[] = [
-  "Polish",
+const TONE_MODES: ToneMode[] = [
   "Casual",
   "Professional",
   "Direct",
 ];
 
 const FOOTER_HINT = "Transforms apply to the current editor text.";
-const TRUNCATION_WARNING_MESSAGE = "Output may be truncated.";
 const MISSING_API_KEY_MESSAGE = "Set API key in Settings.";
-const CREATOR_NAME = "Rock Kestrel Ventures";
 const CREATOR_HANDLE = "@laup30";
 const CREATOR_LOCATION = "Cape Town, South Africa";
-
-type TransformOptions = {
-  sourceText?: string;
-  maxOutputTokens?: number;
-  undoCheckpointText?: string;
-};
-
-type RetryContext = {
-  mode: WiredTransformMode;
-  sourceText: string;
-  nextMaxOutputTokens: number;
-};
+const TONE_LOCKED_HELPER = "Unlocks after one Polish pass.";
+const TONE_READY_HELPER = "Choose the final tone.";
 
 function countWords(value: string): number {
   const trimmed = value.trim();
@@ -116,6 +112,14 @@ function toProviderMode(mode: WiredTransformMode): "polish" | "casual" | "profes
   return "polish";
 }
 
+function isFullEditorSelection(
+  value: string,
+  selectionStart: number | null,
+  selectionEnd: number | null,
+): boolean {
+  return value.length > 0 && selectionStart === 0 && selectionEnd === value.length;
+}
+
 function App() {
   const [text, setText] = useState("");
   const [lastMode, setLastMode] = useState<TransformMode | null>(null);
@@ -126,31 +130,27 @@ function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
   const [activeStreamMode, setActiveStreamMode] = useState<WiredTransformMode | null>(null);
-  const [retryContext, setRetryContext] = useState<RetryContext | null>(null);
+  const [hasPolishedCurrentSession, setHasPolishedCurrentSession] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [settingsDraft, setSettingsDraft] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState("");
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    try {
-      if (typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        return "dark";
-      }
-    } catch {
-      /* jsdom or unsupported environment */
-    }
-    return "light";
-  });
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const undoCheckpointRef = useRef<string | null>(null);
+  const editorSelectionRef = useRef<{ start: number | null; end: number | null }>({
+    start: null,
+    end: null,
+  });
+  const resetToneLockOnNextChangeRef = useRef(false);
 
   const wordCount = useMemo(() => countWords(text), [text]);
   const charCount = text.length;
   const apiKeyMissing = settings.openaiApiKey.trim().length === 0;
   const transformsDisabled = isStreaming || !isSettingsLoaded || apiKeyMissing;
+  const toneModesDisabled = transformsDisabled || !hasPolishedCurrentSession;
 
   useEffect(() => {
     let cancelled = false;
@@ -184,23 +184,12 @@ function App() {
     };
   }, []);
 
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
-
-  const handleThemeToggle = (): void => {
-    setTheme((t) => (t === "light" ? "dark" : "light"));
-  };
-
-  const handleTransform = async (
-    mode: WiredTransformMode,
-    options: TransformOptions = {},
-  ): Promise<void> => {
+  const handleTransform = async (mode: WiredTransformMode): Promise<void> => {
     if (isStreaming) {
       return;
     }
 
-    const sourceText = options.sourceText ?? text;
+    const sourceText = text;
     if (!sourceText.trim()) {
       setStatusMessage("Add text before running a transform.");
       return;
@@ -221,12 +210,11 @@ function App() {
       : { encodedText: sourceText, mapping: [] };
     const { encodedText, mapping } = encoded;
     abortControllerRef.current = controller;
-    undoCheckpointRef.current = options.undoCheckpointText ?? sourceText;
+    undoCheckpointRef.current = sourceText;
     setCanUndo(false);
 
     setIsStreaming(true);
     setActiveStreamMode(mode);
-    setRetryContext(null);
     setCopyFeedback("");
     setLastMode(mode);
     setLatencyMs(null);
@@ -246,7 +234,6 @@ function App() {
         temperature: settings.temperature,
         streaming: settings.streaming,
         smartStructuring: smartStructuringEnabled,
-        maxOutputTokens: options.maxOutputTokens,
         signal: controller.signal,
         onDelta: (delta) => {
           streamedOutput += delta;
@@ -275,36 +262,18 @@ function App() {
       setLatencyMs(elapsed);
       setCanUndo(true);
 
-      const providerSignalledTruncation = result.truncatedByProvider;
-      const missingNaturalTerminator = !endsWithNaturalTerminator(committedText);
-      if (providerSignalledTruncation || missingNaturalTerminator) {
-        const retrySourceText = undoCheckpointRef.current ?? sourceText;
-        const nextMaxOutputTokens = Math.min(
-          8192,
-          Math.max(result.maxOutputTokens + 1, Math.round(result.maxOutputTokens * 1.5)),
-        );
-        setWarning(TRUNCATION_WARNING_MESSAGE);
-        setStatusMessage(`${mode} complete in ${elapsed} ms. ${TRUNCATION_WARNING_MESSAGE}`);
-        if (nextMaxOutputTokens > result.maxOutputTokens) {
-          setRetryContext({
-            mode,
-            sourceText: retrySourceText,
-            nextMaxOutputTokens,
-          });
-        } else {
-          setRetryContext(null);
-        }
-      } else {
-        setWarning("None");
-        setStatusMessage(`${mode} complete in ${elapsed} ms.`);
+      if (mode === "Polish") {
+        setHasPolishedCurrentSession(true);
       }
+
+      setWarning("None");
+      setStatusMessage(`${mode} complete in ${elapsed} ms.`);
     } catch (error) {
       setText(undoCheckpointRef.current ?? sourceText);
       undoCheckpointRef.current = null;
       setCanUndo(false);
       setLatencyMs(null);
       setCopyFeedback("");
-      setRetryContext(null);
 
       if (controller.signal.aborted) {
         setWarning("None");
@@ -334,6 +303,13 @@ function App() {
     abortControllerRef.current?.abort();
   };
 
+  const rememberEditorSelection = (target: HTMLTextAreaElement): void => {
+    editorSelectionRef.current = {
+      start: target.selectionStart,
+      end: target.selectionEnd,
+    };
+  };
+
   const handleUndo = (): void => {
     if (isStreaming || !canUndo || undoCheckpointRef.current === null) {
       return;
@@ -344,21 +320,51 @@ function App() {
     setCanUndo(false);
     setLatencyMs(null);
     setWarning("None");
-    setRetryContext(null);
     setCopyFeedback("");
     setStatusMessage("Undo restored pre-transform text.");
   };
 
-  const handleRetryMoreRoom = (): void => {
-    if (isStreaming || retryContext === null) {
+  const handleEditorChange = (event: ChangeEvent<HTMLTextAreaElement>): void => {
+    const target = event.currentTarget;
+    const nextText = event.currentTarget.value;
+    const shouldResetToneLock =
+      nextText.length === 0 ||
+      resetToneLockOnNextChangeRef.current ||
+      (nextText !== text &&
+        isFullEditorSelection(text, editorSelectionRef.current.start, editorSelectionRef.current.end));
+    resetToneLockOnNextChangeRef.current = false;
+    rememberEditorSelection(target);
+    setText(nextText);
+    if (shouldResetToneLock) {
+      setHasPolishedCurrentSession(false);
+    }
+  };
+
+  const handleEditorBeforeInput = (event: FormEvent<HTMLTextAreaElement>): void => {
+    const nativeEvent = event.nativeEvent as InputEvent;
+    const inputType = typeof nativeEvent.inputType === "string" ? nativeEvent.inputType : "";
+    if (!inputType.startsWith("insert")) {
       return;
     }
 
-    void handleTransform(retryContext.mode, {
-      sourceText: retryContext.sourceText,
-      maxOutputTokens: retryContext.nextMaxOutputTokens,
-      undoCheckpointText: text,
-    });
+    const target = event.currentTarget;
+    if (isFullEditorSelection(target.value, target.selectionStart, target.selectionEnd)) {
+      resetToneLockOnNextChangeRef.current = true;
+    }
+  };
+
+  const handleEditorSelect = (event: SyntheticEvent<HTMLTextAreaElement>): void => {
+    rememberEditorSelection(event.currentTarget);
+  };
+
+  const handleEditorPaste = (event: ClipboardEvent<HTMLTextAreaElement>): void => {
+    const target = event.currentTarget;
+    if (
+      target.value.length === 0 ||
+      isFullEditorSelection(target.value, target.selectionStart, target.selectionEnd)
+    ) {
+      setHasPolishedCurrentSession(false);
+    }
   };
 
   const handleSettingsSave = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -397,27 +403,35 @@ function App() {
   };
 
   return (
-    <>
-      <button
-        type="button"
-        className="theme-toggle"
-        onClick={handleThemeToggle}
-        aria-label="Toggle theme"
-      >
-        {theme === "dark" ? "\u2600\uFE0F" : "\uD83C\uDF19"}
-      </button>
+    <main className="app-shell">
+      <header className="toolbar" aria-label="PolishPad toolbar">
+        <div className="toolbar-section transform-section">
+          <div className="transform-panel transform-panel-primary">
+            <span className="toolbar-label">Start</span>
+            <button
+              type="button"
+              className={`polish-btn${lastMode === "Polish" ? " active" : ""}${activeStreamMode === "Polish" && isStreaming ? " streaming" : ""}`}
+              disabled={transformsDisabled}
+              onClick={() => handleTransformClick("Polish")}
+            >
+              Polish
+            </button>
+          </div>
 
-      <main className="app-shell">
-        <header className="toolbar" aria-label="PolishPad toolbar">
-          <div className="toolbar-section">
-            <span className="toolbar-label">Tone</span>
-            <div className="segmented-control">
-              {TRANSFORM_MODES.map((mode) => (
+          <div className={`transform-panel transform-panel-tone${hasPolishedCurrentSession ? " unlocked" : " locked"}`}>
+            <div className="tone-heading">
+              <span className="toolbar-label">After Polish</span>
+              <span className="tone-helper">
+                {hasPolishedCurrentSession ? TONE_READY_HELPER : TONE_LOCKED_HELPER}
+              </span>
+            </div>
+            <div className="segmented-control tone-control" aria-label="Tone options">
+              {TONE_MODES.map((mode) => (
                 <button
                   key={mode}
                   type="button"
                   className={`mode-btn${lastMode === mode ? " active" : ""}${activeStreamMode === mode && isStreaming ? " streaming" : ""}`}
-                  disabled={transformsDisabled}
+                  disabled={toneModesDisabled}
                   onClick={() => handleTransformClick(mode)}
                 >
                   {mode}
@@ -425,7 +439,9 @@ function App() {
               ))}
             </div>
           </div>
-          <div className="toolbar-section">
+        </div>
+
+        <div className="toolbar-section toolbar-actions">
             <button
               type="button"
               className="action-btn"
@@ -454,18 +470,17 @@ function App() {
               type="button"
               className="action-btn settings-trigger"
               onClick={() => setIsSettingsOpen((open) => !open)}
-              aria-label="Settings"
             >
-              {isSettingsOpen ? "\u2715" : "\u2699"}
+              {isSettingsOpen ? "Close" : "Settings"}
             </button>
-          </div>
-        </header>
+        </div>
+      </header>
 
-        {apiKeyMissing ? <p className="settings-warning">{MISSING_API_KEY_MESSAGE}</p> : null}
+      {apiKeyMissing ? <p className="settings-warning">{MISSING_API_KEY_MESSAGE}</p> : null}
 
-        {isSettingsOpen ? (
-          <section className="settings-panel" aria-label="Settings">
-            <form className="settings-form" onSubmit={handleSettingsSave}>
+      {isSettingsOpen ? (
+        <section className="settings-panel" aria-label="Settings">
+          <form className="settings-form" onSubmit={handleSettingsSave}>
               <label className="settings-field" htmlFor="openai-api-key">
                 OpenAI API key
               </label>
@@ -580,65 +595,63 @@ function App() {
                 </button>
                 <span className="settings-message">{settingsMessage}</span>
               </div>
-            </form>
-          </section>
-        ) : null}
-
-        <section className="editor-area">
-          <span className="editor-label" aria-hidden="true">Your text</span>
-          <label className="sr-only" htmlFor="editor">
-            Text editor
-          </label>
-          <div className="editor-wrapper">
-            <textarea
-              id="editor"
-              className="editor"
-              value={text}
-              onChange={(event) => setText(event.currentTarget.value)}
-              placeholder="Paste or write text here. Choose a tone, then copy after reviewing."
-              spellCheck
-              readOnly={isStreaming}
-            />
-          </div>
+          </form>
         </section>
+      ) : null}
 
-        <div className="stats-bar" aria-live="polite">
-          <span className="stat-item">Words: {wordCount}</span>
-          <span className="stat-divider" aria-hidden="true" />
-          <span className="stat-item">Characters: {charCount}</span>
-          <span className="stat-divider" aria-hidden="true" />
-          <span className="stat-item">Last mode: {lastMode ?? "None"}</span>
-          <span className="stat-divider" aria-hidden="true" />
-          <span className="stat-item">Latency: {latencyMs === null ? "\u2013" : `${latencyMs} ms`}</span>
-          <span className="stat-divider" aria-hidden="true" />
-          <span className="stat-item">Warnings: {warning}</span>
-          {retryContext ? (
-            <button
-              type="button"
-              className="action-btn retry-btn"
-              onClick={handleRetryMoreRoom}
-              disabled={isStreaming}
-            >
-              Retry (more room)
-            </button>
-          ) : null}
-          <span className="copy-feedback">{copyFeedback}</span>
+      <section className="editor-area">
+        <span className="editor-label" aria-hidden="true">
+          Your text
+        </span>
+        <label className="sr-only" htmlFor="editor">
+          Text editor
+        </label>
+        <div className="editor-wrapper">
+          <textarea
+            id="editor"
+            className="editor"
+            value={text}
+            onBeforeInput={handleEditorBeforeInput}
+            onChange={handleEditorChange}
+            onPaste={handleEditorPaste}
+            onSelect={handleEditorSelect}
+            placeholder="Paste or write text here. Polish first, then choose a tone if needed."
+            spellCheck
+            readOnly={isStreaming}
+          />
         </div>
+      </section>
 
-        <footer className="footer">
-          <span className="status-message">{statusMessage}</span>
-          <div className="credit" aria-label="App creator">
-            <span className="credit-label">Created by</span>
-            <span className="credit-name">{CREATOR_NAME}</span>
-            <span className="credit-dot" aria-hidden="true">·</span>
-            <span className="credit-handle">{CREATOR_HANDLE}</span>
-            <span className="credit-dot" aria-hidden="true">·</span>
-            <span className="credit-flag" aria-hidden="true">🇿🇦</span>
+      <div className="stats-bar" aria-live="polite">
+        <span className="stat-item">Words: {wordCount}</span>
+        <span className="stat-divider" aria-hidden="true" />
+        <span className="stat-item">Characters: {charCount}</span>
+        <span className="stat-divider" aria-hidden="true" />
+        <span className="stat-item">Last mode: {lastMode ?? "None"}</span>
+        <span className="stat-divider" aria-hidden="true" />
+        <span className="stat-item">Latency: {latencyMs === null ? "\u2013" : `${latencyMs} ms`}</span>
+        <span className="stat-divider" aria-hidden="true" />
+        <span className="stat-item">Warnings: {warning}</span>
+        <span className="copy-feedback">{copyFeedback}</span>
+      </div>
+
+      <footer className="footer">
+        <span className="status-message">{statusMessage}</span>
+        <div className="credit" aria-label="App creator">
+          <span className="credit-handle">{CREATOR_HANDLE}</span>
+          <span className="credit-dot" aria-hidden="true">
+            ·
+          </span>
+          <span className="credit-location">
+            <span>Made in</span>
+            <span className="credit-flag" aria-hidden="true">
+              🇿🇦
+            </span>
             <span>{CREATOR_LOCATION}</span>
-          </div>
-        </footer>
-      </main>
-    </>
+          </span>
+        </div>
+      </footer>
+    </main>
   );
 }
 

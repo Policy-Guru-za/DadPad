@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PolishPad — Icon Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet" />
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{font-family:"DM Sans",system-ui,sans-serif;background:#f5f3ef;color:#1a1a1a}
+  body{padding:48px 40px 80px;max-width:1400px;margin:0 auto}
+  h1{font-size:2rem;font-weight:600;letter-spacing:-0.03em;margin-bottom:6px}
+  .subtitle{color:#5c5c5c;font-size:1rem;margin-bottom:48px;line-height:1.5}
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:32px}
+  .card{background:#fffffe;border-radius:20px;padding:32px 24px 28px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04),0 8px 24px rgba(0,0,0,0.06);
+    display:flex;flex-direction:column;align-items:center;transition:transform 0.25s ease,box-shadow 0.25s ease}
+  .card:hover{transform:translateY(-4px);box-shadow:0 2px 6px rgba(0,0,0,0.06),0 16px 40px rgba(0,0,0,0.10)}
+  .icon-wrap{width:180px;height:180px;margin-bottom:24px;filter:drop-shadow(0 6px 20px rgba(0,0,0,0.15))}
+  .icon-wrap svg{width:100%;height:100%;display:block}
+  .option-num{font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:#2d5be3;margin-bottom:8px}
+  .option-name{font-size:1.1rem;font-weight:600;letter-spacing:-0.02em;margin-bottom:6px;text-align:center}
+  .option-desc{font-size:0.82rem;color:#5c5c5c;text-align:center;line-height:1.5}
+  /* mini previews row */
+  .mini-row{display:flex;gap:12px;margin-top:16px;justify-content:center}
+  .mini-icon{width:32px;height:32px;opacity:0.9;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.12))}
+  .mini-icon svg{width:100%;height:100%}
+</style>
+</head>
+<body>
+
+<h1>PolishPad Icon Concepts</h1>
+<p class="subtitle">Five distinctive directions for the macOS application icon. Each is designed at 1024×1024 with the standard squircle mask.</p>
+
+<div class="grid">
+
+<!-- ══════════════════════════════════════════════════════
+     OPTION 1 — The Faceted Gem
+     Concept: rough text → polished gem. A single faceted
+     gem with deep blue gradients and prismatic refractions.
+     ══════════════════════════════════════════════════════ -->
+<div class="card">
+<div class="icon-wrap">
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="sq1"><rect width="1024" height="1024" rx="228" /></clipPath>
+    <linearGradient id="g1a" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="g1b" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="50%" stop-color="#2d5be3" />
+      <stop offset="100%" stop-color="#1e40af" />
+    </linearGradient>
+    <linearGradient id="g1c" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+    <linearGradient id="g1d" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#93c5fd" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="g1shine" x1="0.3" y1="0" x2="0.7" y2="0.5">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#sq1)">
+    <!-- Background -->
+    <rect width="1024" height="1024" fill="url(#g1a)" />
+    <!-- Subtle radial glow -->
+    <circle cx="512" cy="480" r="380" fill="#2d5be3" opacity="0.08" />
+    <!-- Gem body - main diamond shape -->
+    <polygon points="512,180 740,420 660,760 364,760 284,420" fill="url(#g1b)" />
+    <!-- Top left facet -->
+    <polygon points="512,180 284,420 512,460" fill="url(#g1c)" opacity="0.7" />
+    <!-- Top right facet -->
+    <polygon points="512,180 740,420 512,460" fill="#1e40af" opacity="0.8" />
+    <!-- Bottom left facet -->
+    <polygon points="284,420 364,760 512,460" fill="#1d4ed8" opacity="0.6" />
+    <!-- Bottom center facet -->
+    <polygon points="364,760 660,760 512,460" fill="url(#g1b)" opacity="0.5" />
+    <!-- Bottom right facet -->
+    <polygon points="740,420 660,760 512,460" fill="#2563eb" opacity="0.55" />
+    <!-- Shine overlay on top facets -->
+    <polygon points="512,180 284,420 512,460" fill="url(#g1shine)" />
+    <!-- Edge highlight -->
+    <polygon points="512,180 740,420 660,760 364,760 284,420" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="3" />
+    <!-- Sparkle top -->
+    <g transform="translate(512,180)">
+      <line x1="0" y1="-30" x2="0" y2="30" stroke="white" stroke-width="3" opacity="0.7" />
+      <line x1="-30" y1="0" x2="30" y2="0" stroke="white" stroke-width="3" opacity="0.7" />
+      <line x1="-18" y1="-18" x2="18" y2="18" stroke="white" stroke-width="2" opacity="0.4" />
+      <line x1="18" y1="-18" x2="-18" y2="18" stroke="white" stroke-width="2" opacity="0.4" />
+    </g>
+    <!-- Small sparkle -->
+    <g transform="translate(700,320)" opacity="0.5">
+      <line x1="0" y1="-14" x2="0" y2="14" stroke="white" stroke-width="2" />
+      <line x1="-14" y1="0" x2="14" y2="0" stroke="white" stroke-width="2" />
+    </g>
+  </g>
+</svg>
+</div>
+<span class="option-num">Option 1</span>
+<div class="option-name">Faceted Gem</div>
+<p class="option-desc">A precision-cut gemstone on deep navy. Raw text goes in, polished brilliance comes out.</p>
+<div class="mini-row">
+  <div class="mini-icon"><svg viewBox="0 0 1024 1024"><defs><clipPath id="sq1m"><rect width="1024" height="1024" rx="228"/></clipPath></defs><g clip-path="url(#sq1m)"><rect width="1024" height="1024" fill="#0f172a"/><polygon points="512,180 740,420 660,760 364,760 284,420" fill="#2d5be3"/><polygon points="512,180 284,420 512,460" fill="#60a5fa" opacity="0.7"/><polygon points="512,180 740,420 512,460" fill="#1e40af" opacity="0.8"/></g></svg></div>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     OPTION 2 — The Quill Nib
+     Concept: a minimal, elegant fountain pen nib with a
+     single drop of blue ink. Writing refinement at its core.
+     ══════════════════════════════════════════════════════ -->
+<div class="card">
+<div class="icon-wrap">
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="sq2"><rect width="1024" height="1024" rx="228" /></clipPath>
+    <linearGradient id="g2bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fafaf8" />
+      <stop offset="100%" stop-color="#f0ede6" />
+    </linearGradient>
+    <linearGradient id="g2nib" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#2a2a2a" />
+      <stop offset="100%" stop-color="#111111" />
+    </linearGradient>
+    <linearGradient id="g2ink" x1="0.3" y1="0" x2="0.7" y2="1">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#1e40af" />
+    </linearGradient>
+    <linearGradient id="g2gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#d4a84b" />
+      <stop offset="50%" stop-color="#c49a3c" />
+      <stop offset="100%" stop-color="#b8892e" />
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#sq2)">
+    <!-- Warm cream background -->
+    <rect width="1024" height="1024" fill="url(#g2bg)" />
+    <!-- Subtle paper texture lines -->
+    <g opacity="0.03" stroke="#1a1a1a" stroke-width="1">
+      <line x1="0" y1="200" x2="1024" y2="200"/>
+      <line x1="0" y1="360" x2="1024" y2="360"/>
+      <line x1="0" y1="520" x2="1024" y2="520"/>
+      <line x1="0" y1="680" x2="1024" y2="680"/>
+      <line x1="0" y1="840" x2="1024" y2="840"/>
+    </g>
+    <!-- Nib body - main shape, angled 30 degrees -->
+    <g transform="translate(512,490) rotate(-30)">
+      <!-- Nib shaft -->
+      <path d="M-40,-320 L40,-320 L28,100 L0,260 L-28,100 Z" fill="url(#g2nib)" />
+      <!-- Gold band -->
+      <rect x="-42" y="-322" width="84" height="28" rx="4" fill="url(#g2gold)" />
+      <!-- Center slit -->
+      <line x1="0" y1="-60" x2="0" y2="220" stroke="#3a3a3a" stroke-width="4" />
+      <!-- Breather hole -->
+      <circle cx="0" cy="-60" r="12" fill="#222" />
+      <circle cx="0" cy="-60" r="8" fill="#333" />
+      <!-- Shine on nib -->
+      <path d="M-30,-310 L-10,-310 L-18,80 L-24,80 Z" fill="white" opacity="0.1" />
+      <!-- Tip highlight -->
+      <circle cx="0" cy="248" r="6" fill="#2d5be3" opacity="0.9" />
+    </g>
+    <!-- Ink drop with ripple -->
+    <circle cx="600" cy="710" r="36" fill="url(#g2ink)" />
+    <circle cx="600" cy="710" r="36" fill="none" stroke="#3b82f6" stroke-width="2" opacity="0.3" />
+    <circle cx="600" cy="710" r="56" fill="none" stroke="#3b82f6" stroke-width="1.5" opacity="0.15" />
+    <circle cx="600" cy="710" r="78" fill="none" stroke="#3b82f6" stroke-width="1" opacity="0.08" />
+    <!-- Small ink highlight -->
+    <circle cx="592" cy="700" r="10" fill="white" opacity="0.3" />
+  </g>
+</svg>
+</div>
+<span class="option-num">Option 2</span>
+<div class="option-name">Quill Nib</div>
+<p class="option-desc">A refined fountain pen nib with a drop of blue ink. The classic tool of precision writing.</p>
+<div class="mini-row">
+  <div class="mini-icon"><svg viewBox="0 0 1024 1024"><defs><clipPath id="sq2m"><rect width="1024" height="1024" rx="228"/></clipPath></defs><g clip-path="url(#sq2m)"><rect width="1024" height="1024" fill="#fafaf8"/><g transform="translate(512,490) rotate(-30)"><path d="M-40,-320 L40,-320 L28,100 L0,260 L-28,100 Z" fill="#1a1a1a"/><rect x="-42" y="-322" width="84" height="28" rx="4" fill="#c49a3c"/></g><circle cx="600" cy="710" r="36" fill="#2d5be3"/></g></svg></div>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     OPTION 3 — The Luminous "P"
+     Concept: A bold typographic "P" monogram with a
+     diagonal polish-streak of light cutting across it.
+     ══════════════════════════════════════════════════════ -->
+<div class="card">
+<div class="icon-wrap">
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="sq3"><rect width="1024" height="1024" rx="228" /></clipPath>
+    <linearGradient id="g3bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8f6f2" />
+      <stop offset="100%" stop-color="#ece8e1" />
+    </linearGradient>
+    <linearGradient id="g3p" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="#1a1a1a" />
+      <stop offset="100%" stop-color="#2a2a2a" />
+    </linearGradient>
+    <linearGradient id="g3streak" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2d5be3" stop-opacity="0" />
+      <stop offset="30%" stop-color="#3b82f6" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#60a5fa" stop-opacity="1" />
+      <stop offset="70%" stop-color="#3b82f6" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#2d5be3" stop-opacity="0" />
+    </linearGradient>
+    <mask id="pmask">
+      <rect width="1024" height="1024" fill="black" />
+      <!-- Bold P letterform -->
+      <g fill="white">
+        <!-- Stem -->
+        <rect x="300" y="200" width="100" height="620" rx="10" />
+        <!-- Bowl -->
+        <path d="M350,200 L560,200 C700,200 760,280 760,400 C760,520 700,600 560,600 L350,600 Z M400,290 L400,510 L540,510 C620,510 660,470 660,400 C660,330 620,290 540,290 Z" fill-rule="evenodd" />
+      </g>
+    </mask>
+    <filter id="glow3">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" />
+    </filter>
+  </defs>
+  <g clip-path="url(#sq3)">
+    <!-- Warm parchment background -->
+    <rect width="1024" height="1024" fill="url(#g3bg)" />
+    <!-- Subtle dot grid -->
+    <pattern id="dots3" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="20" cy="20" r="1" fill="#1a1a1a" opacity="0.06" />
+    </pattern>
+    <rect width="1024" height="1024" fill="url(#dots3)" />
+    <!-- The P letterform in dark -->
+    <g fill="url(#g3p)">
+      <rect x="300" y="200" width="100" height="620" rx="10" />
+      <path d="M350,200 L560,200 C700,200 760,280 760,400 C760,520 700,600 560,600 L350,600 Z M400,290 L400,510 L540,510 C620,510 660,470 660,400 C660,330 620,290 540,290 Z" fill-rule="evenodd" />
+    </g>
+    <!-- Diagonal polish streak - glow layer -->
+    <g mask="url(#pmask)">
+      <rect x="-200" y="380" width="1400" height="120" fill="url(#g3streak)" transform="rotate(-35,512,440)" filter="url(#glow3)" />
+    </g>
+    <!-- Diagonal polish streak - sharp layer -->
+    <g mask="url(#pmask)">
+      <rect x="-200" y="400" width="1400" height="60" fill="url(#g3streak)" transform="rotate(-35,512,440)" />
+    </g>
+    <!-- Sparkle where streak exits the P -->
+    <g transform="translate(660,290)" opacity="0.8">
+      <line x1="0" y1="-20" x2="0" y2="20" stroke="#3b82f6" stroke-width="3" />
+      <line x1="-20" y1="0" x2="20" y2="0" stroke="#3b82f6" stroke-width="3" />
+      <line x1="-12" y1="-12" x2="12" y2="12" stroke="#3b82f6" stroke-width="2" opacity="0.6" />
+      <line x1="12" y1="-12" x2="-12" y2="12" stroke="#3b82f6" stroke-width="2" opacity="0.6" />
+    </g>
+  </g>
+</svg>
+</div>
+<span class="option-num">Option 3</span>
+<div class="option-name">Luminous P</div>
+<p class="option-desc">A bold "P" monogram with a diagonal polish-streak of light. The brand mark itself gets polished.</p>
+<div class="mini-row">
+  <div class="mini-icon"><svg viewBox="0 0 1024 1024"><defs><clipPath id="sq3m"><rect width="1024" height="1024" rx="228"/></clipPath></defs><g clip-path="url(#sq3m)"><rect width="1024" height="1024" fill="#f0ede6"/><g fill="#1a1a1a"><rect x="300" y="200" width="100" height="620" rx="10"/><path d="M350,200 L560,200 C700,200 760,280 760,400 C760,520 700,600 560,600 L350,600 Z M400,290 L400,510 L540,510 C620,510 660,470 660,400 C660,330 620,290 540,290 Z" fill-rule="evenodd"/></g></g></svg></div>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     OPTION 4 — The Prism
+     Concept: A geometric prism refracting a single beam
+     into a clean spectrum. Transformation made visible.
+     ══════════════════════════════════════════════════════ -->
+<div class="card">
+<div class="icon-wrap">
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="sq4"><rect width="1024" height="1024" rx="228" /></clipPath>
+    <linearGradient id="g4bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0c0c1a" />
+      <stop offset="100%" stop-color="#111127" />
+    </linearGradient>
+    <linearGradient id="g4prism" x1="0.3" y1="0" x2="0.7" y2="1">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.12)" />
+      <stop offset="100%" stop-color="rgba(255,255,255,0.04)" />
+    </linearGradient>
+    <linearGradient id="g4beam" x1="0" y1="0.5" x2="1" y2="0.5">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0" />
+      <stop offset="70%" stop-color="#e2e8f0" stop-opacity="0.7" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.85" />
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#sq4)">
+    <!-- Deep dark background -->
+    <rect width="1024" height="1024" fill="url(#g4bg)" />
+    <!-- Subtle star field -->
+    <g fill="white" opacity="0.15">
+      <circle cx="120" cy="180" r="1.5"/><circle cx="340" cy="120" r="1"/><circle cx="780" cy="200" r="1.5"/>
+      <circle cx="900" cy="380" r="1"/><circle cx="150" cy="600" r="1"/><circle cx="870" cy="720" r="1.5"/>
+      <circle cx="200" cy="820" r="1"/><circle cx="700" cy="900" r="1"/>
+    </g>
+    <!-- Input beam (white, from left to prism) -->
+    <polygon points="80,470 80,530 440,500 440,490" fill="url(#g4beam)" />
+    <!-- The prism - glass triangle -->
+    <polygon points="512,240 680,680 344,680" fill="url(#g4prism)" stroke="rgba(255,255,255,0.2)" stroke-width="2.5" />
+    <!-- Inner refraction lines -->
+    <line x1="460" y1="420" x2="580" y2="580" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+    <line x1="490" y1="380" x2="560" y2="620" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+    <!-- Output spectrum beams -->
+    <line x1="620" y1="500" x2="950" y2="340" stroke="#3b82f6" stroke-width="8" opacity="0.9" stroke-linecap="round" />
+    <line x1="625" y1="520" x2="950" y2="430" stroke="#60a5fa" stroke-width="8" opacity="0.85" stroke-linecap="round" />
+    <line x1="628" y1="540" x2="950" y2="520" stroke="#93c5fd" stroke-width="8" opacity="0.8" stroke-linecap="round" />
+    <line x1="630" y1="560" x2="950" y2="610" stroke="#bfdbfe" stroke-width="8" opacity="0.75" stroke-linecap="round" />
+    <line x1="628" y1="580" x2="950" y2="700" stroke="#dbeafe" stroke-width="8" opacity="0.7" stroke-linecap="round" />
+    <!-- Glow at refraction point -->
+    <circle cx="625" cy="540" r="30" fill="#3b82f6" opacity="0.12" />
+    <circle cx="625" cy="540" r="15" fill="#60a5fa" opacity="0.15" />
+    <!-- Prism face shine -->
+    <polygon points="512,240 344,680 512,680" fill="rgba(255,255,255,0.03)" />
+  </g>
+</svg>
+</div>
+<span class="option-num">Option 4</span>
+<div class="option-name">The Prism</div>
+<p class="option-desc">Raw text enters, refined tones emerge. A prism refracting a beam into a blue spectrum.</p>
+<div class="mini-row">
+  <div class="mini-icon"><svg viewBox="0 0 1024 1024"><defs><clipPath id="sq4m"><rect width="1024" height="1024" rx="228"/></clipPath></defs><g clip-path="url(#sq4m)"><rect width="1024" height="1024" fill="#0c0c1a"/><polygon points="512,240 680,680 344,680" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.2)" stroke-width="3"/><line x1="620" y1="500" x2="950" y2="380" stroke="#3b82f6" stroke-width="10" opacity="0.9"/><line x1="628" y1="540" x2="950" y2="520" stroke="#93c5fd" stroke-width="10" opacity="0.8"/><line x1="628" y1="580" x2="950" y2="660" stroke="#dbeafe" stroke-width="10" opacity="0.7"/></g></svg></div>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     OPTION 5 — The Zen Circle (Ensō)
+     Concept: A single confident brushstroke forming an
+     almost-complete circle — the Japanese ensō symbol
+     of enlightenment, elegance, and mastery through practice.
+     ══════════════════════════════════════════════════════ -->
+<div class="card">
+<div class="icon-wrap">
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="sq5"><rect width="1024" height="1024" rx="228" /></clipPath>
+    <linearGradient id="g5bg" x1="0" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#1a1a1a" />
+      <stop offset="100%" stop-color="#111111" />
+    </linearGradient>
+    <linearGradient id="g5stroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e8e4dc" />
+      <stop offset="40%" stop-color="#d4d0c8" />
+      <stop offset="100%" stop-color="#c8c4bc" />
+    </linearGradient>
+    <filter id="brush5">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed="3" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+  <g clip-path="url(#sq5)">
+    <!-- Deep charcoal background -->
+    <rect width="1024" height="1024" fill="url(#g5bg)" />
+    <!-- Very subtle washi texture -->
+    <g opacity="0.025">
+      <line x1="0" y1="100" x2="1024" y2="102" stroke="white" stroke-width="0.5"/>
+      <line x1="0" y1="250" x2="1024" y2="248" stroke="white" stroke-width="0.5"/>
+      <line x1="0" y1="400" x2="1024" y2="401" stroke="white" stroke-width="0.5"/>
+      <line x1="0" y1="550" x2="1024" y2="549" stroke="white" stroke-width="0.5"/>
+      <line x1="0" y1="700" x2="1024" y2="702" stroke="white" stroke-width="0.5"/>
+      <line x1="0" y1="850" x2="1024" y2="848" stroke="white" stroke-width="0.5"/>
+    </g>
+    <!-- Ensō circle - the brush stroke -->
+    <!-- Main thick stroke arc (not fully closed - gap at top right) -->
+    <path d="M 580,240
+             C 720,280 820,420 820,530
+             C 820,680 700,800 512,800
+             C 324,800 204,680 204,500
+             C 204,320 324,220 460,220"
+          fill="none"
+          stroke="url(#g5stroke)"
+          stroke-width="72"
+          stroke-linecap="round"
+          filter="url(#brush5)"
+          opacity="0.92" />
+    <!-- Thinner overlay for ink variation -->
+    <path d="M 580,240
+             C 720,280 820,420 820,530
+             C 820,680 700,800 512,800
+             C 324,800 204,680 204,500
+             C 204,320 324,220 460,220"
+          fill="none"
+          stroke="#f0ede6"
+          stroke-width="48"
+          stroke-linecap="round"
+          opacity="0.15" />
+    <!-- Blue accent dot in the center — the polished core -->
+    <circle cx="512" cy="510" r="32" fill="#2d5be3" />
+    <circle cx="512" cy="510" r="32" fill="none" stroke="#3b82f6" stroke-width="2" opacity="0.4" />
+    <circle cx="512" cy="510" r="50" fill="none" stroke="#2d5be3" stroke-width="1" opacity="0.15" />
+    <!-- Small highlight on blue dot -->
+    <circle cx="504" cy="500" r="8" fill="white" opacity="0.25" />
+  </g>
+</svg>
+</div>
+<span class="option-num">Option 5</span>
+<div class="option-name">Ensō Circle</div>
+<p class="option-desc">A brushstroke circle of mastery with a blue polished core. Zen refinement through practice.</p>
+<div class="mini-row">
+  <div class="mini-icon"><svg viewBox="0 0 1024 1024"><defs><clipPath id="sq5m"><rect width="1024" height="1024" rx="228"/></clipPath></defs><g clip-path="url(#sq5m)"><rect width="1024" height="1024" fill="#1a1a1a"/><path d="M580,240 C720,280 820,420 820,530 C820,680 700,800 512,800 C324,800 204,680 204,500 C204,320 324,220 460,220" fill="none" stroke="#d4d0c8" stroke-width="72" stroke-linecap="round" opacity="0.9"/><circle cx="512" cy="510" r="32" fill="#2d5be3"/></g></svg></div>
+</div>
+</div>
+
+</div><!-- /grid -->
+
+</body>
+</html>

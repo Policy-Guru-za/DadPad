@@ -9,6 +9,8 @@
 - 2026-03-06 | self | Reordered placeholder matchers without tightening `phone`, which caused date-shaped fragments (e.g. `2026-03-05`) to be classified as phones and blocked `id` protection | Keep phone/id before date/time, but constrain phone regex (min digit count and date-shape avoidance) to prevent overlap regressions.
 - 2026-03-06 | self | Added a new persisted settings field without accounting for old encrypted configs; serde would have treated missing field as a full config decode failure and reset user settings | Any new field in `src-tauri/src/config.rs` needs an explicit serde default/backward-compat test before shipping.
 - 2026-03-06 | self | Ran smart-structuring cleanup after placeholder decode and used punctuation-only truncation checks, which mutated protected code/list content and falsely flagged completed bullet lists | Normalize structured text before placeholder decode, keep list-marker cleanup stricter than decimal/version prefixes, and treat completed list items as natural endings in truncation heuristics.
+- 2026-03-06 | self | Root `.gitignore` pattern `Icon?` matched `src-tauri/icons` on this macOS setup, so regenerated bundle icons stayed invisible to git | When touching app icons, explicitly unignore `src-tauri/icons/**` and re-ignore `.DS_Store` so bundle assets are actually reviewable.
+- 2026-03-06 | self | Tried to prove full-text keyboard replacement via `fireEvent.beforeInput`, but jsdom/RTL did not expose a reliable textarea `beforeinput` helper and the regression stayed invisible | For textarea whole-selection replacement tests here, drive a `select` event plus `input` change and keep a selection ref in the component instead of relying on `beforeinput` alone.
 
 ## User Preferences
 - Strict gates: do not move past Gate A or Gate B without explicit approval.
@@ -29,6 +31,7 @@
 - A live corpus gate (`pnpm eval:modes`) catches prompt collapse that unit tests miss; short and already-clean workplace inputs need explicit lexical preferences and request/follow-up handling or the modes collapse back together.
 - Utility scripts that can run from env overrides should treat unreadable `~/.polishpad` config as a warning and fall back to env/defaults instead of aborting.
 - Structure evaluation is only trustworthy if it mirrors the app path: placeholder encode -> provider rewrite -> decode/validate -> local whitespace normalization. Raw provider-only checks miss real commit behavior.
+- Tauri icon generation is safest via a repo-local temp output first; it emits extra iOS/Android assets by default, so copy only the required `src-tauri/icons` files into the bundle directory.
 
 ## Patterns That Don't Work
 - Mocking SSE without abort support makes cancel tests unreliable.

@@ -68,11 +68,12 @@ Existing solutions require context switching (web app, email client) or do not p
 
 - Single window app.
 - One text editor area.
-- Four transform buttons: Polish, Casual, Professional, Direct.
+- One primary transform button: Polish.
+- Three secondary tone transforms: Casual, Professional, Direct. Tone transforms unlock after the current text has been polished once.
 - Copy button (manual copy only).
 - Undo (one-level minimum per transform).
 - Settings: provider (OpenAI / Anthropic), model name (string, shipped default: `gpt-5-nano-2025-08-07`), temperature (default 0.2), streaming on/off (default on), token protection on/off (default on), smart message structuring on/off (default on), structured content protection on/off (default on, sub-toggle of token protection for markdown links and code blocks).
-- Truncation detection and warning with one-click retry.
+- Output-budget fail-safe: over-provision output tokens up front, and if the provider still stops for length before completing the rewrite, preserve the original text and surface an error instead of committing a clipped result.
 - Input size limits: soft warning at ~20,000 characters, hard stop at ~80,000 characters (adjust based on chosen model context limits).
 - Status bar with word count, character count, last mode, latency, and warnings.
 - Basic error handling and user feedback.
@@ -96,7 +97,7 @@ Existing solutions require context switching (web app, email client) or do not p
 
 Single standard window (not always-on-top). Simple layout:
 
-- Toolbar row: Polish | Casual | Professional | Direct | Copy
+- Toolbar row: standalone Polish button | secondary tone cluster (Casual, Professional, Direct) | actions (Cancel, Undo, Copy, Settings)
 - Main area: multiline text editor
 - Footer status bar: word count, character count, last transform mode, latency (ms), warnings
 - Persistent footer hint: "Transforms apply to the current editor text" (clarifies that modes can be stacked iteratively)
@@ -110,6 +111,8 @@ Single standard window (not always-on-top). Simple layout:
 - Stream output directly into the editor (editor is read-only during streaming).
 - Do not copy automatically.
 - Re-enable editing on completion.
+- Casual, Professional, and Direct remain disabled until a successful Polish pass has completed for the current text session.
+- Tone transforms remain unlocked through normal edits and undo, and re-lock only when the editor is cleared or the full editor content is replaced by a fresh paste.
 
 **Copy:**
 
@@ -186,13 +189,13 @@ Optional but enabled by default. Detect protected spans and replace with placeho
 
 Provide at least one-step undo for each transform overwrite. The user can recover pre-transform text instantly.
 
-### FR7 — Truncation detection
+### FR7 — Output completion fail-safe
 
-Detect likely truncation via provider finish reason (`finish_reason: "length"` for OpenAI, `stop_reason: "max_tokens"` for Anthropic) or missing sentence terminator in the output. On detection: show a warning in the status bar with a one-click "Retry (more room)" action that reruns the same mode with `maxOutputTokens * 1.5` (capped at a reasonable ceiling, e.g., 8192). Do not suppress the output; let the user decide whether to retry or use it as-is.
+Provision a generous `max_output_tokens` budget up front so normal rewrites do not clip. If the provider explicitly reports a length stop before completing the rewrite, treat the transform as failed, restore the original text, and show a clear error message. Do not commit partial/clipped output and do not expose a truncation-specific retry control in the UI.
 
 ### FR8 — Status instrumentation
 
-Display in the status bar at all times: word count, character count. After a transform: last mode used, latency in milliseconds, any warnings (token mismatch, possible truncation).
+Display in the status bar at all times: word count, character count. After a transform: last mode used, latency in milliseconds, and any real warnings/errors (for example token mismatch or provider failure).
 
 ### FR9 — Input size limits
 
@@ -249,7 +252,7 @@ Each transform request sends: a base system prompt (shared constraints), a mode 
 
 **Risk 4 — "Direct" mode becomes rude:** Defined as concise/action-oriented, not aggressive. Prompt explicitly avoids insulting or harsh language.
 
-**Risk 5 — Silent truncation:** Truncation detection via finish reason and punctuation heuristic. Warning surfaced to user without blocking output.
+**Risk 5 — Partial output from provider length stops:** Over-provision output budgets up front. If the provider still ends for length, fail safe by restoring the original text instead of committing clipped output.
 
 ---
 

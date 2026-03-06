@@ -1,0 +1,77 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="iconClip">
+      <rect x="76" y="76" width="872" height="872" rx="196"/>
+    </clipPath>
+    <linearGradient id="bgGradient" x1="168" y1="140" x2="864" y2="912" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0F1730"/>
+      <stop offset="0.45" stop-color="#090D1B"/>
+      <stop offset="1" stop-color="#04070F"/>
+    </linearGradient>
+    <radialGradient id="bgBloom" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(316 232) rotate(45.8562) scale(598.801)">
+      <stop offset="0" stop-color="#2150CB" stop-opacity="0.34"/>
+      <stop offset="0.42" stop-color="#11244E" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#08101E" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="letterGradient" x1="422" y1="236" x2="660" y2="782" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FCFDFF"/>
+      <stop offset="0.52" stop-color="#EEF2F9"/>
+      <stop offset="1" stop-color="#CCD4E2"/>
+    </linearGradient>
+    <linearGradient id="letterEdge" x1="358" y1="252" x2="698" y2="758" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#B5C0D4" stop-opacity="0.08"/>
+    </linearGradient>
+    <linearGradient id="streakCore" x1="292" y1="626" x2="760" y2="334" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1E40AF" stop-opacity="0"/>
+      <stop offset="0.2" stop-color="#2450D0" stop-opacity="0.82"/>
+      <stop offset="0.52" stop-color="#4E8CFF"/>
+      <stop offset="0.8" stop-color="#2450D0" stop-opacity="0.84"/>
+      <stop offset="1" stop-color="#1E40AF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="streakGlow" x1="262" y1="664" x2="790" y2="302" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2142B5" stop-opacity="0"/>
+      <stop offset="0.28" stop-color="#3566F0" stop-opacity="0.28"/>
+      <stop offset="0.52" stop-color="#6BA8FF" stop-opacity="0.78"/>
+      <stop offset="0.72" stop-color="#3566F0" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#2142B5" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="300" y="190" width="514" height="670" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="16"/>
+      <feGaussianBlur stdDeviation="16"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0064 0 0 0 0 0.0196 0 0 0 0 0.0745 0 0 0 0.3 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
+    </filter>
+    <filter id="glow" x="224" y="224" width="604" height="486" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+      <feGaussianBlur stdDeviation="20" result="effect1_foregroundBlur_1_1"/>
+    </filter>
+    <mask id="letterMask" maskUnits="userSpaceOnUse" x="332" y="222" width="428" height="570">
+      <path d="M332 222H570C695 222 760 297 760 403C760 515 693 590 566 590H454V792H332V222ZM454 333V479H553C613 479 638 452 638 406C638 359 612 333 553 333H454Z" fill="white"/>
+    </mask>
+  </defs>
+
+  <g clip-path="url(#iconClip)">
+    <rect x="76" y="76" width="872" height="872" rx="196" fill="url(#bgGradient)"/>
+    <circle cx="360" cy="244" r="316" fill="url(#bgBloom)"/>
+    <circle cx="788" cy="836" r="188" fill="#5B8CFF" fill-opacity="0.06"/>
+
+    <g filter="url(#shadow)">
+      <path d="M332 222H570C695 222 760 297 760 403C760 515 693 590 566 590H454V792H332V222ZM454 333V479H553C613 479 638 452 638 406C638 359 612 333 553 333H454Z" fill="url(#letterGradient)"/>
+      <path d="M332 222H570C695 222 760 297 760 403C760 515 693 590 566 590H454V792H332V222ZM454 333V479H553C613 479 638 452 638 406C638 359 612 333 553 333H454Z" stroke="url(#letterEdge)" stroke-width="6"/>
+    </g>
+
+    <g mask="url(#letterMask)">
+      <g filter="url(#glow)">
+        <rect x="254" y="490" width="548" height="124" rx="62" transform="rotate(-33 254 490)" fill="url(#streakGlow)"/>
+      </g>
+      <rect x="294" y="523" width="470" height="56" rx="28" transform="rotate(-33 294 523)" fill="url(#streakCore)"/>
+      <rect x="342" y="481" width="344" height="18" rx="9" transform="rotate(-33 342 481)" fill="#C9E0FF" fill-opacity="0.7"/>
+    </g>
+  </g>
+  <rect x="76.75" y="76.75" width="870.5" height="870.5" rx="195.25" stroke="#CBD5E1" stroke-opacity="0.08" stroke-width="1.5"/>
+</svg>

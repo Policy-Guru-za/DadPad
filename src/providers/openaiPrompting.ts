@@ -221,8 +221,8 @@ export function getMaxOutputTokens(mode: OpenAITransformMode, inputText: string)
   const inputTokens = Math.max(1, Math.round(inputText.length / 4));
 
   if (mode === "direct") {
-    return Math.min(8192, Math.round(inputTokens * 0.8) + 96);
+    return Math.min(12288, Math.round(inputTokens * 1.4) + 192);
   }
 
-  return Math.min(8192, Math.round(inputTokens * 1.3) + 128);
+  return Math.min(16384, Math.round(inputTokens * 2.0) + 256);
 }

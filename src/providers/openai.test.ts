@@ -252,6 +252,64 @@ describe("streamTransformWithOpenAI", () => {
     expect(requestBody.text).toEqual({ verbosity: "low" });
   });
 
+  it("uses larger default output budgets for polish-style rewrites", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: {},
+      json: async () => ({
+        response: {
+          output: [{ content: [{ text: "Polished." }] }],
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "x".repeat(100),
+      mode: "professional",
+      model: "gpt-5-nano-2025-08-07",
+      streaming: false,
+      timeoutMs: 5_000,
+      onDelta: () => undefined,
+    });
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >;
+    expect(requestBody.max_output_tokens).toBe(306);
+  });
+
+  it("uses a smaller but still over-provisioned budget for direct mode", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: {},
+      json: async () => ({
+        response: {
+          output: [{ content: [{ text: "Direct." }] }],
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "x".repeat(100),
+      mode: "direct",
+      model: "gpt-5-nano-2025-08-07",
+      streaming: false,
+      timeoutMs: 5_000,
+      onDelta: () => undefined,
+    });
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >;
+    expect(requestBody.max_output_tokens).toBe(227);
+  });
+
   it("uses an unambiguous internal label for polish mode and forbids translation", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -378,23 +436,22 @@ describe("streamTransformWithOpenAI", () => {
     expect(deltas).toEqual(["Hello"]);
   });
 
-  it("labels EOF-ended streams truncated when no terminal signal arrives", async () => {
+  it("fails safe when a delta-only stream ends before terminal markers", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       body: createSseBody([JSON.stringify({ type: "response.output_text.delta", delta: "Complete." })]),
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await streamTransformWithOpenAI({
-      apiKey: "test-key",
-      inputText: "source",
-      mode: "polish",
-      timeoutMs: 5_000,
-      onDelta: () => undefined,
-    });
-
-    expect(result.outputText).toBe("Complete.");
-    expect(result.truncatedByProvider).toBe(true);
+    await expect(
+      streamTransformWithOpenAI({
+        apiKey: "test-key",
+        inputText: "source",
+        mode: "polish",
+        timeoutMs: 5_000,
+        onDelta: () => undefined,
+      }),
+    ).rejects.toThrow("OpenAI stream ended before completing the rewrite. Original text preserved.");
   });
 
   it("uses terminal payload output when stream contains no delta events", async () => {
@@ -654,9 +711,9 @@ describe("streamTransformWithOpenAI", () => {
       unknown
     >;
     expect(firstRequestBody.max_output_tokens).toBe(100);
-    expect(secondRequestBody.max_output_tokens).toBe(228);
+    expect(secondRequestBody.max_output_tokens).toBe(356);
     expect(result.outputText).toBe("Recovered after retry.");
-    expect(result.maxOutputTokens).toBe(228);
+    expect(result.maxOutputTokens).toBe(356);
     expect(deltas).toEqual(["Recovered after retry."]);
   });
 
@@ -683,10 +740,41 @@ describe("streamTransformWithOpenAI", () => {
         inputText: "source",
         mode: "polish",
         timeoutMs: 5_000,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 16384,
         onDelta: () => undefined,
       }),
     ).rejects.toThrow("OpenAI used the output budget before producing text.");
+  });
+
+  it("fails safe instead of returning clipped text when OpenAI stops for length after partial output", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: createSseBody([
+        JSON.stringify({
+          type: "response.output_text.delta",
+          delta: "Partial rewrite",
+        }),
+        JSON.stringify({
+          type: "response.completed",
+          response: {
+            id: "resp_partial",
+            finish_reason: "length",
+            output: [{ content: [{ text: "Partial rewrite" }] }],
+          },
+        }),
+      ]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      streamTransformWithOpenAI({
+        apiKey: "test-key",
+        inputText: "source",
+        mode: "polish",
+        timeoutMs: 5_000,
+        onDelta: () => undefined,
+      }),
+    ).rejects.toThrow("OpenAI stopped before completing the rewrite. Original text preserved.");
   });
 
   it("surfaces explicit cancelled-state errors instead of empty output", async () => {
@@ -711,7 +799,7 @@ describe("streamTransformWithOpenAI", () => {
         inputText: "source",
         mode: "polish",
         timeoutMs: 5_000,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 16384,
         onDelta: () => undefined,
       }),
     ).rejects.toThrow("OpenAI cancelled the response before producing text.");

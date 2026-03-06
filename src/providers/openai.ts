@@ -8,6 +8,7 @@ import {
 import { deriveStructureIntent } from "../structuring/plainText";
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+const MAX_OUTPUT_TOKENS_CEILING = 16_384;
 
 export { DEFAULT_OPENAI_MODEL };
 export type { OpenAITransformMode };
@@ -198,7 +199,10 @@ function isTerminalStreamEventType(eventType: string | undefined): boolean {
   return (
     eventType === "response.completed" ||
     eventType === "response.done" ||
-    eventType === "response.output_text.done"
+    eventType === "response.output_text.done" ||
+    eventType === "response.content_part.done" ||
+    eventType === "response.output_item.done" ||
+    eventType === "response.refusal.done"
   );
 }
 
@@ -608,7 +612,15 @@ function getStreamErrorMessage(payload: unknown): string | null {
 }
 
 function expandMaxOutputTokens(current: number): number {
-  return Math.min(8192, Math.max(current + 128, Math.round(current * 1.75)));
+  return Math.min(MAX_OUTPUT_TOKENS_CEILING, Math.max(current + 256, Math.round(current * 1.75)));
+}
+
+function buildPartialLengthMessage(): string {
+  return "OpenAI stopped before completing the rewrite. Original text preserved.";
+}
+
+function buildUnexpectedStreamEndMessage(): string {
+  return "OpenAI stream ended before completing the rewrite. Original text preserved.";
 }
 
 function buildNoTextTerminalMessage(
@@ -657,7 +669,7 @@ export async function streamTransformWithOpenAI({
   const mergedSignal = mergeAbortSignals([signal, timeoutController.signal]);
   const maxOutputTokens =
     typeof maxOutputTokensOverride === "number" && Number.isFinite(maxOutputTokensOverride)
-      ? Math.min(8192, Math.max(1, Math.round(maxOutputTokensOverride)))
+      ? Math.min(MAX_OUTPUT_TOKENS_CEILING, Math.max(1, Math.round(maxOutputTokensOverride)))
       : getMaxOutputTokens(mode, inputText);
   const modelRequestControls = getModelRequestControls(model, mode);
   const structureIntent = deriveStructureIntent(inputText, mode, smartStructuring);
@@ -731,9 +743,6 @@ export async function streamTransformWithOpenAI({
         const finishReasonFromPayload = extractFinishReason(parsed);
         if (finishReasonFromPayload) {
           finishReason = finishReasonFromPayload;
-          if (isLengthTruncationReason(finishReasonFromPayload)) {
-            truncatedByProvider = true;
-          }
         }
 
         const outputTextFromPayload = extractFinalOutputText(parsed);
@@ -741,7 +750,7 @@ export async function streamTransformWithOpenAI({
           const canRetryForNoTextLengthLimit =
             isLengthTruncationReason(finishReason) &&
             !retriedForNoTextLengthLimit &&
-            currentMaxOutputTokens < 8192;
+            currentMaxOutputTokens < MAX_OUTPUT_TOKENS_CEILING;
           if (canRetryForNoTextLengthLimit) {
             currentMaxOutputTokens = expandMaxOutputTokens(currentMaxOutputTokens);
             retriedForNoTextLengthLimit = true;
@@ -755,6 +764,9 @@ export async function streamTransformWithOpenAI({
         }
 
         outputText = outputTextFromPayload;
+        if (isLengthTruncationReason(finishReason)) {
+          throw new OpenAIProviderError("unknown", buildPartialLengthMessage());
+        }
         onDelta(outputTextFromPayload);
         responseId = extractResponseId(parsed);
 
@@ -877,9 +889,6 @@ export async function streamTransformWithOpenAI({
         const eventFinishReason = extractFinishReason(parsed);
         if (eventFinishReason) {
           finishReason = eventFinishReason;
-          if (isLengthTruncationReason(eventFinishReason)) {
-            truncatedByProvider = true;
-          }
         }
       });
 
@@ -911,7 +920,7 @@ export async function streamTransformWithOpenAI({
         const canRetryForNoTextLengthLimit =
           isLengthTruncationReason(finishReason) &&
           !retriedForNoTextLengthLimit &&
-          currentMaxOutputTokens < 8192;
+          currentMaxOutputTokens < MAX_OUTPUT_TOKENS_CEILING;
         if (canRetryForNoTextLengthLimit) {
           currentMaxOutputTokens = expandMaxOutputTokens(currentMaxOutputTokens);
           retriedForNoTextLengthLimit = true;
@@ -924,8 +933,12 @@ export async function streamTransformWithOpenAI({
         );
       }
 
-      if (!sawExplicitStreamTermination && sawDeltaEvent && !finishReason) {
-        truncatedByProvider = true;
+      if (isLengthTruncationReason(finishReason)) {
+        throw new OpenAIProviderError("unknown", buildPartialLengthMessage());
+      }
+
+      if (!sawExplicitStreamTermination) {
+        throw new OpenAIProviderError("unknown", buildUnexpectedStreamEndMessage());
       }
 
       return {

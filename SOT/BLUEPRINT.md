@@ -20,7 +20,7 @@
 - Undo management
 - LLM provider clients (OpenAI, Anthropic)
 - Token protection (placeholder encode/decode/validate)
-- Output validation (truncation detection)
+- Output completion fail-safe
 
 **Tauri backend (Rust — minimal in V1):**
 
@@ -46,7 +46,7 @@ For a private utility tool used by one person, calling LLM APIs directly from th
 5. Frontend constructs prompt: system prompt + mode snippet + wrapped user text.
 6. Frontend calls provider API with streaming enabled.
 7. As chunks arrive: append to stream buffer, render progressively in editor.
-8. On stream completion: check finish reason for truncation. Decode placeholders. Validate placeholder restoration.
+8. On stream completion: decode placeholders, validate placeholder restoration, and fail safe if the provider explicitly reports a length stop before finishing.
 9. If validation passes: commit final text to editor, re-enable editing, show latency and mode in status bar.
 10. If validation fails: revert to undo snapshot, show warning ("Protected tokens could not be restored — original text preserved"), optionally show model output for manual review.
 11. User edits as needed.
@@ -90,7 +90,7 @@ polishpad/
     protect/
       placeholders.ts      # Encode, decode, validate protected tokens
     utils/
-      text.ts              # Word count, char count, truncation check
+      text.ts              # Word count, char count
       clipboard.ts         # Copy to clipboard
     types.ts               # App-wide types
   package.json
@@ -149,7 +149,7 @@ Not macOS Keychain (deferred to Phase 1). Not machine-ID derivation (fragile acr
 - Endpoint: use the currently recommended API for the chosen model (Chat Completions or Responses API). Implemented behind `openai.ts` so endpoint changes require only a client-level update, not a UI change.
 - Build messages array: system message (base prompt + mode snippet) + user message (wrapped text).
 - Streaming: consume SSE stream, parse `data:` lines, extract content deltas.
-- On final chunk: read `finish_reason`. If `"length"`, flag truncation.
+- On final chunk: read `finish_reason`. If `"length"`, treat the transform as incomplete and fail safe instead of committing clipped output.
 - Cancellation: use `AbortController` on the frontend fetch call.
 
 ### Anthropic
@@ -157,7 +157,7 @@ Not macOS Keychain (deferred to Phase 1). Not machine-ID derivation (fragile acr
 - Endpoint: `https://api.anthropic.com/v1/messages`
 - Build request: system field (base prompt + mode snippet) + messages array with user content (wrapped text).
 - Streaming: consume SSE stream, parse `content_block_delta` events, extract `delta.text`.
-- On final message: read `stop_reason`. If `"max_tokens"`, flag truncation.
+- On final message: read `stop_reason`. If `"max_tokens"`, treat the transform as incomplete and fail safe instead of committing clipped output.
 - Cancellation: use `AbortController` on the frontend fetch call.
 
 ---
@@ -334,13 +334,16 @@ Estimate input tokens roughly: `inputTokens ≈ characterCount / 4`.
 - Polish, Casual, Professional: `maxOutputTokens = Math.round(inputTokens * 1.3) + 128`
 - Direct: `maxOutputTokens = Math.round(inputTokens * 0.8) + 96`
 
-### Truncation post-check
+### Output completion fail-safe
 
 After receiving the complete response:
 
-1. Check provider finish reason. If `finish_reason === "length"` (OpenAI) or `stop_reason === "max_tokens"` (Anthropic): flag as likely truncated.
-2. If finish reason is normal but the output does not end with a natural sentence terminator (`.`, `?`, `!`, `…`, or a closing quote/paren immediately after one of these): flag as possibly truncated.
-3. On flag: show warning in status bar with a one-click "Retry (more room)" action. The retry reruns the same mode with `maxOutputTokens * 1.5` (capped at 8192). Do not suppress the output — let the user decide whether to retry or use it as-is.
+1. Over-provision `maxOutputTokens` up front:
+   - Polish, Casual, Professional: `Math.min(16384, Math.round(inputTokens * 2.0) + 256)`
+   - Direct: `Math.min(12288, Math.round(inputTokens * 1.4) + 192)`
+2. If the provider explicitly reports a length-style finish reason (`"length"`, `"max_output_tokens"`, or `"max_tokens"`), treat the rewrite as incomplete.
+3. If no user-visible text is produced and the budget can still expand, retry once internally with a larger budget.
+4. If partial user-visible text exists and the provider still reports a length stop, do not commit it. Restore the original editor text and surface a clear error message instead.
 
 ---
 
@@ -392,7 +395,7 @@ After receiving the complete response:
 - Text with inline code and fenced code blocks → verify preserved verbatim.
 - Long email with action items → Direct → verify meaningful shortening with bullets.
 - Same input → Casual vs Professional → verify distinct tone.
-- Very long input (1000+ words) → verify truncation warning shown if needed, and "Retry (more room)" works.
+- Very long input (1000+ words) → verify the app either completes normally or restores the original text with a clear incomplete-output error; no clipped output is committed.
 - Empty input → verify graceful handling (no API call, show message).
 
 ---
@@ -438,11 +441,11 @@ Implement `src/protect/placeholders.ts`: encode, decode, validate. Integrate int
 
 **Deliverable:** URLs, emails, numbers survive transforms. Mismatch triggers visible warning and revert.
 
-### Step 6 — Truncation warning
+### Step 6 — Output completion fail-safe
 
-Read finish reason from OpenAI stream. Implement punctuation heuristic as fallback. Show warning in status bar on detection.
+Read provider finish reasons. Over-provision the output budget up front. If the provider still stops for length before completing the rewrite, restore the original text and surface a clear error instead of committing clipped output.
 
-**Deliverable:** User is warned if output appears truncated.
+**Deliverable:** Clipped/incomplete output is not committed to the editor.
 
 ### Step 7 — Casual + Professional modes
 

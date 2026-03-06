@@ -6,6 +6,9 @@
 .LSOverride
 Icon?
 ._*
+!src-tauri/icons/
+!src-tauri/icons/**
+src-tauri/icons/.DS_Store
 
 # -----------------------------
 # Editor / IDE
