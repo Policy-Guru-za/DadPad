@@ -27,6 +27,7 @@ import {
 type TransformMode = "Polish" | "Casual" | "Professional" | "Direct";
 type WiredTransformMode = TransformMode;
 type ToneMode = Exclude<TransformMode, "Polish">;
+type SettingsSaveStatus = "idle" | "saving" | "saved" | "error";
 
 const TONE_MODES: ToneMode[] = [
   "Casual",
@@ -36,9 +37,10 @@ const TONE_MODES: ToneMode[] = [
 
 const MISSING_API_KEY_MESSAGE = "Set API key in Settings.";
 const CREATOR_HANDLE = "@laup30";
-const CREATOR_LOCATION = "Cape Town, South Africa";
-const TONE_LOCKED_HELPER = "Unlocks after one Polish pass.";
-const TONE_READY_HELPER = "Choose the final tone.";
+const CREATOR_LOCATION = "Cape Town";
+// Tone helper messages (available for future use)
+// const TONE_LOCKED_HELPER = "Unlocks after one Polish pass.";
+// const TONE_READY_HELPER = "Choose the final tone.";
 
 function countWords(value: string): number {
   const trimmed = value.trim();
@@ -133,7 +135,7 @@ function App() {
   const [settingsDraft, setSettingsDraft] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsSaveStatus, setSettingsSaveStatus] = useState<SettingsSaveStatus>("idle");
   const [settingsMessage, setSettingsMessage] = useState("");
   const setStatusMessage = (_nextStatusMessage: string): void => undefined;
 
@@ -144,12 +146,34 @@ function App() {
     end: null,
   });
   const resetToneLockOnNextChangeRef = useRef(false);
+  const settingsSaveResetTimeoutRef = useRef<number | null>(null);
 
   const wordCount = useMemo(() => countWords(text), [text]);
   const charCount = text.length;
   const apiKeyMissing = settings.openaiApiKey.trim().length === 0;
   const transformsDisabled = isStreaming || !isSettingsLoaded || apiKeyMissing;
   const toneModesDisabled = transformsDisabled || !hasPolishedCurrentSession;
+  const isSavingSettings = settingsSaveStatus === "saving";
+
+  const clearSettingsSaveResetTimeout = (): void => {
+    if (settingsSaveResetTimeoutRef.current !== null) {
+      window.clearTimeout(settingsSaveResetTimeoutRef.current);
+      settingsSaveResetTimeoutRef.current = null;
+    }
+  };
+
+  const resetSettingsSaveFeedback = (): void => {
+    clearSettingsSaveResetTimeout();
+    setSettingsSaveStatus((current) =>
+      current === "saved" || current === "error" ? "idle" : current,
+    );
+    setSettingsMessage("");
+  };
+
+  const updateSettingsDraft = (updater: (current: AppSettings) => AppSettings): void => {
+    resetSettingsSaveFeedback();
+    setSettingsDraft((current) => updater(current));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -180,6 +204,14 @@ function App() {
 
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (settingsSaveResetTimeoutRef.current !== null) {
+        window.clearTimeout(settingsSaveResetTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -372,19 +404,24 @@ function App() {
       return;
     }
 
-    setIsSavingSettings(true);
+    clearSettingsSaveResetTimeout();
+    setSettingsSaveStatus("saving");
     setSettingsMessage("");
 
     try {
       const saved = await writeAppSettings(settingsDraft);
       setSettings(saved);
       setSettingsDraft(saved);
+      setSettingsSaveStatus("saved");
+      settingsSaveResetTimeoutRef.current = window.setTimeout(() => {
+        setSettingsSaveStatus("idle");
+        settingsSaveResetTimeoutRef.current = null;
+      }, 1800);
       setStatusMessage(saved.openaiApiKey ? "Settings saved." : MISSING_API_KEY_MESSAGE);
     } catch {
+      setSettingsSaveStatus("error");
       setSettingsMessage("Unable to save settings.");
       setStatusMessage("Unable to save settings.");
-    } finally {
-      setIsSavingSettings(false);
     }
   };
 
@@ -403,77 +440,54 @@ function App() {
 
   return (
     <main className="app-shell">
-      <header className="toolbar" aria-label="PolishPad toolbar">
-        <div className="toolbar-section transform-section">
-          <div className="transform-panel transform-panel-primary">
-            <span className="toolbar-label">Start</span>
-            <button
-              type="button"
-              className={`polish-btn${lastMode === "Polish" ? " active" : ""}${activeStreamMode === "Polish" && isStreaming ? " streaming" : ""}`}
-              disabled={transformsDisabled}
-              onClick={() => handleTransformClick("Polish")}
-            >
-              Polish
-            </button>
-          </div>
+      {/* Enso circle — brushstroke watermark */}
+      <svg className="enso" viewBox="0 0 200 200" aria-hidden="true">
+        <circle cx="100" cy="100" r="80" fill="none" stroke="#1c1b18" strokeWidth="8" strokeLinecap="round" strokeDasharray="420 80" transform="rotate(-30 100 100)" />
+      </svg>
 
-          <div className={`transform-panel transform-panel-tone${hasPolishedCurrentSession ? " unlocked" : " locked"}`}>
-            <div className="tone-heading">
-              <span className="toolbar-label">After Polish</span>
-              <span className="tone-helper">
-                {hasPolishedCurrentSession ? TONE_READY_HELPER : TONE_LOCKED_HELPER}
-              </span>
-            </div>
-            <div className="segmented-control tone-control" aria-label="Tone options">
-              {TONE_MODES.map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  className={`mode-btn${lastMode === mode ? " active" : ""}${activeStreamMode === mode && isStreaming ? " streaming" : ""}`}
-                  disabled={toneModesDisabled}
-                  onClick={() => handleTransformClick(mode)}
-                >
-                  {mode}
-                </button>
-              ))}
-            </div>
-          </div>
+      {/* Header — brand + action buttons */}
+      <header className="header">
+        <div className="brand-area">
+          <span className="brand-jp">磨く — to polish</span>
+          <h1 className="brand-title">PolishPad</h1>
         </div>
-
-        <div className="toolbar-section toolbar-actions">
-            <button
-              type="button"
-              className="action-btn"
-              onClick={handleCancel}
-              disabled={!isStreaming}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="action-btn"
-              onClick={handleUndo}
-              disabled={isStreaming || !canUndo}
-            >
-              Undo
-            </button>
-            <button
-              type="button"
-              className={`action-btn primary${copyFeedback === "Copied" ? " copied" : ""}`}
-              onClick={handleCopy}
-              disabled={text.length === 0 || isStreaming}
-            >
-              {copyFeedback === "Copied" ? "\u2713 Copied" : "Copy"}
-            </button>
-            <button
-              type="button"
-              className="action-btn settings-trigger"
-              onClick={() => setIsSettingsOpen((open) => !open)}
-            >
-              {isSettingsOpen ? "Close" : "Settings"}
-            </button>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="action-btn"
+            onClick={handleCancel}
+            disabled={!isStreaming}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="action-btn"
+            onClick={handleUndo}
+            disabled={isStreaming || !canUndo}
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            className={`action-btn primary${copyFeedback === "Copied" ? " copied" : ""}`}
+            onClick={handleCopy}
+            disabled={text.length === 0 || isStreaming}
+          >
+            {copyFeedback === "Copied" ? "\u2713 Copied" : "Copy"}
+          </button>
+          <button
+            type="button"
+            className="action-btn settings-trigger"
+            onClick={() => setIsSettingsOpen((open) => !open)}
+          >
+            {isSettingsOpen ? "Close" : "Settings"}
+          </button>
         </div>
       </header>
+
+      {/* Ink line divider with vermillion accent */}
+      <div className="ink-line" aria-hidden="true" />
 
       {apiKeyMissing ? <p className="settings-warning">{MISSING_API_KEY_MESSAGE}</p> : null}
 
@@ -490,7 +504,7 @@ function App() {
                 value={settingsDraft.openaiApiKey}
                 onChange={(event) => {
                   const nextOpenAiApiKey = event.currentTarget.value;
-                  setSettingsDraft((current) => ({
+                  updateSettingsDraft((current) => ({
                     ...current,
                     openaiApiKey: nextOpenAiApiKey,
                   }));
@@ -509,7 +523,7 @@ function App() {
                 value={settingsDraft.model}
                 onChange={(event) => {
                   const nextModel = event.currentTarget.value;
-                  setSettingsDraft((current) => ({
+                  updateSettingsDraft((current) => ({
                     ...current,
                     model: nextModel,
                   }));
@@ -529,7 +543,7 @@ function App() {
                 value={settingsDraft.temperature}
                 onChange={(event) => {
                   const nextTemperatureRaw = Number(event.currentTarget.value);
-                  setSettingsDraft((current) => ({
+                  updateSettingsDraft((current) => ({
                     ...current,
                     temperature: Number.isFinite(nextTemperatureRaw)
                       ? nextTemperatureRaw
@@ -544,7 +558,7 @@ function App() {
                   checked={settingsDraft.streaming}
                   onChange={(event) => {
                     const nextStreaming = event.currentTarget.checked;
-                    setSettingsDraft((current) => ({
+                    updateSettingsDraft((current) => ({
                       ...current,
                       streaming: nextStreaming,
                     }));
@@ -559,7 +573,7 @@ function App() {
                   checked={settingsDraft.tokenProtection}
                   onChange={(event) => {
                     const nextTokenProtection = event.currentTarget.checked;
-                    setSettingsDraft((current) => ({
+                    updateSettingsDraft((current) => ({
                       ...current,
                       tokenProtection: nextTokenProtection,
                     }));
@@ -571,14 +585,14 @@ function App() {
               <div className="settings-toggle-group">
                 <label className="settings-checkbox">
                   <input
-                    type="checkbox"
-                    checked={settingsDraft.smartStructuring}
-                    onChange={(event) => {
-                      const nextSmartStructuring = event.currentTarget.checked;
-                      setSettingsDraft((current) => ({
-                        ...current,
-                        smartStructuring: nextSmartStructuring,
-                      }));
+                  type="checkbox"
+                  checked={settingsDraft.smartStructuring}
+                  onChange={(event) => {
+                    const nextSmartStructuring = event.currentTarget.checked;
+                    updateSettingsDraft((current) => ({
+                      ...current,
+                      smartStructuring: nextSmartStructuring,
+                    }));
                     }}
                   />
                   Smart message structuring
@@ -589,23 +603,60 @@ function App() {
               </div>
 
               <div className="settings-actions">
-                <button type="submit" className="save-settings-button" disabled={isSavingSettings}>
-                  {isSavingSettings ? "Saving..." : "Save Settings"}
+                <button
+                  type="submit"
+                  className={`save-settings-button${settingsSaveStatus === "saved" ? " saved" : ""}`}
+                  disabled={isSavingSettings}
+                >
+                  {settingsSaveStatus === "saving"
+                    ? "Saving..."
+                    : settingsSaveStatus === "saved"
+                      ? "Saved"
+                      : "Save Settings"}
                 </button>
-                <span className="settings-message">{settingsMessage}</span>
+                {settingsMessage ? <span className="settings-message">{settingsMessage}</span> : null}
               </div>
           </form>
         </section>
       ) : null}
 
-      <section className="editor-area">
+      {/* Controls — Polish button + tone selector */}
+      <div className="controls">
+        <button
+          type="button"
+          className={`polish-btn${lastMode === "Polish" ? " active" : ""}${activeStreamMode === "Polish" && isStreaming ? " streaming" : ""}`}
+          disabled={transformsDisabled}
+          onClick={() => handleTransformClick("Polish")}
+        >
+          <span>Polish</span>
+        </button>
+        <div className="tone-area">
+          <span className="tone-label">After polish</span>
+          <div className={`tone-group${hasPolishedCurrentSession ? "" : " locked"}`} aria-label="Tone options">
+            {TONE_MODES.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={`tone-btn${lastMode === mode ? " active" : ""}${activeStreamMode === mode && isStreaming ? " streaming" : ""}`}
+                disabled={toneModesDisabled}
+                onClick={() => handleTransformClick(mode)}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Editor */}
+      <section className="editor-section">
         <span className="editor-label" aria-hidden="true">
           Your text
         </span>
         <label className="sr-only" htmlFor="editor">
           Text editor
         </label>
-        <div className="editor-wrapper">
+        <div className="editor-frame">
           <textarea
             id="editor"
             className="editor"
@@ -621,34 +672,22 @@ function App() {
         </div>
       </section>
 
-      <div className="stats-bar" aria-live="polite">
-        <span className="stat-item">Words: {wordCount}</span>
-        <span className="stat-divider" aria-hidden="true" />
-        <span className="stat-item">Characters: {charCount}</span>
-        <span className="stat-divider" aria-hidden="true" />
-        <span className="stat-item">Last mode: {lastMode ?? "None"}</span>
-        <span className="stat-divider" aria-hidden="true" />
-        <span className="stat-item">Latency: {latencyMs === null ? "\u2013" : `${latencyMs} ms`}</span>
-        <span className="stat-divider" aria-hidden="true" />
-        <span className="stat-item">Warnings: {warning}</span>
-        <span className="copy-feedback">{copyFeedback}</span>
-      </div>
+      {/* Bottom divider */}
+      <div className="bottom-line" aria-hidden="true" />
 
+      {/* Footer — stats left, credit right */}
       <footer className="footer">
-        <div className="credit" aria-label="App creator">
-          <span className="credit-handle">{CREATOR_HANDLE}</span>
-          <span className="credit-dot" aria-hidden="true">
-            ·
-          </span>
-          <span className="credit-location">
-            <span>Made in</span>
-            <span className="credit-flag" aria-hidden="true">
-              🇿🇦
-            </span>
-            <span>{CREATOR_LOCATION}</span>
-          </span>
+        <div className="stats" aria-live="polite">
+          <span><span className="stat-val">{wordCount}</span> words</span>
+          <span><span className="stat-val">{charCount}</span> chars</span>
+          <span>Mode: {lastMode ?? "None"}</span>
+          <span>Latency: {latencyMs === null ? "\u2013" : `${latencyMs} ms`}</span>
+          <span>Warnings: {warning}</span>
         </div>
-        <span className="hanko" aria-hidden="true">P</span>
+        <div className="footer-right">
+          <span className="attribution">{CREATOR_HANDLE} · 🇿🇦 {CREATOR_LOCATION}</span>
+          <div className="hanko" aria-hidden="true">P</div>
+        </div>
       </footer>
     </main>
   );

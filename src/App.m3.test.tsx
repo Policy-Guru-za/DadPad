@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -95,6 +95,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.clearAllMocks();
 });
 
@@ -103,11 +104,10 @@ describe("M8 settings gating", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText("App creator")).toBeTruthy();
-      expect(screen.getByText("@laup30")).toBeTruthy();
-      expect(screen.getByText("Made in")).toBeTruthy();
-      expect(screen.getByText("Cape Town, South Africa")).toBeTruthy();
+      expect(screen.getByText(/@laup30/)).toBeTruthy();
+      expect(screen.getByText(/Cape Town/)).toBeTruthy();
       expect(screen.queryByLabelText("Toggle theme")).toBeNull();
+      expect(screen.queryByText(/Created by/i)).toBeNull();
       expect(screen.queryByText("Rock Kestrel Ventures")).toBeNull();
     });
   });
@@ -147,7 +147,8 @@ describe("M8 settings gating", () => {
       expect((screen.getByRole("button", { name: "Direct" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
-      expect(screen.getByText("Unlocks after one Polish pass.")).toBeTruthy();
+      expect(screen.getByText("After polish")).toBeTruthy();
+      expect(screen.getByLabelText("Tone options")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
     });
   });
@@ -181,6 +182,111 @@ describe("M8 settings gating", () => {
 
     await waitFor(() => {
       expect(apiKeyInput.value).toBe("sk-proj-testkey-1234567890");
+      expect(screen.getByRole("button", { name: "Save Settings" })).toBeTruthy();
+    });
+  });
+
+  it("shows only the placeholder when no API key has been saved", async () => {
+    readAppSettingsMock.mockResolvedValue({
+      ...TEST_SETTINGS,
+      openaiApiKey: "",
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+
+    const apiKeyInput = screen.getByLabelText("OpenAI API key") as HTMLInputElement;
+
+    await waitFor(() => {
+      expect(apiKeyInput.type).toBe("password");
+      expect(apiKeyInput.value).toBe("");
+      expect(apiKeyInput.placeholder).toBe("sk-...");
+    });
+  });
+
+  it("keeps a saved API key in the native masked password field", async () => {
+    render(<App />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+
+    const apiKeyInput = screen.getByLabelText("OpenAI API key") as HTMLInputElement;
+
+    await waitFor(() => {
+      expect(apiKeyInput.type).toBe("password");
+      expect(apiKeyInput.value).toBe(TEST_SETTINGS.openaiApiKey);
+    });
+  });
+
+  it("shows saving and saved button states after a successful settings save", async () => {
+    let resolveSave: (() => void) | null = null;
+    writeAppSettingsMock.mockImplementation(
+      async (settings) =>
+        await new Promise<typeof TEST_SETTINGS>((resolve) => {
+          resolveSave = () => resolve(settings);
+        }),
+    );
+
+    render(<App />);
+    await screen.findByRole("button", { name: "Settings" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Settings" }));
+
+    await waitFor(() => {
+      const savingButton = screen.getByRole("button", { name: "Saving..." }) as HTMLButtonElement;
+      expect(savingButton.disabled).toBe(true);
+    });
+
+    await act(async () => {
+      resolveSave?.();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Saved" })).toBeTruthy();
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 1850));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Save Settings" })).toBeTruthy();
+    });
+  }, 7000);
+
+  it("resets the saved button state as soon as settings are edited again", async () => {
+    render(<App />);
+    await screen.findByRole("button", { name: "Settings" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Settings" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Saved" })).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByLabelText("Model"), {
+      target: { value: "gpt-5-nano-2025-08-07-alt" },
+    });
+
+    expect(screen.getByRole("button", { name: "Save Settings" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Saved" })).toBeNull();
+  });
+
+  it("keeps inline settings feedback for save failures only", async () => {
+    writeAppSettingsMock.mockRejectedValueOnce(new Error("save failed"));
+
+    render(<App />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await user.click(screen.getByRole("button", { name: "Save Settings" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Unable to save settings.")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Save Settings" })).toBeTruthy();
     });
   });
@@ -488,7 +594,7 @@ describe("M4 direct mode wiring", () => {
     await waitFor(() => {
       expect(editor.value).toBe("Short output.");
       expect(screen.getByText(/^Latency: \d+ ms$/)).toBeTruthy();
-      expect(screen.getByText("Last mode: Direct")).toBeTruthy();
+      expect(screen.getByText("Mode: Direct")).toBeTruthy();
       expect(screen.getByText("Warnings: None")).toBeTruthy();
       expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
         expect.objectContaining({ mode: "direct" }),
@@ -586,7 +692,7 @@ describe("M7 casual/professional mode wiring", () => {
     await waitFor(() => {
       expect(editor.value).toBe("Hey team, quick update.");
       expect(screen.getByText(/^Latency: \d+ ms$/)).toBeTruthy();
-      expect(screen.getByText("Last mode: Casual")).toBeTruthy();
+      expect(screen.getByText("Mode: Casual")).toBeTruthy();
       expect(screen.getByText("Warnings: None")).toBeTruthy();
       expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
         expect.objectContaining({ mode: "casual" }),
@@ -625,7 +731,7 @@ describe("M7 casual/professional mode wiring", () => {
     await waitFor(() => {
       expect(editor.value).toBe("Good morning team. Please review the attached plan.");
       expect(screen.getByText(/^Latency: \d+ ms$/)).toBeTruthy();
-      expect(screen.getByText("Last mode: Professional")).toBeTruthy();
+      expect(screen.getByText("Mode: Professional")).toBeTruthy();
       expect(screen.getByText("Warnings: None")).toBeTruthy();
       expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
         expect.objectContaining({ mode: "professional" }),

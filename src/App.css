@@ -1,8 +1,10 @@
-:root {
-  --font-body: "Karla", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-  --font-display: "Cormorant Garamond", "Georgia", "Times New Roman", serif;
-  --font-mono: "Karla", system-ui, sans-serif;
+/* ============================================================
+   PolishPad — Wabi-Sabi Minimal (Variant 5)
+   Pixel-matched to variant-5-japanese.html reference
+   ============================================================ */
 
+:root {
+  /* ---- Colour tokens ---- */
   --sumi: #1c1b18;
   --charcoal: #363530;
   --warm-gray: #7a7870;
@@ -10,357 +12,123 @@
   --washi: #eae6de;
   --paper: #f4f1eb;
   --snow: #faf8f4;
-
   --vermillion: #c5453a;
   --vermillion-soft: rgba(197, 69, 58, 0.08);
   --vermillion-border: rgba(197, 69, 58, 0.2);
-
-  --bg-base: var(--paper);
-  --bg-warm: var(--washi);
-  --bg-card: var(--paper);
-  --bg-card-bottom: var(--paper);
-  --border-card: transparent;
-  --border-subtle: var(--washi);
-
-  --ink-primary: var(--sumi);
-  --ink-secondary: var(--warm-gray);
-  --ink-muted: var(--ash);
-  --ink-faint: var(--washi);
-
-  --accent: var(--sumi);
-  --accent-hover: var(--charcoal);
-  --accent-glow: rgba(28, 27, 24, 0.06);
-  --accent-soft: rgba(28, 27, 24, 0.04);
-
+  --indigo: #3d5a80;
+  --indigo-soft: rgba(61, 90, 128, 0.08);
   --success: #5a7a5e;
-  --warning-text: var(--vermillion);
-  --error-text: var(--vermillion);
-
-  --shadow-card: none;
-  --shadow-inset: none;
-  --shadow-focus: 0 8px 40px rgba(28, 27, 24, 0.04);
-
-  --space-xs: 6px;
-  --space-sm: 12px;
-  --space-md: 20px;
-  --space-lg: 36px;
-  --space-xl: 48px;
-
-  --radius-lg: 0;
-  --radius-md: 0;
-  --radius-sm: 2px;
-  --radius-xs: 2px;
-
-  --transition-fast: 200ms ease;
-  --transition-smooth: 350ms cubic-bezier(0.22, 1, 0.36, 1);
-
-  font-size: 15px;
-  line-height: 1.5;
-  font-weight: 400;
-  color: var(--sumi);
-  background-color: var(--paper);
-  font-family: var(--font-body);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
 }
 
-*,
-*::before,
-*::after {
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
 }
 
 body {
-  margin: 0;
-  min-height: 100vh;
+  font-family: 'Karla', sans-serif;
   background: var(--paper);
   color: var(--sumi);
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 20px;
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
-  position: relative;
-  z-index: 1;
-  min-height: 100vh;
+  width: 100%;
   display: flex;
   justify-content: center;
-  padding: 0 var(--space-md);
 }
+
+/* ============================================================
+   Container / App Shell
+   ============================================================ */
 
 .app-shell {
   width: 100%;
   max-width: 720px;
-  margin: 0 auto;
-  padding: var(--space-xl) var(--space-lg);
-  background: var(--paper);
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
   position: relative;
   animation: breathe 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.app-shell::before {
-  content: "";
+/* ============================================================
+   Enso circle — SVG brushstroke watermark
+   ============================================================ */
+
+.enso {
   position: absolute;
-  top: -40px;
-  right: -20px;
+  top: -80px;
+  right: -40px;
   width: 200px;
   height: 200px;
-  border-radius: 50%;
-  border: 8px solid var(--sumi);
   opacity: 0.04;
   pointer-events: none;
-  clip-path: polygon(0 0, 100% 0, 100% 85%, 75% 100%, 0 100%);
 }
 
-.toolbar {
+/* ============================================================
+   Header — brand + action buttons
+   ============================================================ */
+
+.header {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  padding: 0;
-  margin-bottom: var(--space-xl);
-  border-bottom: 1px solid rgba(28, 27, 24, 0.12);
-  padding-bottom: var(--space-lg);
-  position: relative;
+  margin-bottom: 48px;
 }
 
-.toolbar::after {
-  content: "";
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  width: 48px;
-  height: 3px;
-  background: var(--vermillion);
-  opacity: 0.6;
-}
-
-.toolbar-section {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-sm);
-}
-
-.transform-section {
+.brand-area {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: 4px;
 }
 
-.toolbar-actions {
+.brand-jp {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--ash);
+  letter-spacing: 4px;
+}
+
+.brand-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 32px;
+  font-weight: 400;
+  color: var(--sumi);
+  letter-spacing: 1px;
+}
+
+.header-actions {
   display: flex;
   gap: 4px;
   align-items: flex-end;
-  flex-wrap: wrap;
 }
 
-.transform-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.transform-panel-tone {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.transform-panel-tone.locked {
-  opacity: 0.3;
-}
-
-.transform-panel-tone.unlocked {
-  opacity: 1;
-}
-
-.toolbar-label {
-  font-family: var(--font-display);
-  font-size: 0.65rem;
-  font-weight: 300;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  color: var(--ash);
-}
-
-.tone-heading {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.tone-helper {
-  font-family: var(--font-display);
-  font-size: 0.72rem;
-  font-style: italic;
-  font-weight: 300;
-  color: var(--ash);
-}
-
-.segmented-control {
-  display: flex;
-  gap: 2px;
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
-  border: none;
-}
-
-.tone-control {
-  position: relative;
-}
-
-.polish-btn {
-  appearance: none;
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 400;
-  letter-spacing: 1px;
-  padding: 10px 32px;
-  background: transparent;
-  color: var(--sumi);
-  border: 1.5px solid var(--sumi);
-  border-radius: 0;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  transition: color var(--transition-smooth), border-color var(--transition-fast),
-    opacity var(--transition-fast);
-}
-
-.polish-btn::before {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 0;
-  height: 100%;
-  background: var(--sumi);
-  transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-  z-index: -1;
-}
-
-.polish-btn:hover:not(:disabled)::before,
-.polish-btn.active::before {
-  width: 100%;
-}
-
-.polish-btn:hover:not(:disabled),
-.polish-btn.active {
-  color: var(--paper);
-}
-
-.polish-btn.streaming::after {
-  content: "";
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-left: 8px;
-  border-radius: 50%;
-  background: var(--vermillion);
-  vertical-align: middle;
-  animation: pulse 1.2s ease-in-out infinite;
-}
-
-.polish-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
-  border-color: var(--ash);
-  color: var(--ash);
-}
-
-.polish-btn:disabled::before {
-  width: 0;
-}
-
-.mode-btn {
-  appearance: none;
-  font-family: var(--font-body);
-  font-size: 0.78rem;
-  font-weight: 300;
-  padding: 6px 14px;
-  background: transparent;
-  border: 1px solid var(--washi);
-  border-radius: 0;
-  color: var(--ash);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.mode-btn:first-child {
-  border-radius: 2px 0 0 2px;
-}
-
-.mode-btn:last-child {
-  border-radius: 0 2px 2px 0;
-}
-
-.mode-btn:hover:not(:disabled) {
-  border-color: var(--vermillion-border);
-  color: var(--vermillion);
-  background: var(--vermillion-soft);
-}
-
-.mode-btn.active {
-  background: var(--sumi);
-  color: var(--paper);
-  border-color: var(--sumi);
-  font-weight: 400;
-  box-shadow: none;
-}
-
-.mode-btn.streaming::after {
-  content: "";
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-left: 6px;
-  border-radius: 50%;
-  background: var(--vermillion);
-  vertical-align: middle;
-  animation: pulse 1.2s ease-in-out infinite;
-}
-
-.mode-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
-  color: var(--ash);
-  border-color: var(--washi);
-  background: transparent;
-}
+/* ============================================================
+   Action buttons (Cancel, Undo, Copy, Settings)
+   ============================================================ */
 
 .action-btn {
-  appearance: none;
-  font-family: var(--font-body);
-  font-size: 0.78rem;
+  font-family: 'Karla', sans-serif;
+  font-size: 12px;
   font-weight: 400;
   padding: 8px 16px;
+  border: none;
   background: transparent;
   color: var(--warm-gray);
-  border: none;
-  border-radius: 0;
   cursor: pointer;
-  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
+  transition: color 0.2s ease;
   letter-spacing: 0.3px;
+  appearance: none;
 }
 
 .action-btn:hover:not(:disabled) {
@@ -370,24 +138,22 @@ body::before {
 .action-btn:disabled {
   opacity: 0.3;
   cursor: default;
-  color: var(--ash);
 }
 
 .action-btn.primary {
   background: var(--sumi);
   color: var(--paper);
-  font-weight: 500;
   border-radius: 2px;
-}
-
-.action-btn.primary:disabled {
-  background: rgba(122, 120, 112, 0.72);
-  color: var(--snow);
+  font-weight: 500;
 }
 
 .action-btn.primary:hover:not(:disabled) {
   background: var(--charcoal);
   color: var(--snow);
+}
+
+.action-btn.primary:disabled {
+  opacity: 0.3;
 }
 
 .action-btn.primary.copied {
@@ -401,17 +167,192 @@ body::before {
   color: var(--ash);
 }
 
-.action-btn.settings-trigger:disabled {
-  border-color: rgba(122, 120, 112, 0.2);
-}
-
 .action-btn.settings-trigger:hover:not(:disabled) {
   border-color: var(--ash);
   color: var(--warm-gray);
 }
 
+.action-btn.settings-trigger:disabled {
+  border-color: rgba(122, 120, 112, 0.2);
+  opacity: 0.3;
+}
+
+/* ============================================================
+   Ink line divider — sumi line with vermillion accent
+   ============================================================ */
+
+.ink-line {
+  width: 100%;
+  height: 1px;
+  background: var(--sumi);
+  margin-bottom: 36px;
+  position: relative;
+  opacity: 0.12;
+}
+
+.ink-line::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -1px;
+  width: 48px;
+  height: 3px;
+  background: var(--vermillion);
+  opacity: 0.6;
+}
+
+/* ============================================================
+   Controls — Polish button + tone selector
+   ============================================================ */
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 36px;
+}
+
+/* Polish button */
+.polish-btn {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 16px;
+  font-weight: 400;
+  padding: 10px 32px;
+  background: transparent;
+  color: var(--sumi);
+  border: 1.5px solid var(--sumi);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 1px;
+  position: relative;
+  overflow: hidden;
+  appearance: none;
+}
+
+.polish-btn::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 100%;
+  background: var(--sumi);
+  transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 0;
+}
+
+.polish-btn span {
+  position: relative;
+  z-index: 1;
+  transition: color 0.35s ease;
+}
+
+.polish-btn:hover:not(:disabled)::before,
+.polish-btn.active::before {
+  width: 100%;
+}
+
+.polish-btn:hover:not(:disabled) span,
+.polish-btn.active span {
+  color: var(--paper);
+}
+
+.polish-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.polish-btn:disabled::before {
+  width: 0;
+}
+
+.polish-btn.streaming::after {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: var(--vermillion);
+  vertical-align: middle;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* Tone area */
+.tone-area {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.tone-group.locked {
+  opacity: 0.45;
+}
+
+.tone-label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ash);
+  font-weight: 400;
+}
+
+.tone-group {
+  display: flex;
+  gap: 2px;
+}
+
+.tone-btn {
+  font-family: 'Karla', sans-serif;
+  font-size: 12px;
+  font-weight: 300;
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--washi);
+  color: var(--ash);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+}
+
+.tone-btn:first-child { border-radius: 2px 0 0 2px; }
+.tone-btn:last-child { border-radius: 0 2px 2px 0; }
+
+.tone-btn:hover:not(:disabled) {
+  border-color: var(--vermillion-border);
+  color: var(--vermillion);
+  background: var(--vermillion-soft);
+}
+
+.tone-btn.active {
+  background: var(--sumi);
+  color: var(--paper);
+  border-color: var(--sumi);
+  font-weight: 400;
+}
+
+.tone-btn:disabled {
+  cursor: default;
+}
+
+.tone-btn.streaming::after {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--vermillion);
+  vertical-align: middle;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* ============================================================
+   Settings panel
+   ============================================================ */
+
 .settings-warning {
-  margin: 0 0 var(--space-md);
+  margin: 0 0 20px;
   color: var(--vermillion);
   font-size: 0.85rem;
   font-weight: 500;
@@ -421,19 +362,19 @@ body::before {
   background: var(--snow);
   border: 1px solid var(--washi);
   border-radius: 0;
-  padding: var(--space-md);
-  margin: 0 0 var(--space-md);
+  padding: 20px;
+  margin: 0 0 20px;
 }
 
 .settings-form {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-sm) var(--space-md);
-  margin-bottom: var(--space-md);
+  gap: 12px 20px;
+  margin-bottom: 20px;
 }
 
 .settings-field {
-  font-family: var(--font-body);
+  font-family: 'Karla', sans-serif;
   font-size: 0.82rem;
   font-weight: 500;
   color: var(--warm-gray);
@@ -441,7 +382,7 @@ body::before {
 }
 
 .settings-input {
-  font-family: var(--font-body);
+  font-family: 'Karla', sans-serif;
   font-size: 0.85rem;
   padding: 8px 12px;
   background: var(--paper);
@@ -460,7 +401,7 @@ body::before {
 .settings-checkbox {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 6px;
   font-size: 0.85rem;
   color: var(--sumi);
   cursor: pointer;
@@ -484,10 +425,10 @@ body::before {
 .settings-actions {
   grid-column: 1 / -1;
   display: flex;
-  gap: var(--space-sm);
-  padding-top: var(--space-sm);
+  gap: 12px;
+  padding-top: 12px;
   border-top: 1px solid var(--washi);
-  margin-top: var(--space-sm);
+  margin-top: 12px;
 }
 
 .save-settings-button {
@@ -506,6 +447,11 @@ body::before {
   background: var(--charcoal);
 }
 
+.save-settings-button.saved {
+  background: var(--success);
+  color: var(--snow);
+}
+
 .save-settings-button:disabled {
   opacity: 0.3;
   cursor: default;
@@ -518,37 +464,40 @@ body::before {
   align-self: center;
 }
 
-.editor-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  margin-bottom: var(--space-lg);
-  animation: breathe 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+/* ============================================================
+   Editor section
+   ============================================================ */
+
+.editor-section {
+  margin-bottom: 32px;
+  position: relative;
 }
 
 .editor-label {
-  display: block;
-  font-size: 0.62rem;
+  font-size: 10px;
   letter-spacing: 3px;
   text-transform: uppercase;
   color: var(--ash);
   font-weight: 400;
-  margin-bottom: var(--space-sm);
+  margin-bottom: 12px;
+  display: block;
 }
 
-.editor-wrapper {
+.editor-frame {
   background: var(--snow);
   border: 1px solid var(--washi);
-  border-radius: 0;
-  box-shadow: none;
-  transition: all 0.3s ease;
-  overflow: hidden;
   position: relative;
+  transition: all 0.3s ease;
 }
 
-.editor-wrapper::before {
-  content: "文";
+.editor-frame:focus-within {
+  border-color: rgba(28, 27, 24, 0.15);
+  box-shadow: 0 8px 40px rgba(28, 27, 24, 0.04);
+}
+
+/* Vertical writing direction hint — 文 kanji */
+.editor-frame::before {
+  content: '文';
   position: absolute;
   left: -32px;
   top: 20px;
@@ -560,19 +509,14 @@ body::before {
   pointer-events: none;
 }
 
-.editor-wrapper:focus-within {
-  border-color: rgba(28, 27, 24, 0.15);
-  box-shadow: var(--shadow-focus);
-}
-
 .editor {
   width: 100%;
-  min-height: 400px;
+  min-height: 360px;
   padding: 32px 36px;
-  font-family: var(--font-body);
-  font-size: 0.95rem;
+  font-family: 'Karla', sans-serif;
+  font-size: 15px;
   font-weight: 300;
-  line-height: 2;
+  line-height: 1.55;
   color: var(--sumi);
   background: transparent;
   border: none;
@@ -582,10 +526,10 @@ body::before {
 
 .editor::placeholder {
   color: var(--ash);
-  font-family: var(--font-display);
+  font-family: 'Cormorant Garamond', serif;
   font-style: italic;
   font-weight: 300;
-  font-size: 1rem;
+  font-size: 16px;
 }
 
 .editor[readonly] {
@@ -594,87 +538,63 @@ body::before {
   color: var(--warm-gray);
 }
 
-.stats-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
-  padding: 0;
-  margin-bottom: var(--space-sm);
-  font-family: var(--font-body);
-  font-size: 0.68rem;
-  font-weight: 300;
-  color: var(--ash);
-  border-top: 1px solid var(--washi);
-  padding-top: var(--space-sm);
-  font-variant-numeric: tabular-nums;
-}
+/* ============================================================
+   Bottom divider line
+   ============================================================ */
 
-.stat-item {
-  font-weight: 400;
-  color: var(--ash);
-  font-variant-numeric: tabular-nums;
-}
-
-.stat-divider {
+.bottom-line {
+  width: 100%;
+  height: 1px;
   background: var(--washi);
-  opacity: 0.5;
-  width: 1px;
-  height: 12px;
-  align-self: center;
+  margin-bottom: 16px;
 }
 
-.copy-feedback {
-  color: var(--success);
-  font-weight: 500;
-}
+/* ============================================================
+   Footer — stats (left) + credit (right)
+   ============================================================ */
 
 .footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  padding: 0;
 }
 
-.credit {
+.stats {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.65rem;
-  color: var(--ash);
-  letter-spacing: 0.5px;
-}
-
-.credit-handle {
-  font-weight: 500;
-  color: var(--warm-gray);  /* Slightly more prominent than surrounding ash text */
-}
-
-.credit-dot {
-  color: var(--washi);
-  font-size: 0.6rem;
-}
-
-.credit-location {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  gap: 24px;
+  font-size: 11px;
   color: var(--ash);
   font-weight: 300;
 }
 
-.credit-flag {
-  font-size: 0.75rem;
-  line-height: 1;
+.stat-val {
+  font-weight: 500;
+  color: var(--warm-gray);
+  font-variant-numeric: tabular-nums;
 }
 
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.attribution {
+  font-size: 10px;
+  color: var(--ash);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.5px;
+}
+
+/* Hanko stamp */
 .hanko {
   width: 24px;
   height: 24px;
   border: 1.5px solid var(--vermillion);
   border-radius: 2px;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   font-size: 10px;
@@ -684,27 +604,13 @@ body::before {
   transform: rotate(-3deg);
 }
 
-@keyframes breathe {
-  from {
-    opacity: 0;
-  }
+/* ============================================================
+   Utility
+   ============================================================ */
 
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 0.4;
-    transform: scale(0.8);
-  }
+.copy-feedback {
+  color: var(--success);
+  font-weight: 500;
 }
 
 .sr-only {
@@ -719,30 +625,56 @@ body::before {
   border-width: 0;
 }
 
+/* ============================================================
+   Animations
+   ============================================================ */
+
+@keyframes breathe {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+
 @media (max-width: 720px) {
-  #root {
-    padding: 0 var(--space-sm);
+  body {
+    padding: 30px 16px;
   }
 
-  .app-shell {
-    padding: var(--space-lg) var(--space-md);
-    border-radius: 0;
-  }
-
-  .toolbar {
+  .header {
     flex-direction: column;
-    align-items: stretch;
-    margin-bottom: var(--space-lg);
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .controls {
+    flex-wrap: wrap;
   }
 
   .editor {
-    min-height: 340px;
+    min-height: 300px;
     padding: 24px 20px;
+    line-height: 1.55;
   }
 
   .footer {
     flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
   }
 
   .settings-form {

@@ -14,9 +14,9 @@
       {
         "title": "PolishPad",
         "width": 1100,
-        "height": 760,
+        "height": 880,
         "minWidth": 920,
-        "minHeight": 620
+        "minHeight": 850
       }
     ],
     "security": {

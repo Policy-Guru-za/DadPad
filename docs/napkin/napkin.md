@@ -11,6 +11,7 @@
 - 2026-03-06 | self | Ran smart-structuring cleanup after placeholder decode and used punctuation-only truncation checks, which mutated protected code/list content and falsely flagged completed bullet lists | Normalize structured text before placeholder decode, keep list-marker cleanup stricter than decimal/version prefixes, and treat completed list items as natural endings in truncation heuristics.
 - 2026-03-06 | self | Root `.gitignore` pattern `Icon?` matched `src-tauri/icons` on this macOS setup, so regenerated bundle icons stayed invisible to git | When touching app icons, explicitly unignore `src-tauri/icons/**` and re-ignore `.DS_Store` so bundle assets are actually reviewable.
 - 2026-03-06 | self | Tried to prove full-text keyboard replacement via `fireEvent.beforeInput`, but jsdom/RTL did not expose a reliable textarea `beforeinput` helper and the regression stayed invisible | For textarea whole-selection replacement tests here, drive a `select` event plus `input` change and keep a selection ref in the component instead of relying on `beforeinput` alone.
+- 2026-03-06 | self | Treated an oversized macOS Tauri textarea caret like a cursor bug when it was really the textarea line box; `line-height: 2` made both the caret and blank lines look broken | In this app, fix caret/blank-line size in `.editor` typography first; WebKit caret height tracks the textarea line-height.
 
 ## User Preferences
 - Strict gates: do not move past Gate A or Gate B without explicit approval.
