@@ -13,12 +13,13 @@
 **Tauri frontend (TypeScript/React):**
 
 - Text editor component
-- Toolbar (transform buttons + Copy)
+- Toolbar (rewrite buttons, agent-prompt controls, Copy)
 - Status bar (word count, char count, mode, latency, warnings)
 - Settings UI
 - Streaming render logic
 - Undo management
 - LLM provider clients (OpenAI, Anthropic)
+- Agent-prompt Markdown intent analysis + postprocessing
 - Token protection (placeholder encode/decode/validate)
 - Output completion fail-safe
 
@@ -38,15 +39,20 @@ For a private utility tool used by one person, calling LLM APIs directly from th
 
 ### Transform flow (happy path)
 
-1. User clicks a mode button (e.g., Polish).
+1. User clicks a transform button (e.g., Polish or Agent Prompt).
 2. UI checks input size: if >~80,000 characters, show hard-stop message and abort. If >~20,000 characters, show warning but allow proceed.
 3. UI snapshots current editor text into undo buffer.
 4. UI sets editor to read-only and shows streaming indicator.
 4. Frontend applies placeholder encoding to the text (if token protection enabled).
-5. Frontend constructs prompt: system prompt + mode snippet + wrapped user text.
+5. Frontend constructs prompt:
+   - rewrite modes: rewrite system prompt + mode snippet + wrapped user text
+   - agent prompt modes: coding-agent prompt system prompt + preset section template + wrapped source text
 6. Frontend calls provider API with streaming enabled.
 7. As chunks arrive: append to stream buffer, render progressively in editor.
-8. On stream completion: decode placeholders, validate placeholder restoration, and fail safe if the provider explicitly reports a length stop before finishing.
+8. On stream completion:
+   - rewrite modes: optionally normalize plain-text paragraph spacing if smart structuring is enabled
+   - agent prompt modes: normalize Markdown outer whitespace only
+   - decode placeholders, validate placeholder restoration, and fail safe if the provider explicitly reports a length stop before finishing
 9. If validation passes: commit final text to editor, re-enable editing, show latency and mode in status bar.
 10. If validation fails: revert to undo snapshot, show warning ("Protected tokens could not be restored — original text preserved"), optionally show model output for manual review.
 11. User edits as needed.
@@ -89,6 +95,8 @@ polishpad/
       prompts.ts           # System prompt, mode snippets, user wrapper
     protect/
       placeholders.ts      # Encode, decode, validate protected tokens
+    agentPrompts/
+      markdown.ts          # Agent-prompt intent derivation + Markdown-safe normalization
     utils/
       text.ts              # Word count, char count
       clipboard.ts         # Copy to clipboard
@@ -97,7 +105,7 @@ polishpad/
   tsconfig.json
 ```
 
-All LLM logic lives in `src/llm/`. All token protection lives in `src/protect/`. Provider logic is completely separate from UI components.
+All provider prompt-building logic lives in the frontend provider modules. Token protection lives in `src/protect/`. Agent-prompt Markdown helpers live in `src/agentPrompts/`. Provider logic is separate from UI components.
 
 ---
 
@@ -265,6 +273,56 @@ Rewrite the text below.
 [END TEXT]
 ```
 
+### Coding-agent prompt family
+
+Use a separate prompt family for `Agent Prompt`. Do not reuse the rewrite-engine intro.
+
+**Base prompt requirements:**
+
+- Output valid Markdown only.
+- Reorganize the current editor text into a clean coding-agent prompt.
+- Do not invent facts, files, APIs, commands, deadlines, dependencies, or repository context.
+- Preserve quoted text, URLs, paths, code, IDs, numbers, dates, and explicit constraints exactly.
+- If the source references attachments, screenshots, or documents the model has not seen, keep them as referenced inputs only and do not imply their contents.
+- Prefer headings, bullets, short sections, and checklists over dense prose.
+- Omit empty sections instead of emitting placeholders.
+- Do not add explanatory preamble outside the Markdown.
+
+**Preset templates:**
+
+- `Universal`
+  - `## Objective`
+  - `## Context`
+  - `## Inputs and References`
+  - `## Constraints`
+  - `## Deliverable`
+  - `## Success Criteria`
+  - `## Open Questions`
+- `Codex`
+  - `## Objective`
+  - `## Repository Context`
+  - `## Constraints`
+  - `## Requested Changes`
+  - `## Acceptance Criteria`
+  - `## Notes`
+- `Claude`
+  - `## Objective`
+  - `## Context`
+  - `## Requirements`
+  - `## Constraints`
+  - `## Expected Output`
+  - `## Open Questions`
+
+**Agent prompt source wrapper:**
+
+```
+Convert the source material below into a Markdown prompt for the requested coding-agent preset.
+
+[BEGIN SOURCE]
+{TEXT}
+[END SOURCE]
+```
+
 ---
 
 ## 7) Token protection (placeholder design)
@@ -331,8 +389,8 @@ On cancel: abort request, revert to `undoSnapshot`, clear `streamBuffer`, re-ena
 
 Estimate input tokens roughly: `inputTokens ≈ characterCount / 4`.
 
-- Polish, Casual, Professional: `maxOutputTokens = Math.round(inputTokens * 1.3) + 128`
-- Direct: `maxOutputTokens = Math.round(inputTokens * 0.8) + 96`
+- Polish, Casual, Professional, Agent Prompt: `maxOutputTokens = Math.min(16384, Math.round(inputTokens * 2.0) + 256)`
+- Direct: `maxOutputTokens = Math.min(12288, Math.round(inputTokens * 1.4) + 192)`
 
 ### Output completion fail-safe
 

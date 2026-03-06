@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  AGENT_PROMPT_SPECS,
   buildInstructions,
+  buildUserInput,
   MODE_PROMPT_SPECS,
   type OpenAITransformMode,
+  type RewriteTransformMode,
 } from "./openaiPrompting";
 import { streamTransformWithOpenAI } from "./openai";
+import { deriveAgentPromptIntent } from "../agentPrompts/markdown";
 import { deriveStructureIntent } from "../structuring/plainText";
 
 function createSseBody(events: string[]): ReadableStream<Uint8Array> {
@@ -26,7 +30,7 @@ describe("streamTransformWithOpenAI", () => {
   });
 
   it("builds distinct instructions for every mode from the centralized prompt map", () => {
-    const modes: OpenAITransformMode[] = ["polish", "casual", "professional", "direct"];
+    const modes: RewriteTransformMode[] = ["polish", "casual", "professional", "direct"];
     const instructionSet = new Set(
       modes.map((mode) =>
         buildInstructions(
@@ -66,6 +70,50 @@ describe("streamTransformWithOpenAI", () => {
     );
     expect(buildInstructions("direct")).toContain(
       "When the input is already short or clean, still compress and simplify instead of only correcting punctuation or swapping synonyms.",
+    );
+  });
+
+  it("builds distinct Markdown prompt instructions for every agent preset", () => {
+    const source =
+      "Review src/App.tsx, keep https://example.com/spec intact, and confirm what remains unclear.";
+    const modes: OpenAITransformMode[] = ["agent-universal", "agent-codex", "agent-claude"];
+    const intent = deriveAgentPromptIntent(source);
+    const instructionSet = new Set(modes.map((mode) => buildInstructions(mode, intent)));
+
+    expect(instructionSet.size).toBe(modes.length);
+    expect(buildInstructions("agent-universal", intent)).toContain(
+      `Preset: ${AGENT_PROMPT_SPECS.universal.label}`,
+    );
+    expect(buildInstructions("agent-codex", intent)).toContain(
+      `Preset: ${AGENT_PROMPT_SPECS.codex.label}`,
+    );
+    expect(buildInstructions("agent-claude", intent)).toContain(
+      `Preset: ${AGENT_PROMPT_SPECS.claude.label}`,
+    );
+  });
+
+  it("keeps the agent prompt family separate from the rewrite prompt family", () => {
+    const instructions = buildInstructions(
+      "agent-codex",
+      deriveAgentPromptIntent(
+        "Use docs/POLISHPAD-UI-RESKIN-PROMPT.md and keep `pnpm test` unchanged.",
+      ),
+    );
+
+    expect(instructions).not.toContain("You are a rewriting engine.");
+    expect(instructions).toContain("You turn user source material into a clean Markdown prompt");
+    expect(instructions).toContain("## Repository Context");
+    expect(instructions).toContain("## Acceptance Criteria");
+    expect(instructions).toContain("The source references file paths or repository artifacts.");
+    expect(instructions).toContain("The source includes inline code. Keep inline code spans exactly as written.");
+  });
+
+  it("wraps agent-prompt source input with the dedicated source markers", () => {
+    expect(buildUserInput("agent-universal", "source")).toBe(
+      "Convert the source material below into a Markdown prompt for the requested coding-agent preset.\n\n[BEGIN SOURCE]\nsource\n[END SOURCE]",
+    );
+    expect(buildUserInput("polish", "source")).toBe(
+      "Rewrite the text below.\n\n[BEGIN TEXT]\nsource\n[END TEXT]",
     );
   });
 
@@ -250,6 +298,38 @@ describe("streamTransformWithOpenAI", () => {
       unknown
     >;
     expect(requestBody.text).toEqual({ verbosity: "low" });
+  });
+
+  it("uses GPT-5 prompt controls and the larger token budget path for agent prompt modes", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: {},
+      json: async () => ({
+        response: {
+          output: [{ content: [{ text: "## Objective\nShip it." }] }],
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "x".repeat(100),
+      mode: "agent-codex",
+      model: "gpt-5-nano-2025-08-07",
+      streaming: false,
+      timeoutMs: 5_000,
+      onDelta: () => undefined,
+    });
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >;
+    expect(requestBody.text).toEqual({ verbosity: "medium" });
+    expect(requestBody.max_output_tokens).toBe(306);
+    expect(requestBody.instructions).toContain("Preset: CODEX");
+    expect(String(requestBody.input)).toContain("[BEGIN SOURCE]");
   });
 
   it("uses larger default output budgets for polish-style rewrites", async () => {
@@ -653,6 +733,29 @@ describe("streamTransformWithOpenAI", () => {
     ).rejects.toThrow("OpenAI refused to rewrite this text.");
   });
 
+  it("surfaces prompt-mode refusals with prompt-specific language", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: createSseBody([
+        JSON.stringify({
+          type: "response.refusal.done",
+          refusal: "I cannot do that.",
+        }),
+      ]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      streamTransformWithOpenAI({
+        apiKey: "test-key",
+        inputText: "source",
+        mode: "agent-universal",
+        timeoutMs: 5_000,
+        onDelta: () => undefined,
+      }),
+    ).rejects.toThrow("OpenAI refused to generate this prompt.");
+  });
+
   it("retries once with more room when the stream exhausts the output budget before any text arrives", async () => {
     const fetchMock = vi
       .fn()
@@ -743,7 +846,7 @@ describe("streamTransformWithOpenAI", () => {
         maxOutputTokens: 16384,
         onDelta: () => undefined,
       }),
-    ).rejects.toThrow("OpenAI used the output budget before producing text.");
+    ).rejects.toThrow("OpenAI used the output budget before producing the rewrite.");
   });
 
   it("fails safe instead of returning clipped text when OpenAI stops for length after partial output", async () => {
@@ -802,7 +905,7 @@ describe("streamTransformWithOpenAI", () => {
         maxOutputTokens: 16384,
         onDelta: () => undefined,
       }),
-    ).rejects.toThrow("OpenAI cancelled the response before producing text.");
+    ).rejects.toThrow("OpenAI cancelled the response before producing the rewrite.");
   });
 
   it("fails safe when stream has no output deltas", async () => {
@@ -820,6 +923,6 @@ describe("streamTransformWithOpenAI", () => {
         timeoutMs: 5_000,
         onDelta: () => undefined,
       }),
-    ).rejects.toThrow("OpenAI returned empty output");
+    ).rejects.toThrow("OpenAI returned empty rewrite output");
   });
 });

@@ -1,8 +1,12 @@
+import type { AgentPromptIntent } from "../agentPrompts/markdown";
 import type { StructureIntent } from "../structuring/plainText";
 
 export const DEFAULT_OPENAI_MODEL = "gpt-5-nano-2025-08-07";
 
-export type OpenAITransformMode = "polish" | "casual" | "professional" | "direct";
+export type RewriteTransformMode = "polish" | "casual" | "professional" | "direct";
+export type AgentPromptPreset = "universal" | "codex" | "claude";
+export type AgentPromptTransformMode = `agent-${AgentPromptPreset}`;
+export type OpenAITransformMode = RewriteTransformMode | AgentPromptTransformMode;
 
 type TextVerbosity = "low" | "medium";
 
@@ -13,8 +17,34 @@ export type ModePromptSpec = {
   textVerbosity: TextVerbosity;
 };
 
-const BASE_PROMPT_INTRO =
+export type AgentPromptSpec = {
+  label: string;
+  textVerbosity: TextVerbosity;
+  styleRules: string[];
+  sections: string[];
+};
+
+const REWRITE_PROMPT_INTRO =
   "You are a rewriting engine. Rewrite the user's text according to the requested mode.";
+
+const AGENT_PROMPT_INTRO =
+  "You turn user source material into a clean Markdown prompt for an AI coding agent.";
+
+const REWRITE_USER_WRAPPER_PREFIX = `Rewrite the text below.
+
+[BEGIN TEXT]
+`;
+
+const REWRITE_USER_WRAPPER_SUFFIX = `
+[END TEXT]`;
+
+const AGENT_PROMPT_USER_WRAPPER_PREFIX = `Convert the source material below into a Markdown prompt for the requested coding-agent preset.
+
+[BEGIN SOURCE]
+`;
+
+const AGENT_PROMPT_USER_WRAPPER_SUFFIX = `
+[END SOURCE]`;
 
 const BASE_CONSTRAINTS = [
   "Preserve the original meaning, facts, and intent. Do not invent new information.",
@@ -44,7 +74,26 @@ const BASE_STRUCTURE_RULES = [
   "Do not flatten existing readable lists into prose unless that is clearly better.",
 ];
 
-export const MODE_PROMPT_SPECS: Record<OpenAITransformMode, ModePromptSpec> = {
+const AGENT_PROMPT_BASE_CONSTRAINTS = [
+  "Output valid Markdown only.",
+  "Reorganize the source into a clean, useful coding-agent prompt.",
+  "Do not invent facts, files, APIs, commands, deadlines, dependencies, or repository context.",
+  "Preserve quoted text, URLs, paths, code, IDs, numbers, dates, and explicit constraints exactly.",
+  "If the source references attachments, screenshots, or documents you have not seen, keep them as referenced inputs and do not imply their unseen contents.",
+  "Prefer headings, bullets, short sections, and checklists over dense prose.",
+  "Omit empty sections instead of emitting placeholders.",
+  "Do not add explanatory preamble outside the Markdown.",
+  "Do not alter placeholders of the form __PZPTOK###__.",
+];
+
+const AGENT_PROMPT_SECTION_BEHAVIOR = [
+  "Keep section order fixed for the selected preset.",
+  "Emit only sections that have meaningful content.",
+  "Preserve existing bullets, quoted text, inline code, and fenced code blocks when they improve clarity.",
+  "Convert dense prose into concise bullets where it improves scanability.",
+];
+
+export const MODE_PROMPT_SPECS: Record<RewriteTransformMode, ModePromptSpec> = {
   polish: {
     label: "REFINE",
     textVerbosity: "medium",
@@ -132,11 +181,79 @@ export const MODE_PROMPT_SPECS: Record<OpenAITransformMode, ModePromptSpec> = {
   },
 };
 
+export const AGENT_PROMPT_SPECS: Record<AgentPromptPreset, AgentPromptSpec> = {
+  universal: {
+    label: "UNIVERSAL",
+    textVerbosity: "medium",
+    styleRules: [
+      "Optimize the prompt for cross-agent clarity and portability.",
+      "Make the final Markdown useful for any capable coding agent without assuming a specific product or toolchain.",
+      "Prefer plain, explicit language over agent-specific jargon.",
+    ],
+    sections: [
+      "## Objective",
+      "## Context",
+      "## Inputs and References",
+      "## Constraints",
+      "## Deliverable",
+      "## Success Criteria",
+      "## Open Questions",
+    ],
+  },
+  codex: {
+    label: "CODEX",
+    textVerbosity: "medium",
+    styleRules: [
+      "Optimize the prompt for a coding agent working directly in a repository and terminal workflow.",
+      "Surface repository context, requested changes, and acceptance criteria as clearly as possible.",
+      "Bias toward implementation-oriented phrasing rather than general brainstorming language.",
+    ],
+    sections: [
+      "## Objective",
+      "## Repository Context",
+      "## Constraints",
+      "## Requested Changes",
+      "## Acceptance Criteria",
+      "## Notes",
+    ],
+  },
+  claude: {
+    label: "CLAUDE",
+    textVerbosity: "medium",
+    styleRules: [
+      "Optimize the prompt for a coding agent that benefits from clear requirements, expected output shape, and unresolved questions.",
+      "Bias toward explicit requirements and expected output framing over repository-specific assumptions.",
+      "Keep the structure concise but unambiguous.",
+    ],
+    sections: [
+      "## Objective",
+      "## Context",
+      "## Requirements",
+      "## Constraints",
+      "## Expected Output",
+      "## Open Questions",
+    ],
+  },
+};
+
+export function isAgentPromptMode(mode: OpenAITransformMode): mode is AgentPromptTransformMode {
+  return mode.startsWith("agent-");
+}
+
+export function isRewriteTransformMode(mode: OpenAITransformMode): mode is RewriteTransformMode {
+  return !isAgentPromptMode(mode);
+}
+
+export function getAgentPromptPreset(mode: AgentPromptTransformMode): AgentPromptPreset {
+  return mode.slice("agent-".length) as AgentPromptPreset;
+}
+
 function buildStructureGuidance(structureIntent: StructureIntent): string[] {
   const shapeRuleMap: Record<StructureIntent["targetShape"], string> = {
     paragraphs: "Preferred shape for this input: paragraphs.",
     bullets: "Preferred shape for this input: bullets or a very short lead-in followed by bullets.",
-    hybrid: "Preferred shape for this input: a short lead-in paragraph plus bullets or compact follow-on paragraphs.",
+    hybrid:
+      "Preferred shape for this input: a short lead-in paragraph plus bullets or compact follow-on paragraphs.",
   };
 
   const contentTypeRuleMap: Record<StructureIntent["inferredContentType"], string> = {
@@ -172,13 +289,58 @@ function buildStructureGuidance(structureIntent: StructureIntent): string[] {
   return rules;
 }
 
-export function buildInstructions(
-  mode: OpenAITransformMode,
+function buildAgentPromptIntentGuidance(intent: AgentPromptIntent): string[] {
+  const rules = [
+    "Input-specific guidance:",
+    "- Preserve quoted text, list items, and explicit constraints exactly.",
+  ];
+
+  if (intent.hasReferencedFiles) {
+    rules.push("- The source references file paths or repository artifacts. Keep every path exactly as written.");
+  }
+
+  if (intent.hasUrls) {
+    rules.push("- The source contains URLs. Keep each URL exactly as written and place it in a relevant reference section.");
+  }
+
+  if (intent.hasCodeBlocks) {
+    rules.push("- The source includes fenced code blocks. Preserve them exactly when they are relevant context.");
+  }
+
+  if (intent.hasInlineCode) {
+    rules.push("- The source includes inline code. Keep inline code spans exactly as written.");
+  }
+
+  if (intent.hasExplicitConstraints) {
+    rules.push("- Surface explicit must/must-not requirements under Constraints.");
+  }
+
+  if (intent.hasDeliverableLanguage) {
+    rules.push("- Make the requested deliverable or output shape explicit in the relevant section.");
+  }
+
+  if (intent.hasOpenQuestions) {
+    rules.push("- Pull unresolved questions or missing information into Open Questions or Notes.");
+  }
+
+  if (intent.hasAttachmentReferences) {
+    rules.push("- The source references attachments, screenshots, or documents you have not seen. Mention them as referenced inputs only; do not infer their contents.");
+  }
+
+  if (intent.hasListStructure) {
+    rules.push("- Preserve useful list structure instead of flattening it into prose.");
+  }
+
+  return rules;
+}
+
+function buildRewriteInstructions(
+  mode: RewriteTransformMode,
   structureIntent?: StructureIntent,
 ): string {
   const promptSpec = MODE_PROMPT_SPECS[mode];
   const instructions = [
-    BASE_PROMPT_INTRO,
+    REWRITE_PROMPT_INTRO,
     "",
     "Non-negotiable constraints:",
     ...BASE_CONSTRAINTS.map((constraint) => `- ${constraint}`),
@@ -194,6 +356,55 @@ export function buildInstructions(
   return instructions.join("\n");
 }
 
+function buildAgentPromptInstructions(
+  mode: AgentPromptTransformMode,
+  intent?: AgentPromptIntent,
+): string {
+  const preset = getAgentPromptPreset(mode);
+  const promptSpec = AGENT_PROMPT_SPECS[preset];
+  const sectionRules = promptSpec.sections.map((section) => `- ${section}`);
+  const instructions = [
+    AGENT_PROMPT_INTRO,
+    "",
+    "Non-negotiable constraints:",
+    ...AGENT_PROMPT_BASE_CONSTRAINTS.map((constraint) => `- ${constraint}`),
+    "",
+    `Preset: ${promptSpec.label}`,
+    ...promptSpec.styleRules,
+    "",
+    "Section order:",
+    ...sectionRules,
+    "",
+    "Section behavior:",
+    ...AGENT_PROMPT_SECTION_BEHAVIOR.map((rule) => `- ${rule}`),
+  ];
+
+  if (intent) {
+    instructions.push("", ...buildAgentPromptIntentGuidance(intent));
+  }
+
+  return instructions.join("\n");
+}
+
+export function buildInstructions(
+  mode: OpenAITransformMode,
+  context?: StructureIntent | AgentPromptIntent,
+): string {
+  if (isAgentPromptMode(mode)) {
+    return buildAgentPromptInstructions(mode, context as AgentPromptIntent | undefined);
+  }
+
+  return buildRewriteInstructions(mode, context as StructureIntent | undefined);
+}
+
+export function buildUserInput(mode: OpenAITransformMode, inputText: string): string {
+  if (isAgentPromptMode(mode)) {
+    return `${AGENT_PROMPT_USER_WRAPPER_PREFIX}${inputText}${AGENT_PROMPT_USER_WRAPPER_SUFFIX}`;
+  }
+
+  return `${REWRITE_USER_WRAPPER_PREFIX}${inputText}${REWRITE_USER_WRAPPER_SUFFIX}`;
+}
+
 function isGpt5FamilyModel(model: string): boolean {
   const normalized = model.trim().toLowerCase();
   return normalized === "gpt-5" || normalized.startsWith("gpt-5-");
@@ -207,12 +418,16 @@ export function getModelRequestControls(
     return {};
   }
 
+  const textVerbosity = isAgentPromptMode(mode)
+    ? AGENT_PROMPT_SPECS[getAgentPromptPreset(mode)].textVerbosity
+    : MODE_PROMPT_SPECS[mode].textVerbosity;
+
   return {
     reasoning: {
       effort: "minimal",
     },
     text: {
-      verbosity: MODE_PROMPT_SPECS[mode].textVerbosity,
+      verbosity: textVerbosity,
     },
   };
 }

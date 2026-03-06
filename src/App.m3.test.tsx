@@ -147,8 +147,16 @@ describe("M8 settings gating", () => {
       expect((screen.getByRole("button", { name: "Direct" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
+      expect(
+        (screen.getByRole("button", { name: "Agent Prompt" }) as HTMLButtonElement).disabled,
+      ).toBe(true);
+      expect(
+        (screen.getByRole("button", { name: "Universal" }) as HTMLButtonElement).disabled,
+      ).toBe(true);
       expect(screen.getByText("After polish")).toBeTruthy();
+      expect(screen.getByText("For agents")).toBeTruthy();
       expect(screen.getByLabelText("Tone options")).toBeTruthy();
+      expect(screen.getByLabelText("Agent prompt presets")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
     });
   });
@@ -340,10 +348,13 @@ describe("M8 settings gating", () => {
       expect((screen.getByRole("button", { name: "Direct" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
+      expect(
+        (screen.getByRole("button", { name: "Agent Prompt" }) as HTMLButtonElement).disabled,
+      ).toBe(true);
     });
   });
 
-  it("re-locks tone buttons when full-content typing replaces the editor text", async () => {
+  it("keeps agent prompt unlocked when full-content typing replaces the editor text", async () => {
     render(<App />);
     const user = userEvent.setup();
     const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
@@ -361,6 +372,9 @@ describe("M8 settings gating", () => {
       expect((screen.getByRole("button", { name: "Direct" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
+      expect(
+        (screen.getByRole("button", { name: "Agent Prompt" }) as HTMLButtonElement).disabled,
+      ).toBe(false);
     });
   });
 
@@ -562,6 +576,129 @@ describe("M3 transform resilience", () => {
 });
 
 describe("M4 direct mode wiring", () => {
+  it("agent prompt unlocks after a successful rewrite and routes the selected preset", async () => {
+    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
+      expect(mode).toBe("polish");
+      onDelta("Polished base.");
+      return createSuccessfulTransform("Polished base.");
+    });
+    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
+      expect(mode).toBe("agent-claude");
+      const markdown = [
+        "## Objective",
+        "",
+        "Turn this into an agent-ready brief.",
+        "",
+        "## Expected Output",
+        "",
+        "- Markdown prompt",
+      ].join("\n");
+      onDelta(markdown);
+      return createSuccessfulTransform(markdown);
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+
+    await user.type(editor, "Longer source text that should be prepared first.");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+
+    await waitFor(() => {
+      expect(
+        (screen.getByRole("button", { name: "Agent Prompt" }) as HTMLButtonElement).disabled,
+      ).toBe(false);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Claude" }));
+    await user.click(screen.getByRole("button", { name: "Agent Prompt" }));
+
+    await waitFor(() => {
+      expect(editor.value).toContain("## Objective");
+      expect(editor.value).toContain("## Expected Output");
+      expect(screen.getByText("Mode: Agent Prompt (Claude)")).toBeTruthy();
+      expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
+        expect.objectContaining({ mode: "agent-claude" }),
+      );
+    });
+  });
+
+  it("undo restores the prior rewritten text after agent prompt conversion", async () => {
+    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
+      expect(mode).toBe("polish");
+      onDelta("Polished draft.");
+      return createSuccessfulTransform("Polished draft.");
+    });
+    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
+      expect(mode).toBe("agent-universal");
+      const markdown = [
+        "## Objective",
+        "",
+        "Create a clean coding-agent prompt.",
+      ].join("\n");
+      onDelta(markdown);
+      return createSuccessfulTransform(markdown);
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+
+    await user.type(editor, "Source text");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+    await waitFor(() => {
+      expect(editor.value).toBe("Polished draft.");
+    });
+
+    await user.click(screen.getByRole("button", { name: "Agent Prompt" }));
+
+    await waitFor(() => {
+      expect(editor.value).toContain("## Objective");
+    });
+
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("Polished draft.");
+      expect(
+        (screen.getByRole("button", { name: "Agent Prompt" }) as HTMLButtonElement).disabled,
+      ).toBe(false);
+    });
+  });
+
+  it("preserves markdown hard breaks and code-block spacing in agent prompt output", async () => {
+    const expectedMarkdown =
+      "## Objective\u0020\u0020\nShip the fix.\u0020\u0020\n\n```ts\nconst x = 1;\n\n\nconst y = 2;\n```";
+
+    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
+      expect(mode).toBe("polish");
+      onDelta("Polished draft.");
+      return createSuccessfulTransform("Polished draft.");
+    });
+    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
+      expect(mode).toBe("agent-universal");
+      const markdown = `\n\n${expectedMarkdown}\n\n`;
+      onDelta(markdown);
+      return createSuccessfulTransform(markdown);
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+
+    await user.type(editor, "Source text");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+    await waitFor(() => {
+      expect(editor.value).toBe("Polished draft.");
+    });
+
+    await user.click(screen.getByRole("button", { name: "Agent Prompt" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe(expectedMarkdown);
+    });
+  });
+
   it("direct button uses direct mode and commits streamed output on success", async () => {
     streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
       expect(mode).toBe("polish");

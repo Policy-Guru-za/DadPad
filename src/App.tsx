@@ -9,13 +9,18 @@ import {
   useState,
 } from "react";
 import "./App.css";
-import { OpenAIProviderError, streamTransformWithOpenAI } from "./providers/openai";
+import {
+  OpenAIProviderError,
+  streamTransformWithOpenAI,
+  type OpenAITransformMode,
+} from "./providers/openai";
 import {
   PROTECTED_CONTENT_MISMATCH_MESSAGE,
   decodePlaceholders,
   encodeProtectedSpans,
   validatePlaceholders,
 } from "./protect/placeholders";
+import { normalizePromptMarkdown } from "./agentPrompts/markdown";
 import { normalizeStructuredPlainText } from "./structuring/plainText";
 import {
   AppSettings,
@@ -24,9 +29,12 @@ import {
   writeAppSettings,
 } from "./settings/config";
 
-type TransformMode = "Polish" | "Casual" | "Professional" | "Direct";
+type RewriteTransformMode = "Polish" | "Casual" | "Professional" | "Direct";
+type AgentPromptPreset = "Universal" | "Codex" | "Claude";
+type AgentTransformMode = `Agent Prompt (${AgentPromptPreset})`;
+type TransformMode = RewriteTransformMode | AgentTransformMode;
 type WiredTransformMode = TransformMode;
-type ToneMode = Exclude<TransformMode, "Polish">;
+type ToneMode = Exclude<RewriteTransformMode, "Polish">;
 type SettingsSaveStatus = "idle" | "saving" | "saved" | "error";
 
 const TONE_MODES: ToneMode[] = [
@@ -34,6 +42,7 @@ const TONE_MODES: ToneMode[] = [
   "Professional",
   "Direct",
 ];
+const AGENT_PROMPT_PRESETS: AgentPromptPreset[] = ["Universal", "Codex", "Claude"];
 
 const MISSING_API_KEY_MESSAGE = "Set API key in Settings.";
 const CREATOR_HANDLE = "@laup30";
@@ -97,7 +106,15 @@ function mapProviderError(error: unknown): string {
   return "Transform failed. Original text restored.";
 }
 
-function toProviderMode(mode: WiredTransformMode): "polish" | "casual" | "professional" | "direct" {
+function isAgentPromptMode(mode: WiredTransformMode | null): mode is AgentTransformMode {
+  return mode !== null && mode.startsWith("Agent Prompt (");
+}
+
+function createAgentPromptMode(preset: AgentPromptPreset): AgentTransformMode {
+  return `Agent Prompt (${preset})`;
+}
+
+function toProviderMode(mode: WiredTransformMode): OpenAITransformMode {
   if (mode === "Casual") {
     return "casual";
   }
@@ -108,6 +125,18 @@ function toProviderMode(mode: WiredTransformMode): "polish" | "casual" | "profes
 
   if (mode === "Direct") {
     return "direct";
+  }
+
+  if (mode === "Agent Prompt (Universal)") {
+    return "agent-universal";
+  }
+
+  if (mode === "Agent Prompt (Codex)") {
+    return "agent-codex";
+  }
+
+  if (mode === "Agent Prompt (Claude)") {
+    return "agent-claude";
   }
 
   return "polish";
@@ -131,6 +160,10 @@ function App() {
   const [canUndo, setCanUndo] = useState(false);
   const [activeStreamMode, setActiveStreamMode] = useState<WiredTransformMode | null>(null);
   const [hasPolishedCurrentSession, setHasPolishedCurrentSession] = useState(false);
+  const [hasSuccessfulTransformCurrentSession, setHasSuccessfulTransformCurrentSession] =
+    useState(false);
+  const [selectedAgentPromptPreset, setSelectedAgentPromptPreset] =
+    useState<AgentPromptPreset>("Universal");
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [settingsDraft, setSettingsDraft] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -153,6 +186,7 @@ function App() {
   const apiKeyMissing = settings.openaiApiKey.trim().length === 0;
   const transformsDisabled = isStreaming || !isSettingsLoaded || apiKeyMissing;
   const toneModesDisabled = transformsDisabled || !hasPolishedCurrentSession;
+  const agentPromptDisabled = transformsDisabled || !hasSuccessfulTransformCurrentSession;
   const isSavingSettings = settingsSaveStatus === "saving";
 
   const clearSettingsSaveResetTimeout = (): void => {
@@ -273,9 +307,11 @@ function App() {
       });
 
       const finalOutput = result.outputText;
-      const normalizedOutput = smartStructuringEnabled
-        ? normalizeStructuredPlainText(finalOutput)
-        : finalOutput;
+      const normalizedOutput = isAgentPromptMode(mode)
+        ? normalizePromptMarkdown(finalOutput)
+        : smartStructuringEnabled
+          ? normalizeStructuredPlainText(finalOutput)
+          : finalOutput;
       const decodedText = shouldProtect
         ? decodePlaceholders(normalizedOutput, mapping)
         : normalizedOutput;
@@ -292,6 +328,7 @@ function App() {
       const elapsed = Math.round(performance.now() - startedAt);
       setLatencyMs(elapsed);
       setCanUndo(true);
+      setHasSuccessfulTransformCurrentSession(true);
 
       if (mode === "Polish") {
         setHasPolishedCurrentSession(true);
@@ -363,11 +400,15 @@ function App() {
       resetToneLockOnNextChangeRef.current ||
       (nextText !== text &&
         isFullEditorSelection(text, editorSelectionRef.current.start, editorSelectionRef.current.end));
+    const shouldResetAgentPromptLock = nextText.length === 0;
     resetToneLockOnNextChangeRef.current = false;
     rememberEditorSelection(target);
     setText(nextText);
     if (shouldResetToneLock) {
       setHasPolishedCurrentSession(false);
+    }
+    if (shouldResetAgentPromptLock) {
+      setHasSuccessfulTransformCurrentSession(false);
     }
   };
 
@@ -395,6 +436,7 @@ function App() {
       isFullEditorSelection(target.value, target.selectionStart, target.selectionEnd)
     ) {
       setHasPolishedCurrentSession(false);
+      setHasSuccessfulTransformCurrentSession(false);
     }
   };
 
@@ -436,6 +478,10 @@ function App() {
       setStatusMessage("Clipboard write failed. Check app clipboard permissions.");
       window.setTimeout(() => setCopyFeedback(""), 1800);
     }
+  };
+
+  const handleAgentPromptClick = (): void => {
+    void handleTransform(createAgentPromptMode(selectedAgentPromptPreset));
   };
 
   return (
@@ -644,6 +690,35 @@ function App() {
                 {mode}
               </button>
             ))}
+          </div>
+        </div>
+        <div className="agent-area">
+          <span className="tone-label">For agents</span>
+          <div className="agent-controls">
+            <button
+              type="button"
+              className={`agent-prompt-btn${isAgentPromptMode(lastMode) ? " active" : ""}${isAgentPromptMode(activeStreamMode) && isStreaming ? " streaming" : ""}`}
+              disabled={agentPromptDisabled}
+              onClick={handleAgentPromptClick}
+            >
+              <span>Agent Prompt</span>
+            </button>
+            <div
+              className={`agent-preset-group${hasSuccessfulTransformCurrentSession ? "" : " locked"}`}
+              aria-label="Agent prompt presets"
+            >
+              {AGENT_PROMPT_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className={`agent-preset-btn${selectedAgentPromptPreset === preset ? " active" : ""}`}
+                  disabled={agentPromptDisabled}
+                  onClick={() => setSelectedAgentPromptPreset(preset)}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

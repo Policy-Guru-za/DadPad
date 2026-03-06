@@ -1,10 +1,13 @@
 import {
   buildInstructions,
+  buildUserInput,
   DEFAULT_OPENAI_MODEL,
   getMaxOutputTokens,
   getModelRequestControls,
+  isAgentPromptMode,
   type OpenAITransformMode,
 } from "./openaiPrompting";
+import { deriveAgentPromptIntent } from "../agentPrompts/markdown";
 import { deriveStructureIntent } from "../structuring/plainText";
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
@@ -12,14 +15,6 @@ const MAX_OUTPUT_TOKENS_CEILING = 16_384;
 
 export { DEFAULT_OPENAI_MODEL };
 export type { OpenAITransformMode };
-
-const USER_WRAPPER_PREFIX = `Rewrite the text below.
-
-[BEGIN TEXT]
-`;
-
-const USER_WRAPPER_SUFFIX = `
-[END TEXT]`;
 
 type ProviderErrorCode = "auth" | "rate_limit" | "timeout" | "network" | "server" | "unknown";
 
@@ -615,37 +610,44 @@ function expandMaxOutputTokens(current: number): number {
   return Math.min(MAX_OUTPUT_TOKENS_CEILING, Math.max(current + 256, Math.round(current * 1.75)));
 }
 
-function buildPartialLengthMessage(): string {
-  return "OpenAI stopped before completing the rewrite. Original text preserved.";
+function getTransformNoun(mode: OpenAITransformMode): "rewrite" | "prompt" {
+  return isAgentPromptMode(mode) ? "prompt" : "rewrite";
 }
 
-function buildUnexpectedStreamEndMessage(): string {
-  return "OpenAI stream ended before completing the rewrite. Original text preserved.";
+function buildPartialLengthMessage(mode: OpenAITransformMode): string {
+  return `OpenAI stopped before completing the ${getTransformNoun(mode)}. Original text preserved.`;
+}
+
+function buildUnexpectedStreamEndMessage(mode: OpenAITransformMode): string {
+  return `OpenAI stream ended before completing the ${getTransformNoun(mode)}. Original text preserved.`;
 }
 
 function buildNoTextTerminalMessage(
+  mode: OpenAITransformMode,
   responseStatus: string | undefined,
   finishReason: string | undefined,
 ): string {
+  const transformNoun = getTransformNoun(mode);
+
   if (isLengthTruncationReason(finishReason)) {
-    return "OpenAI used the output budget before producing text. Original text preserved.";
+    return `OpenAI used the output budget before producing the ${transformNoun}. Original text preserved.`;
   }
 
   if (responseStatus === "cancelled") {
-    return "OpenAI cancelled the response before producing text. Original text preserved.";
+    return `OpenAI cancelled the response before producing the ${transformNoun}. Original text preserved.`;
   }
 
   if (responseStatus === "incomplete") {
     return finishReason
-      ? `OpenAI ended the response before producing text (${finishReason}). Original text preserved.`
-      : "OpenAI ended the response before producing text. Original text preserved.";
+      ? `OpenAI ended the response before producing the ${transformNoun} (${finishReason}). Original text preserved.`
+      : `OpenAI ended the response before producing the ${transformNoun}. Original text preserved.`;
   }
 
   if (responseStatus === "failed") {
-    return "OpenAI failed before producing text. Original text preserved.";
+    return `OpenAI failed before producing the ${transformNoun}. Original text preserved.`;
   }
 
-  return "OpenAI returned empty output. Original text preserved.";
+  return `OpenAI returned empty ${transformNoun} output. Original text preserved.`;
 }
 
 export async function streamTransformWithOpenAI({
@@ -672,7 +674,12 @@ export async function streamTransformWithOpenAI({
       ? Math.min(MAX_OUTPUT_TOKENS_CEILING, Math.max(1, Math.round(maxOutputTokensOverride)))
       : getMaxOutputTokens(mode, inputText);
   const modelRequestControls = getModelRequestControls(model, mode);
-  const structureIntent = deriveStructureIntent(inputText, mode, smartStructuring);
+  const structureIntent = isAgentPromptMode(mode)
+    ? undefined
+    : deriveStructureIntent(inputText, mode, smartStructuring);
+  const agentPromptIntent = isAgentPromptMode(mode)
+    ? deriveAgentPromptIntent(inputText)
+    : undefined;
   let currentMaxOutputTokens = maxOutputTokens;
   let includeTemperature = typeof temperature === "number" && Number.isFinite(temperature);
   let retriedForNoTextLengthLimit = false;
@@ -703,8 +710,8 @@ export async function streamTransformWithOpenAI({
             ...modelRequestControls,
             stream: streaming,
             max_output_tokens: currentMaxOutputTokens,
-            instructions: buildInstructions(mode, structureIntent),
-            input: `${USER_WRAPPER_PREFIX}${inputText}${USER_WRAPPER_SUFFIX}`,
+            instructions: buildInstructions(mode, agentPromptIntent ?? structureIntent),
+            input: buildUserInput(mode, inputText),
           }),
         });
 
@@ -759,13 +766,13 @@ export async function streamTransformWithOpenAI({
 
           throw new OpenAIProviderError(
             "unknown",
-            buildNoTextTerminalMessage(responseStatus, finishReason),
+            buildNoTextTerminalMessage(mode, responseStatus, finishReason),
           );
         }
 
         outputText = outputTextFromPayload;
         if (isLengthTruncationReason(finishReason)) {
-          throw new OpenAIProviderError("unknown", buildPartialLengthMessage());
+          throw new OpenAIProviderError("unknown", buildPartialLengthMessage(mode));
         }
         onDelta(outputTextFromPayload);
         responseId = extractResponseId(parsed);
@@ -912,7 +919,9 @@ export async function streamTransformWithOpenAI({
       } else if (refusalText.trim()) {
         throw new OpenAIProviderError(
           "unknown",
-          `OpenAI refused to rewrite this text. ${refusalText}`,
+          isAgentPromptMode(mode)
+            ? `OpenAI refused to generate this prompt. ${refusalText}`
+            : `OpenAI refused to rewrite this text. ${refusalText}`,
         );
       }
 
@@ -929,16 +938,16 @@ export async function streamTransformWithOpenAI({
 
         throw new OpenAIProviderError(
           "unknown",
-          buildNoTextTerminalMessage(responseStatus, finishReason),
+          buildNoTextTerminalMessage(mode, responseStatus, finishReason),
         );
       }
 
       if (isLengthTruncationReason(finishReason)) {
-        throw new OpenAIProviderError("unknown", buildPartialLengthMessage());
+        throw new OpenAIProviderError("unknown", buildPartialLengthMessage(mode));
       }
 
       if (!sawExplicitStreamTermination) {
-        throw new OpenAIProviderError("unknown", buildUnexpectedStreamEndMessage());
+        throw new OpenAIProviderError("unknown", buildUnexpectedStreamEndMessage(mode));
       }
 
       return {

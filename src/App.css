@@ -208,6 +208,7 @@ body {
 .controls {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 24px;
   margin-bottom: 36px;
 }
@@ -285,7 +286,17 @@ body {
   gap: 16px;
 }
 
+.agent-area {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .tone-group.locked {
+  opacity: 0.45;
+}
+
+.agent-preset-group.locked {
   opacity: 0.45;
 }
 
@@ -300,6 +311,90 @@ body {
 .tone-group {
   display: flex;
   gap: 2px;
+}
+
+.agent-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.agent-prompt-btn {
+  font-family: 'Karla', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  padding: 7px 14px;
+  background: transparent;
+  border: 1px solid var(--sumi);
+  color: var(--sumi);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+}
+
+.agent-prompt-btn span {
+  position: relative;
+}
+
+.agent-prompt-btn:hover:not(:disabled),
+.agent-prompt-btn.active {
+  background: var(--sumi);
+  color: var(--paper);
+}
+
+.agent-prompt-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.agent-prompt-btn.streaming::after {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: var(--vermillion);
+  vertical-align: middle;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.agent-preset-group {
+  display: flex;
+  gap: 2px;
+}
+
+.agent-preset-btn {
+  font-family: 'Karla', sans-serif;
+  font-size: 11px;
+  font-weight: 300;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid var(--washi);
+  color: var(--ash);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+}
+
+.agent-preset-btn:first-child { border-radius: 2px 0 0 2px; }
+.agent-preset-btn:last-child { border-radius: 0 2px 2px 0; }
+
+.agent-preset-btn:hover:not(:disabled) {
+  border-color: var(--vermillion-border);
+  color: var(--vermillion);
+  background: var(--vermillion-soft);
+}
+
+.agent-preset-btn.active {
+  border-color: var(--sumi);
+  color: var(--paper);
+  background: var(--sumi);
+  font-weight: 400;
+}
+
+.agent-preset-btn:disabled {
+  cursor: default;
 }
 
 .tone-btn {
@@ -662,6 +757,11 @@ body {
   }
 
   .controls {
+    flex-wrap: wrap;
+  }
+
+  .agent-area,
+  .agent-controls {
     flex-wrap: wrap;
   }
 
