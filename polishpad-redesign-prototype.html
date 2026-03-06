@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PolishPad — Redesign Prototype</title>
+<style>
+  /* ── FONTS ── */
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&display=swap');
+
+  /* ── CSS VARIABLES ── */
+  :root {
+    --font-body: 'DM Sans', system-ui, sans-serif;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+
+    --bg-base: #f5f3ef;
+    --bg-warm: #ece8e1;
+    --bg-card: #fffffe;
+    --bg-card-bottom: #faf9f7;
+    --border-card: rgba(0, 0, 0, 0.06);
+    --border-subtle: rgba(0, 0, 0, 0.08);
+
+    --ink-primary: #1a1a1a;
+    --ink-secondary: #5c5c5c;
+    --ink-muted: #8a8a8a;
+    --ink-faint: #b0aeab;
+
+    --accent: #2d5be3;
+    --accent-hover: #1d4ed8;
+    --accent-glow: rgba(45, 91, 227, 0.12);
+    --accent-soft: #e8eefb;
+
+    --success: #1a7a5c;
+    --success-bg: #e6f5ef;
+
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 8px 32px rgba(0,0,0,0.06);
+    --shadow-card-hover: 0 2px 4px rgba(0,0,0,0.06), 0 12px 40px rgba(0,0,0,0.09);
+    --shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --radius-sm: 10px;
+    --radius-xs: 8px;
+
+    --space-xs: 6px;
+    --space-sm: 12px;
+    --space-md: 20px;
+    --space-lg: 32px;
+    --space-xl: 48px;
+
+    --transition-fast: 140ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: 260ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* ── DARK MODE ── */
+    &[data-theme="dark"] {
+      --bg-base: #141414;
+      --bg-warm: #1c1c1c;
+      --bg-card: #1e1e1e;
+      --bg-card-bottom: #1a1a1a;
+      --border-card: rgba(255, 255, 255, 0.06);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+
+      --ink-primary: #eaeaea;
+      --ink-secondary: #a0a0a0;
+      --ink-muted: #6a6a6a;
+      --ink-faint: #484848;
+
+      --accent: #6b8ef0;
+      --accent-hover: #8ba6f5;
+      --accent-glow: rgba(107, 142, 240, 0.15);
+      --accent-soft: #1e2a48;
+
+      --success: #4ade80;
+      --success-bg: #1a2e22;
+
+      --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 8px 32px rgba(0,0,0,0.4);
+      --shadow-card-hover: 0 2px 4px rgba(0,0,0,0.4), 0 12px 40px rgba(0,0,0,0.5);
+      --shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+  }
+
+  /* ── RESET ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink-primary);
+    background: var(--bg-base);
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: var(--space-xl) var(--space-md);
+    -webkit-font-smoothing: antialiased;
+    transition: background var(--transition-smooth), color var(--transition-smooth);
+  }
+
+  /* subtle texture on body */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── MAIN CARD ── */
+  .app-shell {
+    position: relative;
+    z-index: 1;
+    width: min(960px, 100%);
+    background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-card-bottom) 100%);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: box-shadow var(--transition-smooth), background var(--transition-smooth);
+  }
+
+  /* ── TOOLBAR ── */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-md) var(--space-md) 0 var(--space-md);
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+  }
+
+  .toolbar-section {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+
+  .toolbar-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-right: var(--space-xs);
+    user-select: none;
+  }
+
+  /* ── SEGMENTED CONTROL (mode selector) ── */
+  .segmented-control {
+    display: flex;
+    background: var(--bg-warm);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+    position: relative;
+    gap: 2px;
+  }
+
+  .segmented-control .mode-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--ink-secondary);
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    font-weight: 500;
+    padding: 7px 16px;
+    border-radius: calc(var(--radius-sm) - 3px);
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+    position: relative;
+    z-index: 1;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  .segmented-control .mode-btn:hover:not(.active):not(:disabled) {
+    color: var(--ink-primary);
+    background: rgba(255,255,255,0.5);
+  }
+
+  .segmented-control .mode-btn.active {
+    background: var(--bg-card);
+    color: var(--ink-primary);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 1px rgba(0, 0, 0, 0.04);
+  }
+
+  .segmented-control .mode-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* streaming indicator dot */
+  .segmented-control .mode-btn.streaming::after {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-left: 6px;
+    vertical-align: middle;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* ── ACTION BUTTONS ── */
+  .action-btn {
+    appearance: none;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xs);
+    background: transparent;
+    color: var(--ink-secondary);
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    font-weight: 500;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  .action-btn:hover:not(:disabled) {
+    border-color: var(--ink-muted);
+    color: var(--ink-primary);
+    background: var(--bg-warm);
+  }
+
+  .action-btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  .action-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  /* Copy button — primary CTA */
+  .action-btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    min-width: 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .action-btn.primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: #fff;
+    box-shadow: 0 2px 12px var(--accent-glow);
+  }
+
+  .action-btn.primary:disabled {
+    background: var(--ink-faint);
+    border-color: var(--ink-faint);
+    opacity: 0.6;
+  }
+
+  /* copy success state */
+  .action-btn.primary.copied {
+    background: var(--success);
+    border-color: var(--success);
+  }
+
+  /* Settings is a subtle icon-like button */
+  .action-btn.settings-trigger {
+    padding: 7px 10px;
+    font-size: 0.9rem;
+    letter-spacing: 0;
+  }
+
+  /* ── EDITOR ── */
+  .editor-area {
+    padding: 0 var(--space-md) var(--space-sm);
+    margin-top: var(--space-md);
+    flex: 1;
+  }
+
+  .editor-label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: var(--space-xs);
+    user-select: none;
+  }
+
+  .editor-wrapper {
+    position: relative;
+    border-radius: var(--radius-md);
+    border: 1.5px solid var(--border-subtle);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-inset);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    overflow: hidden;
+  }
+
+  .editor-wrapper:focus-within {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-inset), 0 0 0 3px var(--accent-glow);
+  }
+
+  .editor {
+    width: 100%;
+    min-height: 380px;
+    border: none;
+    padding: var(--space-md);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: var(--ink-primary);
+    background: transparent;
+    resize: vertical;
+    outline: none;
+    transition: color var(--transition-smooth);
+  }
+
+  .editor::placeholder {
+    color: var(--ink-faint);
+    font-size: 0.95rem;
+    font-style: italic;
+  }
+
+  .editor[readonly] {
+    color: var(--ink-secondary);
+  }
+
+  /* ── STATS BAR (below editor) ── */
+  .stats-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border-top: 1px solid var(--border-subtle);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--ink-muted);
+    letter-spacing: 0.02em;
+    user-select: none;
+    flex-wrap: wrap;
+  }
+
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .stat-label {
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+
+  .stat-value {
+    color: var(--ink-secondary);
+    font-weight: 500;
+  }
+
+  .stat-divider {
+    width: 1px;
+    height: 12px;
+    background: var(--border-subtle);
+  }
+
+  .stat-warning {
+    color: #c2410c;
+    font-weight: 500;
+  }
+
+  /* ── STATUS + CREDIT FOOTER ── */
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm) var(--space-md);
+    gap: var(--space-md);
+    flex-wrap: wrap;
+  }
+
+  .status-message {
+    font-size: 0.82rem;
+    color: var(--ink-secondary);
+    font-style: italic;
+  }
+
+  .credit {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: 0.68rem;
+    color: var(--ink-muted);
+    user-select: none;
+  }
+
+  .credit-label {
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 0.6rem;
+    color: var(--ink-faint);
+  }
+
+  .credit-name {
+    font-weight: 600;
+    color: var(--ink-secondary);
+  }
+
+  .credit-dot {
+    color: var(--ink-faint);
+  }
+
+  .credit-handle {
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .credit-flag {
+    font-size: 0.8rem;
+    line-height: 1;
+  }
+
+  /* ── THEME TOGGLE ── */
+  .theme-toggle {
+    position: fixed;
+    top: var(--space-md);
+    right: var(--space-md);
+    z-index: 100;
+    appearance: none;
+    border: 1px solid var(--border-subtle);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    background: var(--bg-card);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    transition: all var(--transition-fast);
+  }
+
+  .theme-toggle:hover {
+    box-shadow: 0 2px 12px rgba(0,0,0,0.14);
+    transform: scale(1.05);
+  }
+
+  /* ── LABEL BADGE ── */
+  .redesign-badge {
+    position: fixed;
+    top: var(--space-md);
+    left: var(--space-md);
+    z-index: 100;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    padding: 4px 10px;
+    border-radius: 20px;
+    user-select: none;
+  }
+
+  /* ── ENTRANCE ANIMATIONS ── */
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .app-shell {
+    animation: fadeSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .toolbar {
+    animation: fadeSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+  }
+
+  .editor-area {
+    animation: fadeSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  }
+
+  .stats-bar {
+    animation: fadeSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+  }
+
+  .footer {
+    animation: fadeSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 720px) {
+    body { padding: var(--space-sm); }
+    .app-shell { border-radius: var(--radius-md); }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .toolbar-section { justify-content: center; flex-wrap: wrap; }
+    .segmented-control { justify-content: center; }
+    .footer { flex-direction: column; align-items: flex-start; }
+    .credit { justify-content: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Theme toggle (suggestion #8: dark mode) -->
+  <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">☀️</button>
+
+  <!-- Prototype label -->
+  <span class="redesign-badge">REDESIGN PROTOTYPE</span>
+
+  <main class="app-shell">
+
+    <!-- ── TOOLBAR ── -->
+    <header class="toolbar">
+      <div class="toolbar-section">
+        <span class="toolbar-label">Tone</span>
+        <!-- Suggestion #2: segmented control for modes -->
+        <div class="segmented-control" id="modeSelector">
+          <button class="mode-btn active" data-mode="polish" onclick="selectMode(this)">Polish</button>
+          <button class="mode-btn" data-mode="casual" onclick="selectMode(this)">Casual</button>
+          <button class="mode-btn" data-mode="professional" onclick="selectMode(this)">Professional</button>
+          <button class="mode-btn" data-mode="direct" onclick="selectMode(this)">Direct</button>
+        </div>
+      </div>
+
+      <div class="toolbar-section">
+        <!-- Suggestion #2: receded secondary actions, prominent CTA -->
+        <button class="action-btn" disabled title="Cancel">Cancel</button>
+        <button class="action-btn" disabled title="Undo">Undo</button>
+        <button class="action-btn primary" id="copyBtn" onclick="handleCopy()" title="Copy to clipboard">Copy</button>
+        <button class="action-btn settings-trigger" title="Settings" onclick="alert('Settings panel would open here')">⚙</button>
+      </div>
+    </header>
+
+    <!-- ── EDITOR ── -->
+    <!-- Suggestion #4: typographic labels -->
+    <section class="editor-area">
+      <label class="editor-label" for="editor">Your text</label>
+      <!-- Suggestion #3: enhanced text area -->
+      <div class="editor-wrapper">
+        <textarea
+          id="editor"
+          class="editor"
+          placeholder="Paste or write text here. Choose a tone, then copy after reviewing."
+          spellcheck="true"
+          oninput="updateStats()"
+        ></textarea>
+      </div>
+    </section>
+
+    <!-- Suggestion #7: stats bar separated from credit -->
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-label">Words</span>
+        <span class="stat-value" id="wordCount">0</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-label">Chars</span>
+        <span class="stat-value" id="charCount">0</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-label">Last</span>
+        <span class="stat-value" id="lastMode">—</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-label">Latency</span>
+        <span class="stat-value" id="latency">—</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-label">Warnings</span>
+        <span class="stat-value" id="warnings">None</span>
+      </div>
+    </div>
+
+    <!-- Suggestion #7: footer with status + credit in their own row -->
+    <footer class="footer">
+      <span class="status-message">Transforms apply to the current editor text.</span>
+      <div class="credit">
+        <span class="credit-label">Created by</span>
+        <span class="credit-name">Rock Kestrel Ventures</span>
+        <span class="credit-dot">·</span>
+        <span class="credit-handle">@laup30</span>
+        <span class="credit-dot">·</span>
+        <span class="credit-flag">🇿🇦</span>
+        <span>Cape Town</span>
+      </div>
+    </footer>
+
+  </main>
+
+<script>
+  // ── Theme toggle (Suggestion #8) ──
+  function toggleTheme() {
+    const html = document.documentElement;
+    const isDark = html.getAttribute('data-theme') === 'dark';
+    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    document.getElementById('themeBtn').textContent = isDark ? '☀️' : '🌙';
+  }
+
+  // Check system preference
+  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.getElementById('themeBtn').textContent = '🌙';
+  }
+
+  // ── Mode selector (Suggestion #2 + #6: animated segmented control) ──
+  function selectMode(btn) {
+    document.querySelectorAll('.segmented-control .mode-btn').forEach(b => {
+      b.classList.remove('active', 'streaming');
+    });
+    btn.classList.add('active');
+
+    // simulate streaming for demo
+    btn.classList.add('streaming');
+    document.getElementById('lastMode').textContent = btn.dataset.mode;
+
+    // fake latency after "streaming"
+    setTimeout(() => {
+      btn.classList.remove('streaming');
+      const fakeLatency = Math.round(180 + Math.random() * 400);
+      document.getElementById('latency').textContent = fakeLatency + ' ms';
+    }, 1500);
+  }
+
+  // ── Stats updater (Suggestion #4: monospace stats) ──
+  function updateStats() {
+    const text = document.getElementById('editor').value;
+    const trimmed = text.trim();
+    const words = trimmed ? trimmed.split(/\s+/).length : 0;
+    document.getElementById('wordCount').textContent = words;
+    document.getElementById('charCount').textContent = text.length;
+  }
+
+  // ── Copy with feedback (Suggestion #9: micro-interaction) ──
+  async function handleCopy() {
+    const btn = document.getElementById('copyBtn');
+    const text = document.getElementById('editor').value;
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.classList.add('copied');
+      btn.textContent = '✓ Copied';
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.textContent = 'Copy';
+      }, 1400);
+    } catch {
+      btn.textContent = 'Failed';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1400);
+    }
+  }
+</script>
+
+</body>
+</html>

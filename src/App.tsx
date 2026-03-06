@@ -133,6 +133,16 @@ function App() {
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState("");
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    try {
+      if (typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        return "dark";
+      }
+    } catch {
+      /* jsdom or unsupported environment */
+    }
+    return "light";
+  });
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const undoCheckpointRef = useRef<string | null>(null);
@@ -173,6 +183,14 @@ function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  const handleThemeToggle = (): void => {
+    setTheme((t) => (t === "light" ? "dark" : "light"));
+  };
 
   const handleTransform = async (
     mode: WiredTransformMode,
@@ -379,233 +397,248 @@ function App() {
   };
 
   return (
-    <main className="app-shell">
-      <header className="toolbar" aria-label="PolishPad toolbar">
-        <div className="mode-group">
-          {TRANSFORM_MODES.map((mode) => (
+    <>
+      <button
+        type="button"
+        className="theme-toggle"
+        onClick={handleThemeToggle}
+        aria-label="Toggle theme"
+      >
+        {theme === "dark" ? "\u2600\uFE0F" : "\uD83C\uDF19"}
+      </button>
+
+      <main className="app-shell">
+        <header className="toolbar" aria-label="PolishPad toolbar">
+          <div className="toolbar-section">
+            <span className="toolbar-label">Tone</span>
+            <div className="segmented-control">
+              {TRANSFORM_MODES.map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`mode-btn${lastMode === mode ? " active" : ""}${activeStreamMode === mode && isStreaming ? " streaming" : ""}`}
+                  disabled={transformsDisabled}
+                  onClick={() => handleTransformClick(mode)}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="toolbar-section">
             <button
-              key={mode}
               type="button"
-              className="mode-button"
-              disabled={transformsDisabled}
-              onClick={() => handleTransformClick(mode)}
+              className="action-btn"
+              onClick={handleCancel}
+              disabled={!isStreaming}
             >
-              {mode === activeStreamMode && isStreaming ? `${mode} (Streaming...)` : mode}
+              Cancel
             </button>
-          ))}
-        </div>
-        <div className="action-group">
-          <button
-            type="button"
-            className="cancel-button"
-            onClick={handleCancel}
-            disabled={!isStreaming}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="undo-button"
-            onClick={handleUndo}
-            disabled={isStreaming || !canUndo}
-          >
-            Undo
-          </button>
-          <button
-            type="button"
-            className="copy-button"
-            onClick={handleCopy}
-            disabled={text.length === 0 || isStreaming}
-          >
-            Copy
-          </button>
-          <button
-            type="button"
-            className="settings-button"
-            onClick={() => setIsSettingsOpen((open) => !open)}
-          >
-            {isSettingsOpen ? "Hide Settings" : "Settings"}
-          </button>
-        </div>
-      </header>
+            <button
+              type="button"
+              className="action-btn"
+              onClick={handleUndo}
+              disabled={isStreaming || !canUndo}
+            >
+              Undo
+            </button>
+            <button
+              type="button"
+              className={`action-btn primary${copyFeedback === "Copied" ? " copied" : ""}`}
+              onClick={handleCopy}
+              disabled={text.length === 0 || isStreaming}
+            >
+              {copyFeedback === "Copied" ? "\u2713 Copied" : "Copy"}
+            </button>
+            <button
+              type="button"
+              className="action-btn settings-trigger"
+              onClick={() => setIsSettingsOpen((open) => !open)}
+              aria-label="Settings"
+            >
+              {isSettingsOpen ? "\u2715" : "\u2699"}
+            </button>
+          </div>
+        </header>
 
-      {apiKeyMissing ? <p className="settings-warning">{MISSING_API_KEY_MESSAGE}</p> : null}
+        {apiKeyMissing ? <p className="settings-warning">{MISSING_API_KEY_MESSAGE}</p> : null}
 
-      {isSettingsOpen ? (
-        <section className="settings-panel" aria-label="Settings">
-          <form className="settings-form" onSubmit={handleSettingsSave}>
-            <label className="settings-field" htmlFor="openai-api-key">
-              OpenAI API key
-            </label>
-            <input
-              id="openai-api-key"
-              className="settings-input"
-              type="password"
-              value={settingsDraft.openaiApiKey}
-              onChange={(event) => {
-                const nextOpenAiApiKey = event.currentTarget.value;
-                setSettingsDraft((current) => ({
-                  ...current,
-                  openaiApiKey: nextOpenAiApiKey,
-                }));
-              }}
-              placeholder="sk-..."
-              autoComplete="off"
-            />
-
-            <label className="settings-field" htmlFor="model-name">
-              Model
-            </label>
-            <input
-              id="model-name"
-              className="settings-input"
-              type="text"
-              value={settingsDraft.model}
-              onChange={(event) => {
-                const nextModel = event.currentTarget.value;
-                setSettingsDraft((current) => ({
-                  ...current,
-                  model: nextModel,
-                }));
-              }}
-            />
-
-            <label className="settings-field" htmlFor="temperature">
-              Temperature
-            </label>
-            <input
-              id="temperature"
-              className="settings-input"
-              type="number"
-              min={0}
-              max={2}
-              step={0.1}
-              value={settingsDraft.temperature}
-              onChange={(event) => {
-                const nextTemperatureRaw = Number(event.currentTarget.value);
-                setSettingsDraft((current) => ({
-                  ...current,
-                  temperature: Number.isFinite(nextTemperatureRaw)
-                    ? nextTemperatureRaw
-                    : current.temperature,
-                }));
-              }}
-            />
-
-            <label className="settings-checkbox">
+        {isSettingsOpen ? (
+          <section className="settings-panel" aria-label="Settings">
+            <form className="settings-form" onSubmit={handleSettingsSave}>
+              <label className="settings-field" htmlFor="openai-api-key">
+                OpenAI API key
+              </label>
               <input
-                type="checkbox"
-                checked={settingsDraft.streaming}
+                id="openai-api-key"
+                className="settings-input"
+                type="password"
+                value={settingsDraft.openaiApiKey}
                 onChange={(event) => {
-                  const nextStreaming = event.currentTarget.checked;
+                  const nextOpenAiApiKey = event.currentTarget.value;
                   setSettingsDraft((current) => ({
                     ...current,
-                    streaming: nextStreaming,
+                    openaiApiKey: nextOpenAiApiKey,
+                  }));
+                }}
+                placeholder="sk-..."
+                autoComplete="off"
+              />
+
+              <label className="settings-field" htmlFor="model-name">
+                Model
+              </label>
+              <input
+                id="model-name"
+                className="settings-input"
+                type="text"
+                value={settingsDraft.model}
+                onChange={(event) => {
+                  const nextModel = event.currentTarget.value;
+                  setSettingsDraft((current) => ({
+                    ...current,
+                    model: nextModel,
                   }));
                 }}
               />
-              Streaming
-            </label>
 
-            <label className="settings-checkbox">
+              <label className="settings-field" htmlFor="temperature">
+                Temperature
+              </label>
               <input
-                type="checkbox"
-                checked={settingsDraft.tokenProtection}
+                id="temperature"
+                className="settings-input"
+                type="number"
+                min={0}
+                max={2}
+                step={0.1}
+                value={settingsDraft.temperature}
                 onChange={(event) => {
-                  const nextTokenProtection = event.currentTarget.checked;
+                  const nextTemperatureRaw = Number(event.currentTarget.value);
                   setSettingsDraft((current) => ({
                     ...current,
-                    tokenProtection: nextTokenProtection,
+                    temperature: Number.isFinite(nextTemperatureRaw)
+                      ? nextTemperatureRaw
+                      : current.temperature,
                   }));
                 }}
               />
-              Token protection
-            </label>
 
-            <div className="settings-toggle-group">
               <label className="settings-checkbox">
                 <input
                   type="checkbox"
-                  checked={settingsDraft.smartStructuring}
+                  checked={settingsDraft.streaming}
                   onChange={(event) => {
-                    const nextSmartStructuring = event.currentTarget.checked;
+                    const nextStreaming = event.currentTarget.checked;
                     setSettingsDraft((current) => ({
                       ...current,
-                      smartStructuring: nextSmartStructuring,
+                      streaming: nextStreaming,
                     }));
                   }}
                 />
-                Smart message structuring
+                Streaming
               </label>
-              <p className="settings-help">
-                Use better paragraph breaks and bullets when they improve readability.
-              </p>
-            </div>
 
-            <div className="settings-actions">
-              <button type="submit" className="save-settings-button" disabled={isSavingSettings}>
-                {isSavingSettings ? "Saving..." : "Save Settings"}
-              </button>
-              <span className="settings-message">{settingsMessage}</span>
-            </div>
-          </form>
-        </section>
-      ) : null}
+              <label className="settings-checkbox">
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.tokenProtection}
+                  onChange={(event) => {
+                    const nextTokenProtection = event.currentTarget.checked;
+                    setSettingsDraft((current) => ({
+                      ...current,
+                      tokenProtection: nextTokenProtection,
+                    }));
+                  }}
+                />
+                Token protection
+              </label>
 
-      <section className="editor-panel">
-        <label className="sr-only" htmlFor="editor">
-          Text editor
-        </label>
-        <textarea
-          id="editor"
-          className="editor"
-          value={text}
-          onChange={(event) => setText(event.currentTarget.value)}
-          placeholder="Paste or write text here. Choose a mode, then copy after reviewing."
-          spellCheck
-          readOnly={isStreaming}
-        />
-      </section>
+              <div className="settings-toggle-group">
+                <label className="settings-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={settingsDraft.smartStructuring}
+                    onChange={(event) => {
+                      const nextSmartStructuring = event.currentTarget.checked;
+                      setSettingsDraft((current) => ({
+                        ...current,
+                        smartStructuring: nextSmartStructuring,
+                      }));
+                    }}
+                  />
+                  Smart message structuring
+                </label>
+                <p className="settings-help">
+                  Use better paragraph breaks and bullets when they improve readability.
+                </p>
+              </div>
 
-      <footer className="status-bar" aria-live="polite">
-        <span>Words: {wordCount}</span>
-        <span>Characters: {charCount}</span>
-        <span>Last mode: {lastMode ?? "None"}</span>
-        <span>Latency: {latencyMs === null ? "--" : `${latencyMs} ms`}</span>
-        <span>Warnings: {warning}</span>
-        {retryContext ? (
-          <button
-            type="button"
-            className="retry-button"
-            onClick={handleRetryMoreRoom}
-            disabled={isStreaming}
-          >
-            Retry (more room)
-          </button>
+              <div className="settings-actions">
+                <button type="submit" className="save-settings-button" disabled={isSavingSettings}>
+                  {isSavingSettings ? "Saving..." : "Save Settings"}
+                </button>
+                <span className="settings-message">{settingsMessage}</span>
+              </div>
+            </form>
+          </section>
         ) : null}
-        <span className="copy-feedback">{copyFeedback}</span>
-      </footer>
-      <div className="footer-meta">
-        <p className="footer-hint">{statusMessage}</p>
-        <p className="creator-credit" aria-label="App creator">
-          <span className="creator-label">Created by</span>
-          <span className="creator-name">{CREATOR_NAME}</span>
-          <span className="creator-separator" aria-hidden="true">
-            ·
-          </span>
-          <span className="creator-handle">{CREATOR_HANDLE}</span>
-          <span className="creator-separator" aria-hidden="true">
-            ·
-          </span>
-          <span className="creator-location">
-            <span className="creator-flag" aria-hidden="true">
-              🇿🇦
-            </span>
+
+        <section className="editor-area">
+          <span className="editor-label" aria-hidden="true">Your text</span>
+          <label className="sr-only" htmlFor="editor">
+            Text editor
+          </label>
+          <div className="editor-wrapper">
+            <textarea
+              id="editor"
+              className="editor"
+              value={text}
+              onChange={(event) => setText(event.currentTarget.value)}
+              placeholder="Paste or write text here. Choose a tone, then copy after reviewing."
+              spellCheck
+              readOnly={isStreaming}
+            />
+          </div>
+        </section>
+
+        <div className="stats-bar" aria-live="polite">
+          <span className="stat-item">Words: {wordCount}</span>
+          <span className="stat-divider" aria-hidden="true" />
+          <span className="stat-item">Characters: {charCount}</span>
+          <span className="stat-divider" aria-hidden="true" />
+          <span className="stat-item">Last mode: {lastMode ?? "None"}</span>
+          <span className="stat-divider" aria-hidden="true" />
+          <span className="stat-item">Latency: {latencyMs === null ? "\u2013" : `${latencyMs} ms`}</span>
+          <span className="stat-divider" aria-hidden="true" />
+          <span className="stat-item">Warnings: {warning}</span>
+          {retryContext ? (
+            <button
+              type="button"
+              className="action-btn retry-btn"
+              onClick={handleRetryMoreRoom}
+              disabled={isStreaming}
+            >
+              Retry (more room)
+            </button>
+          ) : null}
+          <span className="copy-feedback">{copyFeedback}</span>
+        </div>
+
+        <footer className="footer">
+          <span className="status-message">{statusMessage}</span>
+          <div className="credit" aria-label="App creator">
+            <span className="credit-label">Created by</span>
+            <span className="credit-name">{CREATOR_NAME}</span>
+            <span className="credit-dot" aria-hidden="true">·</span>
+            <span className="credit-handle">{CREATOR_HANDLE}</span>
+            <span className="credit-dot" aria-hidden="true">·</span>
+            <span className="credit-flag" aria-hidden="true">🇿🇦</span>
             <span>{CREATOR_LOCATION}</span>
-          </span>
-        </p>
-      </div>
-    </main>
+          </div>
+        </footer>
+      </main>
+    </>
   );
 }
 
