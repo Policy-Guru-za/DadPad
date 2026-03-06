@@ -330,7 +330,7 @@ describe("M3 transform resilience", () => {
 
     await waitFor(() => {
       expect(editor.value).toBe("original text");
-      expect(screen.getByText("Polish cancelled. Original text restored.")).toBeTruthy();
+      expect(screen.getByText("Warnings: None")).toBeTruthy();
       expect(cancelButton.disabled).toBe(true);
       expect(undoButton.disabled).toBe(true);
       expect(polishButton.disabled).toBe(false);
@@ -358,9 +358,6 @@ describe("M3 transform resilience", () => {
     await waitFor(() => {
       expect(editor.value).toBe("safe original");
       expect(
-        screen.getByText("OpenAI stream returned malformed JSON. Original text preserved."),
-      ).toBeTruthy();
-      expect(
         screen.getByText(
           "Warnings: OpenAI stream returned malformed JSON. Original text preserved.",
         ),
@@ -384,7 +381,8 @@ describe("M3 transform resilience", () => {
 
     await waitFor(() => {
       expect(editor.value).toBe("Hello.");
-      expect(screen.getByText(/Polish complete in/)).toBeTruthy();
+      expect(screen.getByText(/^Latency: \d+ ms$/)).toBeTruthy();
+      expect(screen.getByText("Warnings: None")).toBeTruthy();
     });
   });
 
@@ -448,7 +446,9 @@ describe("M3 transform resilience", () => {
     await waitFor(() => {
       expect(editor.value).toBe("safe original");
       expect(
-        screen.getByText("OpenAI stopped before completing the rewrite. Original text preserved."),
+        screen.getByText(
+          "Warnings: OpenAI stopped before completing the rewrite. Original text preserved.",
+        ),
       ).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Retry (more room)" })).toBeNull();
     });
@@ -487,8 +487,9 @@ describe("M4 direct mode wiring", () => {
 
     await waitFor(() => {
       expect(editor.value).toBe("Short output.");
-      expect(screen.getByText(/Direct complete in/)).toBeTruthy();
+      expect(screen.getByText(/^Latency: \d+ ms$/)).toBeTruthy();
       expect(screen.getByText("Last mode: Direct")).toBeTruthy();
+      expect(screen.getByText("Warnings: None")).toBeTruthy();
       expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
         expect.objectContaining({ mode: "direct" }),
       );
@@ -548,7 +549,7 @@ describe("M4 direct mode wiring", () => {
 
     await waitFor(() => {
       expect(editor.value).toBe("Polished draft.");
-      expect(screen.getByText("Direct cancelled. Original text restored.")).toBeTruthy();
+      expect(screen.getByText("Warnings: None")).toBeTruthy();
     });
   });
 });
@@ -584,8 +585,9 @@ describe("M7 casual/professional mode wiring", () => {
 
     await waitFor(() => {
       expect(editor.value).toBe("Hey team, quick update.");
-      expect(screen.getByText(/Casual complete in/)).toBeTruthy();
+      expect(screen.getByText(/^Latency: \d+ ms$/)).toBeTruthy();
       expect(screen.getByText("Last mode: Casual")).toBeTruthy();
+      expect(screen.getByText("Warnings: None")).toBeTruthy();
       expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
         expect.objectContaining({ mode: "casual" }),
       );
@@ -622,8 +624,9 @@ describe("M7 casual/professional mode wiring", () => {
 
     await waitFor(() => {
       expect(editor.value).toBe("Good morning team. Please review the attached plan.");
-      expect(screen.getByText(/Professional complete in/)).toBeTruthy();
+      expect(screen.getByText(/^Latency: \d+ ms$/)).toBeTruthy();
       expect(screen.getByText("Last mode: Professional")).toBeTruthy();
+      expect(screen.getByText("Warnings: None")).toBeTruthy();
       expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
         expect.objectContaining({ mode: "professional" }),
       );
@@ -654,7 +657,6 @@ describe("M5 placeholder fail-safe", () => {
 
     await waitFor(() => {
       expect(editor.value).toBe(originalText);
-      expect(screen.getByText("Protected content mismatch. Original text preserved.")).toBeTruthy();
       expect(
         screen.getByText("Warnings: Protected content mismatch. Original text preserved."),
       ).toBeTruthy();

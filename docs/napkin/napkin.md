@@ -32,6 +32,7 @@
 - Utility scripts that can run from env overrides should treat unreadable `~/.polishpad` config as a warning and fall back to env/defaults instead of aborting.
 - Structure evaluation is only trustworthy if it mirrors the app path: placeholder encode -> provider rewrite -> decode/validate -> local whitespace normalization. Raw provider-only checks miss real commit behavior.
 - Tauri icon generation is safest via a repo-local temp output first; it emits extra iOS/Android assets by default, so copy only the required `src-tauri/icons` files into the bundle directory.
+- For spec-driven visual reskins that remove visible status UI but forbid logic churn, replace the old setter with a typed no-op and update tests to assert on stable UI invariants (editor content, warnings, button state) instead of transient footer copy.
 
 ## Patterns That Don't Work
 - Mocking SSE without abort support makes cancel tests unreliable.

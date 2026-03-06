@@ -34,7 +34,6 @@ const TONE_MODES: ToneMode[] = [
   "Direct",
 ];
 
-const FOOTER_HINT = "Transforms apply to the current editor text.";
 const MISSING_API_KEY_MESSAGE = "Set API key in Settings.";
 const CREATOR_HANDLE = "@laup30";
 const CREATOR_LOCATION = "Cape Town, South Africa";
@@ -124,7 +123,6 @@ function App() {
   const [text, setText] = useState("");
   const [lastMode, setLastMode] = useState<TransformMode | null>(null);
   const [copyFeedback, setCopyFeedback] = useState("");
-  const [statusMessage, setStatusMessage] = useState(FOOTER_HINT);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [warning, setWarning] = useState("None");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -137,6 +135,7 @@ function App() {
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState("");
+  const setStatusMessage = (_nextStatusMessage: string): void => undefined;
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const undoCheckpointRef = useRef<string | null>(null);
@@ -164,7 +163,7 @@ function App() {
 
         setSettings(loaded);
         setSettingsDraft(loaded);
-        setStatusMessage(loaded.openaiApiKey ? FOOTER_HINT : MISSING_API_KEY_MESSAGE);
+        setStatusMessage(loaded.openaiApiKey ? "" : MISSING_API_KEY_MESSAGE);
       } catch {
         if (cancelled) {
           return;
@@ -636,7 +635,6 @@ function App() {
       </div>
 
       <footer className="footer">
-        <span className="status-message">{statusMessage}</span>
         <div className="credit" aria-label="App creator">
           <span className="credit-handle">{CREATOR_HANDLE}</span>
           <span className="credit-dot" aria-hidden="true">
