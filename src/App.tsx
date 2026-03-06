@@ -648,6 +648,7 @@ function App() {
             <span>{CREATOR_LOCATION}</span>
           </span>
         </div>
+        <span className="hanko" aria-hidden="true">P</span>
       </footer>
     </main>
   );

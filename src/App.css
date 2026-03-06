@@ -114,6 +114,20 @@ body::before {
   animation: breathe 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.app-shell::before {
+  content: "";
+  position: absolute;
+  top: -40px;
+  right: -20px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  border: 8px solid var(--sumi);
+  opacity: 0.04;
+  pointer-events: none;
+  clip-path: polygon(0 0, 100% 0, 100% 85%, 75% 100%, 0 100%);
+}
+
 .toolbar {
   display: flex;
   align-items: flex-end;
@@ -122,7 +136,7 @@ body::before {
   gap: var(--space-sm);
   padding: 0;
   margin-bottom: var(--space-xl);
-  border-bottom: 1px solid var(--sumi);
+  border-bottom: 1px solid rgba(28, 27, 24, 0.12);
   padding-bottom: var(--space-lg);
   position: relative;
 }
@@ -170,7 +184,7 @@ body::before {
 }
 
 .transform-panel-tone.locked {
-  opacity: 0.72;
+  opacity: 0.3;
 }
 
 .transform-panel-tone.unlocked {
@@ -179,11 +193,11 @@ body::before {
 
 .toolbar-label {
   font-family: var(--font-display);
-  font-size: 0.68rem;
-  font-weight: 400;
-  letter-spacing: 2.6px;
+  font-size: 0.65rem;
+  font-weight: 300;
+  letter-spacing: 3px;
   text-transform: uppercase;
-  color: var(--warm-gray);
+  color: var(--ash);
 }
 
 .tone-heading {
@@ -197,7 +211,7 @@ body::before {
   font-size: 0.72rem;
   font-style: italic;
   font-weight: 300;
-  color: var(--warm-gray);
+  color: var(--ash);
 }
 
 .segmented-control {
@@ -267,10 +281,10 @@ body::before {
 }
 
 .polish-btn:disabled {
-  opacity: 0.78;
+  opacity: 0.3;
   cursor: default;
-  border-color: rgba(122, 120, 112, 0.55);
-  color: var(--warm-gray);
+  border-color: var(--ash);
+  color: var(--ash);
 }
 
 .polish-btn:disabled::before {
@@ -327,11 +341,11 @@ body::before {
 }
 
 .mode-btn:disabled {
-  opacity: 1;
+  opacity: 0.3;
   cursor: default;
-  color: var(--warm-gray);
-  border-color: rgba(122, 120, 112, 0.24);
-  background: rgba(234, 230, 222, 0.32);
+  color: var(--ash);
+  border-color: var(--washi);
+  background: transparent;
 }
 
 .action-btn {
@@ -354,7 +368,7 @@ body::before {
 }
 
 .action-btn:disabled {
-  opacity: 1;
+  opacity: 0.3;
   cursor: default;
   color: var(--ash);
 }
@@ -461,7 +475,7 @@ body::before {
 .settings-help {
   font-size: 0.72rem;
   font-weight: 300;
-  color: var(--warm-gray);
+  color: var(--ash);
   padding-left: 24px;
   line-height: 1.4;
   margin: 0;
@@ -518,7 +532,7 @@ body::before {
   font-size: 0.62rem;
   letter-spacing: 3px;
   text-transform: uppercase;
-  color: var(--warm-gray);
+  color: var(--ash);
   font-weight: 400;
   margin-bottom: var(--space-sm);
 }
@@ -530,6 +544,20 @@ body::before {
   box-shadow: none;
   transition: all 0.3s ease;
   overflow: hidden;
+  position: relative;
+}
+
+.editor-wrapper::before {
+  content: "文";
+  position: absolute;
+  left: -32px;
+  top: 20px;
+  font-size: 14px;
+  color: var(--washi);
+  writing-mode: vertical-rl;
+  font-family: serif;
+  letter-spacing: 12px;
+  pointer-events: none;
 }
 
 .editor-wrapper:focus-within {
@@ -553,7 +581,7 @@ body::before {
 }
 
 .editor::placeholder {
-  color: var(--warm-gray);
+  color: var(--ash);
   font-family: var(--font-display);
   font-style: italic;
   font-weight: 300;
@@ -573,9 +601,9 @@ body::before {
   padding: 0;
   margin-bottom: var(--space-sm);
   font-family: var(--font-body);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 300;
-  color: var(--warm-gray);
+  color: var(--ash);
   border-top: 1px solid var(--washi);
   padding-top: var(--space-sm);
   font-variant-numeric: tabular-nums;
@@ -583,7 +611,7 @@ body::before {
 
 .stat-item {
   font-weight: 400;
-  color: var(--warm-gray);
+  color: var(--ash);
   font-variant-numeric: tabular-nums;
 }
 
@@ -614,13 +642,13 @@ body::before {
   align-items: center;
   gap: 6px;
   font-size: 0.65rem;
-  color: var(--warm-gray);
+  color: var(--ash);
   letter-spacing: 0.5px;
 }
 
 .credit-handle {
   font-weight: 500;
-  color: var(--warm-gray);
+  color: var(--warm-gray);  /* Slightly more prominent than surrounding ash text */
 }
 
 .credit-dot {
@@ -632,13 +660,28 @@ body::before {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: var(--warm-gray);
+  color: var(--ash);
   font-weight: 300;
 }
 
 .credit-flag {
   font-size: 0.75rem;
   line-height: 1;
+}
+
+.hanko {
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--vermillion);
+  border-radius: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--vermillion);
+  opacity: 0.5;
+  font-family: serif;
+  transform: rotate(-3deg);
 }
 
 @keyframes breathe {
