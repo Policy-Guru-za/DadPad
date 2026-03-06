@@ -70,6 +70,17 @@ afterEach(() => {
 });
 
 describe("M8 settings gating", () => {
+  it("renders creator credit in the lower chrome", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("App creator")).toBeTruthy();
+      expect(screen.getByText("Rock Kestrel Ventures")).toBeTruthy();
+      expect(screen.getByText("@laup30")).toBeTruthy();
+      expect(screen.getByText("Cape Town, South Africa")).toBeTruthy();
+    });
+  });
+
   it("disables transform buttons when API key is missing", async () => {
     readAppSettingsMock.mockResolvedValue({
       ...TEST_SETTINGS,

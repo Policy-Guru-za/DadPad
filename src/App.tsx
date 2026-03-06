@@ -29,6 +29,9 @@ const TRANSFORM_MODES: TransformMode[] = [
 const FOOTER_HINT = "Transforms apply to the current editor text.";
 const TRUNCATION_WARNING_MESSAGE = "Output may be truncated.";
 const MISSING_API_KEY_MESSAGE = "Set API key in Settings.";
+const CREATOR_NAME = "Rock Kestrel Ventures";
+const CREATOR_HANDLE = "@laup30";
+const CREATOR_LOCATION = "Cape Town, South Africa";
 
 type TransformOptions = {
   sourceText?: string;
@@ -582,7 +585,26 @@ function App() {
         ) : null}
         <span className="copy-feedback">{copyFeedback}</span>
       </footer>
-      <p className="footer-hint">{statusMessage}</p>
+      <div className="footer-meta">
+        <p className="footer-hint">{statusMessage}</p>
+        <p className="creator-credit" aria-label="App creator">
+          <span className="creator-label">Created by</span>
+          <span className="creator-name">{CREATOR_NAME}</span>
+          <span className="creator-separator" aria-hidden="true">
+            ·
+          </span>
+          <span className="creator-handle">{CREATOR_HANDLE}</span>
+          <span className="creator-separator" aria-hidden="true">
+            ·
+          </span>
+          <span className="creator-location">
+            <span className="creator-flag" aria-hidden="true">
+              🇿🇦
+            </span>
+            <span>{CREATOR_LOCATION}</span>
+          </span>
+        </p>
+      </div>
     </main>
   );
 }
