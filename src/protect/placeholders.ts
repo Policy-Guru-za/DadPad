@@ -54,6 +54,15 @@ const MATCH_PATTERNS: MatchPattern[] = [
     regex: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
   },
   {
+    name: "phone",
+    regex:
+      /(?<![\d-])(?!\d{4}-\d{2}-\d{2}\b)(?!\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b)(?:\+?\d[\d()\-\s]{7,}\d)(?![\d-])/g,
+  },
+  {
+    name: "id",
+    regex: /\b(?:\d{6,}|(?=[A-Za-z0-9-]{6,}\b)(?=[A-Za-z0-9-]*[A-Za-z])(?=[A-Za-z0-9-]*\d)[A-Za-z0-9-]+)\b/g,
+  },
+  {
     name: "currency",
     regex: /(?:[$£€¥]\s?\d[\d,]*(?:\.\d+)?|\bR\s?\d[\d,]*(?:\.\d+)?)/g,
   },
@@ -65,14 +74,6 @@ const MATCH_PATTERNS: MatchPattern[] = [
   {
     name: "time",
     regex: /\b(?:[01]?\d|2[0-3]):[0-5]\d(?:\s?[AaPp][Mm])?\b/g,
-  },
-  {
-    name: "phone",
-    regex: /(?:\+?\d[\d()\-\s]{7,}\d)/g,
-  },
-  {
-    name: "id",
-    regex: /\b(?:\d{6,}|(?=[A-Za-z0-9-]{6,}\b)(?=[A-Za-z0-9-]*[A-Za-z])(?=[A-Za-z0-9-]*\d)[A-Za-z0-9-]+)\b/g,
   },
 ];
 

@@ -1,4 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  buildInstructions,
+  MODE_PROMPT_SPECS,
+  type OpenAITransformMode,
+} from "./openaiPrompting";
 import { streamTransformWithOpenAI } from "./openai";
 
 function createSseBody(events: string[]): ReadableStream<Uint8Array> {
@@ -17,6 +22,43 @@ describe("streamTransformWithOpenAI", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("builds distinct instructions for every mode from the centralized prompt map", () => {
+    const modes: OpenAITransformMode[] = ["polish", "casual", "professional", "direct"];
+    const instructionSet = new Set(modes.map((mode) => buildInstructions(mode)));
+    expect(instructionSet.size).toBe(modes.length);
+
+    for (const mode of modes) {
+      expect(buildInstructions(mode)).toContain(`Mode: ${MODE_PROMPT_SPECS[mode].label}`);
+    }
+  });
+
+  it("injects strong mode-specific tone rules and prohibitions", () => {
+    expect(buildInstructions("polish")).toContain(
+      "Keep the tone neutral and polished, not especially chatty, corporate, or terse.",
+    );
+    expect(buildInstructions("polish")).toContain(
+      'Tone reference: "Could you send that over when you have a chance? Thanks."',
+    );
+    expect(buildInstructions("casual")).toContain(
+      "Prefer everyday wording, contractions, and natural phrasing over corporate or formal wording.",
+    );
+    expect(buildInstructions("casual")).toContain(
+      'Prefer casual choices like "can you", "just checking", and "thanks" over more formal workplace phrasing when natural.',
+    );
+    expect(buildInstructions("professional")).toContain(
+      'Prefer professional choices like "could you please", "I’d like to", "please confirm", and "thank you" when natural.',
+    );
+    expect(buildInstructions("professional")).toContain(
+      "Do not add a greeting, sign-off, signature, subject line, or sender name unless it is already present in the input.",
+    );
+    expect(buildInstructions("direct")).toContain(
+      "Prefer imperative or plainly stated requests when that does not change the meaning.",
+    );
+    expect(buildInstructions("direct")).toContain(
+      "When the input is already short or clean, still compress and simplify instead of only correcting punctuation or swapping synonyms.",
+    );
   });
 
   it("preserves whitespace when assembling non-stream content chunks", async () => {
@@ -102,6 +144,131 @@ describe("streamTransformWithOpenAI", () => {
     expect(secondRequestBody.temperature).toBeUndefined();
   });
 
+  it("uses GPT-5 rewrite controls to minimize hidden reasoning spend", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: {},
+      json: async () => ({
+        response: {
+          output: [{ content: [{ text: "Polished." }] }],
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "source",
+      mode: "polish",
+      model: "gpt-5-nano-2025-08-07",
+      streaming: false,
+      timeoutMs: 5_000,
+      onDelta: () => undefined,
+    });
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >;
+    expect(requestBody.reasoning).toEqual({ effort: "minimal" });
+    expect(requestBody.text).toEqual({ verbosity: "medium" });
+  });
+
+  it("uses lower verbosity for direct mode than for the other rewrite modes", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: {},
+      json: async () => ({
+        response: {
+          output: [{ content: [{ text: "Direct." }] }],
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "source",
+      mode: "direct",
+      model: "gpt-5-nano-2025-08-07",
+      streaming: false,
+      timeoutMs: 5_000,
+      onDelta: () => undefined,
+    });
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >;
+    expect(requestBody.text).toEqual({ verbosity: "low" });
+  });
+
+  it("uses an unambiguous internal label for polish mode and forbids translation", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: {},
+      json: async () => ({
+        response: {
+          output: [{ content: [{ text: "Polished." }] }],
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "source",
+      mode: "polish",
+      model: "gpt-5-nano-2025-08-07",
+      streaming: false,
+      timeoutMs: 5_000,
+      onDelta: () => undefined,
+    });
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >;
+    expect(requestBody.instructions).toContain("Mode: REFINE");
+    expect(requestBody.instructions).toContain(
+      "Preserve the original language of the input. Do not translate unless the input explicitly asks for translation.",
+    );
+  });
+
+  it("tells professional mode not to invent email scaffolding", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: {},
+      json: async () => ({
+        response: {
+          output: [{ content: [{ text: "Professional." }] }],
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "source",
+      mode: "professional",
+      model: "gpt-5-nano-2025-08-07",
+      streaming: false,
+      timeoutMs: 5_000,
+      onDelta: () => undefined,
+    });
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >;
+    expect(requestBody.instructions).toContain(
+      'Do not add greetings, sign-offs, signatures, subject lines, placeholder names like "[Your Name]", or extra calls to action unless they already exist in the input.',
+    );
+    expect(requestBody.instructions).toContain(
+      "Do not add a greeting, sign-off, signature, subject line, or sender name unless it is already present in the input.",
+    );
+  });
+
   it("accepts terminal response.completed stream event even without [DONE]", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -128,10 +295,11 @@ describe("streamTransformWithOpenAI", () => {
 
     expect(result.outputText).toBe("Hello");
     expect(result.responseId).toBe("resp_123");
+    expect(result.truncatedByProvider).toBe(false);
     expect(deltas).toEqual(["Hello"]);
   });
 
-  it("does not label EOF-ended streams truncated without a length signal", async () => {
+  it("labels EOF-ended streams truncated when no terminal signal arrives", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       body: createSseBody([JSON.stringify({ type: "response.output_text.delta", delta: "Complete." })]),
@@ -147,7 +315,7 @@ describe("streamTransformWithOpenAI", () => {
     });
 
     expect(result.outputText).toBe("Complete.");
-    expect(result.truncatedByProvider).toBe(false);
+    expect(result.truncatedByProvider).toBe(true);
   });
 
   it("uses terminal payload output when stream contains no delta events", async () => {
@@ -258,6 +426,216 @@ describe("streamTransformWithOpenAI", () => {
     });
 
     expect(result.outputText).toBe("Item event output.");
+  });
+
+  it("assembles multiple indexed content parts into the final output", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: createSseBody([
+        JSON.stringify({
+          type: "response.content_part.done",
+          output_index: 0,
+          content_index: 0,
+          part: { type: "output_text", text: "Hello " },
+        }),
+        JSON.stringify({
+          type: "response.content_part.done",
+          output_index: 0,
+          content_index: 1,
+          part: { type: "output_text", text: "world." },
+        }),
+      ]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "source",
+      mode: "polish",
+      timeoutMs: 5_000,
+      onDelta: () => undefined,
+    });
+
+    expect(result.outputText).toBe("Hello world.");
+  });
+
+  it("prefers canonical done text over preview deltas for the same part", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: createSseBody([
+        JSON.stringify({
+          type: "response.output_text.delta",
+          output_index: 0,
+          content_index: 0,
+          delta: "Polished text.\n",
+        }),
+        JSON.stringify({
+          type: "response.output_text.done",
+          output_index: 0,
+          content_index: 0,
+          text: "Polished text.",
+        }),
+      ]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const deltas: string[] = [];
+    const result = await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "source",
+      mode: "polish",
+      timeoutMs: 5_000,
+      onDelta: (delta) => {
+        deltas.push(delta);
+      },
+    });
+
+    expect(deltas).toEqual(["Polished text.\n"]);
+    expect(result.outputText).toBe("Polished text.");
+  });
+
+  it("surfaces refusal events as explicit provider errors", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: createSseBody([
+        JSON.stringify({
+          type: "response.refusal.done",
+          refusal: "I cannot help with that.",
+        }),
+      ]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      streamTransformWithOpenAI({
+        apiKey: "test-key",
+        inputText: "source",
+        mode: "polish",
+        timeoutMs: 5_000,
+        onDelta: () => undefined,
+      }),
+    ).rejects.toThrow("OpenAI refused to rewrite this text.");
+  });
+
+  it("retries once with more room when the stream exhausts the output budget before any text arrives", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        body: createSseBody([
+          JSON.stringify({
+            type: "response.incomplete",
+            response: {
+              id: "resp_retry_1",
+              status: "incomplete",
+              incomplete_details: { reason: "max_output_tokens" },
+              output: [],
+            },
+          }),
+        ]),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        body: createSseBody([
+          JSON.stringify({
+            type: "response.output_text.done",
+            text: "Recovered after retry.",
+          }),
+          JSON.stringify({
+            type: "response.completed",
+            response: {
+              id: "resp_retry_2",
+              status: "completed",
+              output: [{ content: [{ text: "Recovered after retry." }] }],
+            },
+          }),
+        ]),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const deltas: string[] = [];
+    const result = await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "source",
+      mode: "polish",
+      timeoutMs: 5_000,
+      maxOutputTokens: 100,
+      onDelta: (delta) => {
+        deltas.push(delta);
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const firstRequestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >;
+    const secondRequestBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >;
+    expect(firstRequestBody.max_output_tokens).toBe(100);
+    expect(secondRequestBody.max_output_tokens).toBe(228);
+    expect(result.outputText).toBe("Recovered after retry.");
+    expect(result.maxOutputTokens).toBe(228);
+    expect(deltas).toEqual(["Recovered after retry."]);
+  });
+
+  it("surfaces explicit budget exhaustion when no text is produced even after the limit cannot expand further", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: createSseBody([
+        JSON.stringify({
+          type: "response.incomplete",
+          response: {
+            id: "resp_incomplete",
+            status: "incomplete",
+            incomplete_details: { reason: "max_output_tokens" },
+            output: [],
+          },
+        }),
+      ]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      streamTransformWithOpenAI({
+        apiKey: "test-key",
+        inputText: "source",
+        mode: "polish",
+        timeoutMs: 5_000,
+        maxOutputTokens: 8192,
+        onDelta: () => undefined,
+      }),
+    ).rejects.toThrow("OpenAI used the output budget before producing text.");
+  });
+
+  it("surfaces explicit cancelled-state errors instead of empty output", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: createSseBody([
+        JSON.stringify({
+          type: "response.cancelled",
+          response: {
+            id: "resp_cancelled",
+            status: "cancelled",
+            output: [],
+          },
+        }),
+      ]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      streamTransformWithOpenAI({
+        apiKey: "test-key",
+        inputText: "source",
+        mode: "polish",
+        timeoutMs: 5_000,
+        maxOutputTokens: 8192,
+        onDelta: () => undefined,
+      }),
+    ).rejects.toThrow("OpenAI cancelled the response before producing text.");
   });
 
   it("fails safe when stream has no output deltas", async () => {

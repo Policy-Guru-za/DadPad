@@ -1,48 +1,15 @@
+import {
+  buildInstructions,
+  DEFAULT_OPENAI_MODEL,
+  getMaxOutputTokens,
+  getModelRequestControls,
+  type OpenAITransformMode,
+} from "./openaiPrompting";
+
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 
-export const DEFAULT_OPENAI_MODEL = "gpt-5-nano-2025-08-07";
-
-const BASE_SYSTEM_PROMPT = `You are a rewriting engine. Rewrite the user's text according to the requested mode.
-
-Non-negotiable constraints:
-- Preserve the original meaning, facts, and intent. Do not invent new information.
-- Keep the approximate length unless the mode explicitly asks for brevity. Light tightening is allowed; modest lengthening is allowed if it improves clarity and flow.
-- Preserve exactly (character-for-character) any: names, numbers, dates, times, currency amounts, percentages, addresses, URLs, email addresses, phone numbers, order/reference IDs, and quoted text.
-- Fix grammar, spelling, punctuation, and paragraphing.
-- Break up run-on sentences. Use natural paragraph breaks.
-- Remove obvious filler words (e.g., "um", "uh", "like", "you know") and unintentional verbatim repetition.
-- Homophones / wrong-word fixes: only change a word if the intended meaning is highly confident from context. If uncertain, leave it unchanged.
-- Do not alter placeholders of the form __PZPTOK###__.
-- Output only the rewritten text. No preamble, no labels, no explanations.
-
-If the input contains multiple distinct topics, keep them separated with clear paragraphs.`;
-
-const POLISH_MODE_INSTRUCTION = `Mode: POLISH
-Rewrite into a clear, elegant, well-structured version suitable for general professional communication.
-Actively improve sentence structure and paragraph flow.
-It should read like a competent human wrote it carefully, not like a transcript.
-Preserve the original level of assertiveness.
-Keep approximate length: you may slightly tighten, and you may modestly expand if it makes the writing more elegant or easier to read.`;
-
-const CASUAL_MODE_INSTRUCTION = `Mode: CASUAL
-Rewrite to sound casual, friendly, and conversational.
-Use a relaxed tone and contractions where natural.
-Keep it clean and readable (not slangy, not childish).
-Keep approximate length; light tightening allowed.`;
-
-const PROFESSIONAL_MODE_INSTRUCTION = `Mode: PROFESSIONAL
-Rewrite to sound professional, neutral, and polished for a workplace email.
-Clear, calm, and well-structured.
-Not stiff and not overly verbose.
-Keep approximate length; light tightening allowed.`;
-
-const DIRECT_MODE_INSTRUCTION = `Mode: DIRECT
-Rewrite to be concise and direct.
-Prefer short sentences.
-Remove filler and softening language that doesn't add meaning.
-Make requests and next steps explicit.
-Use bullet points when it improves clarity.
-Shorten meaningfully, but do not remove essential information.`;
+export { DEFAULT_OPENAI_MODEL };
+export type { OpenAITransformMode };
 
 const USER_WRAPPER_PREFIX = `Rewrite the text below.
 
@@ -63,8 +30,6 @@ export class OpenAIProviderError extends Error {
     this.name = "OpenAIProviderError";
   }
 }
-
-export type OpenAITransformMode = "polish" | "casual" | "professional" | "direct";
 
 export type StreamTransformArgs = {
   apiKey: string;
@@ -90,6 +55,15 @@ export type StreamTransformResult = {
 type SSEEvent = {
   data: string;
 };
+
+type StreamPartKind = "output_text" | "refusal";
+
+type StreamPartState = {
+  kind: StreamPartKind;
+  text: string;
+};
+
+type StreamAssembly = Map<number, Map<number, StreamPartState>>;
 
 function mergeAbortSignals(signals: Array<AbortSignal | undefined>): AbortSignal | undefined {
   const activeSignals = signals.filter((signal): signal is AbortSignal => Boolean(signal));
@@ -180,23 +154,6 @@ async function readEventStream(
   }
 }
 
-function extractDelta(payload: unknown): string {
-  if (typeof payload !== "object" || payload === null) {
-    return "";
-  }
-
-  const typed = payload as {
-    type?: string;
-    delta?: string;
-  };
-
-  if (typed.type === "response.output_text.delta" && typeof typed.delta === "string") {
-    return typed.delta;
-  }
-
-  return "";
-}
-
 function asObject(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null) {
     return null;
@@ -214,19 +171,145 @@ function asString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function asInteger(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return undefined;
+  }
+
+  return value;
+}
+
+function extractEventType(payload: unknown): string | undefined {
+  const root = asObject(payload);
+  if (!root) {
+    return undefined;
+  }
+
+  return asString(root.type);
+}
+
+function isTerminalStreamEventType(eventType: string | undefined): boolean {
+  if (!eventType) {
+    return false;
+  }
+
+  return (
+    eventType === "response.completed" ||
+    eventType === "response.done" ||
+    eventType === "response.output_text.done"
+  );
+}
+
+function isTerminalResponseStatus(status: string | undefined): boolean {
+  if (!status) {
+    return false;
+  }
+
+  return (
+    status === "completed" ||
+    status === "incomplete" ||
+    status === "failed" ||
+    status === "cancelled"
+  );
+}
+
+function extractResponseId(payload: unknown): string | undefined {
+  const root = asObject(payload);
+  if (!root) {
+    return undefined;
+  }
+
+  const response = asObject(root.response);
+  return asString(root.response_id) ?? asString(response?.id) ?? asString(root.id);
+}
+
+function extractResponseStatus(payload: unknown): string | undefined {
+  const root = asObject(payload);
+  if (!root) {
+    return undefined;
+  }
+
+  const response = asObject(root.response);
+  return asString(response?.status) ?? asString(root.status);
+}
+
+function getAssemblyPart(
+  assembly: StreamAssembly,
+  outputIndex: number,
+  contentIndex: number,
+  kind: StreamPartKind,
+): StreamPartState {
+  let contentMap = assembly.get(outputIndex);
+  if (!contentMap) {
+    contentMap = new Map<number, StreamPartState>();
+    assembly.set(outputIndex, contentMap);
+  }
+
+  let part = contentMap.get(contentIndex);
+  if (!part || part.kind !== kind) {
+    part = { kind, text: "" };
+    contentMap.set(contentIndex, part);
+  }
+
+  return part;
+}
+
+function setAssemblyPart(
+  assembly: StreamAssembly,
+  outputIndex: number,
+  contentIndex: number,
+  kind: StreamPartKind,
+  text: string,
+): void {
+  const part = getAssemblyPart(assembly, outputIndex, contentIndex, kind);
+  part.text = text;
+}
+
+function appendAssemblyPart(
+  assembly: StreamAssembly,
+  outputIndex: number,
+  contentIndex: number,
+  kind: StreamPartKind,
+  text: string,
+): void {
+  const part = getAssemblyPart(assembly, outputIndex, contentIndex, kind);
+  part.text += text;
+}
+
+function extractTextPart(value: unknown): StreamPartState | null {
+  const part = asObject(value);
+  if (!part) {
+    return null;
+  }
+
+  const partType = asString(part.type);
+  if ((partType === "output_text" || !partType) && typeof part.text === "string") {
+    return { kind: "output_text", text: part.text };
+  }
+
+  if (partType === "refusal") {
+    if (typeof part.refusal === "string") {
+      return { kind: "refusal", text: part.refusal };
+    }
+
+    if (typeof part.text === "string") {
+      return { kind: "refusal", text: part.text };
+    }
+  }
+
+  return null;
+}
+
 function collectTextFromContentParts(content: unknown[]): string {
   let combined = "";
 
   for (const contentItem of content) {
-    const contentObject = asObject(contentItem);
-    if (!contentObject) {
+    const extracted = extractTextPart(contentItem);
+    if (!extracted || extracted.kind !== "output_text") {
       continue;
     }
 
-    const textValue = contentObject.text;
-    if (typeof textValue === "string") {
-      combined += textValue;
-    }
+    combined += extracted.text;
   }
 
   return combined;
@@ -243,6 +326,58 @@ function collectTextFromOutputItems(output: unknown[]): string {
 
     const content = Array.isArray(itemObject.content) ? itemObject.content : [];
     combined += collectTextFromContentParts(content);
+  }
+
+  return combined;
+}
+
+function ingestOutputItem(
+  assembly: StreamAssembly,
+  itemValue: unknown,
+  outputIndex: number,
+): void {
+  const item = asObject(itemValue);
+  if (!item) {
+    return;
+  }
+
+  const content = Array.isArray(item.content) ? item.content : [];
+  content.forEach((contentItem, contentIndex) => {
+    const extracted = extractTextPart(contentItem);
+    if (!extracted) {
+      return;
+    }
+
+    setAssemblyPart(assembly, outputIndex, contentIndex, extracted.kind, extracted.text);
+  });
+}
+
+function ingestOutputArray(assembly: StreamAssembly, outputValue: unknown): void {
+  const output = Array.isArray(outputValue) ? outputValue : [];
+  output.forEach((itemValue, outputIndex) => {
+    ingestOutputItem(assembly, itemValue, outputIndex);
+  });
+}
+
+function buildAssemblyText(assembly: StreamAssembly, kind: StreamPartKind): string {
+  const outputIndexes = Array.from(assembly.keys()).sort((left, right) => left - right);
+  let combined = "";
+
+  for (const outputIndex of outputIndexes) {
+    const contentMap = assembly.get(outputIndex);
+    if (!contentMap) {
+      continue;
+    }
+
+    const contentIndexes = Array.from(contentMap.keys()).sort((left, right) => left - right);
+    for (const contentIndex of contentIndexes) {
+      const part = contentMap.get(contentIndex);
+      if (!part || part.kind !== kind) {
+        continue;
+      }
+
+      combined += part.text;
+    }
   }
 
   return combined;
@@ -450,11 +585,17 @@ function getStreamErrorMessage(payload: unknown): string | null {
     type?: string;
     error?: { message?: string };
     message?: string;
+    response?: { error?: { message?: string } };
   };
 
   const directErrorMessage = typed.error?.message;
   if (typeof directErrorMessage === "string" && directErrorMessage.trim()) {
     return directErrorMessage;
+  }
+
+  const nestedErrorMessage = typed.response?.error?.message;
+  if (typeof nestedErrorMessage === "string" && nestedErrorMessage.trim()) {
+    return nestedErrorMessage;
   }
 
   if ((typed.type === "error" || typed.type === "response.error") && typeof typed.message === "string") {
@@ -464,30 +605,33 @@ function getStreamErrorMessage(payload: unknown): string | null {
   return null;
 }
 
-function getModeInstruction(mode: OpenAITransformMode): string {
-  if (mode === "casual") {
-    return CASUAL_MODE_INSTRUCTION;
-  }
-
-  if (mode === "professional") {
-    return PROFESSIONAL_MODE_INSTRUCTION;
-  }
-
-  if (mode === "direct") {
-    return DIRECT_MODE_INSTRUCTION;
-  }
-
-  return POLISH_MODE_INSTRUCTION;
+function expandMaxOutputTokens(current: number): number {
+  return Math.min(8192, Math.max(current + 128, Math.round(current * 1.75)));
 }
 
-export function getMaxOutputTokens(mode: OpenAITransformMode, inputText: string): number {
-  const inputTokens = Math.max(1, Math.round(inputText.length / 4));
-
-  if (mode === "direct") {
-    return Math.min(8192, Math.round(inputTokens * 0.8) + 96);
+function buildNoTextTerminalMessage(
+  responseStatus: string | undefined,
+  finishReason: string | undefined,
+): string {
+  if (isLengthTruncationReason(finishReason)) {
+    return "OpenAI used the output budget before producing text. Original text preserved.";
   }
 
-  return Math.min(8192, Math.round(inputTokens * 1.3) + 128);
+  if (responseStatus === "cancelled") {
+    return "OpenAI cancelled the response before producing text. Original text preserved.";
+  }
+
+  if (responseStatus === "incomplete") {
+    return finishReason
+      ? `OpenAI ended the response before producing text (${finishReason}). Original text preserved.`
+      : "OpenAI ended the response before producing text. Original text preserved.";
+  }
+
+  if (responseStatus === "failed") {
+    return "OpenAI failed before producing text. Original text preserved.";
+  }
+
+  return "OpenAI returned empty output. Original text preserved.";
 }
 
 export async function streamTransformWithOpenAI({
@@ -512,162 +656,282 @@ export async function streamTransformWithOpenAI({
     typeof maxOutputTokensOverride === "number" && Number.isFinite(maxOutputTokensOverride)
       ? Math.min(8192, Math.max(1, Math.round(maxOutputTokensOverride)))
       : getMaxOutputTokens(mode, inputText);
-  let outputText = "";
-  let fallbackOutputText = "";
-  let responseId: string | undefined;
-  let finishReason: string | undefined;
-  let truncatedByProvider = false;
-  let sawDeltaEvent = false;
+  const modelRequestControls = getModelRequestControls(model, mode);
+  let currentMaxOutputTokens = maxOutputTokens;
   let includeTemperature = typeof temperature === "number" && Number.isFinite(temperature);
+  let retriedForNoTextLengthLimit = false;
 
   try {
-    const makeRequest = async (withTemperature: boolean): Promise<Response> =>
-      fetch(OPENAI_RESPONSES_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        signal: mergedSignal,
-        body: JSON.stringify({
-          model,
-          ...(withTemperature ? { temperature } : {}),
-          stream: streaming,
-          max_output_tokens: maxOutputTokens,
-          instructions: `${BASE_SYSTEM_PROMPT}\n\n${getModeInstruction(mode)}`,
-          input: `${USER_WRAPPER_PREFIX}${inputText}${USER_WRAPPER_SUFFIX}`,
-        }),
-      });
+    while (true) {
+      let outputText = "";
+      let responseSnapshotText = "";
+      let responseId: string | undefined;
+      let responseStatus: string | undefined;
+      let finishReason: string | undefined;
+      let truncatedByProvider = false;
+      let sawDeltaEvent = false;
+      let sawExplicitStreamTermination = false;
+      const streamAssembly: StreamAssembly = new Map();
 
-    let response = await makeRequest(includeTemperature);
-    if (!response.ok) {
-      const bodyText = await response.text();
-      if (shouldRetryWithoutTemperature(response.status, bodyText, includeTemperature)) {
-        includeTemperature = false;
-        response = await makeRequest(false);
-      } else {
+      const makeRequest = async (withTemperature: boolean): Promise<Response> =>
+        fetch(OPENAI_RESPONSES_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          signal: mergedSignal,
+          body: JSON.stringify({
+            model,
+            ...(withTemperature ? { temperature } : {}),
+            ...modelRequestControls,
+            stream: streaming,
+            max_output_tokens: currentMaxOutputTokens,
+            instructions: buildInstructions(mode),
+            input: `${USER_WRAPPER_PREFIX}${inputText}${USER_WRAPPER_SUFFIX}`,
+          }),
+        });
+
+      let response = await makeRequest(includeTemperature);
+      if (!response.ok) {
+        const bodyText = await response.text();
+        if (shouldRetryWithoutTemperature(response.status, bodyText, includeTemperature)) {
+          includeTemperature = false;
+          response = await makeRequest(false);
+        } else {
+          throw parseResponseError(response.status, bodyText);
+        }
+      }
+
+      if (!response.ok) {
+        const bodyText = await response.text();
         throw parseResponseError(response.status, bodyText);
       }
-    }
 
-    if (!response.ok) {
-      const bodyText = await response.text();
-      throw parseResponseError(response.status, bodyText);
-    }
+      if (!response.body) {
+        throw new OpenAIProviderError("unknown", "OpenAI returned no response body.");
+      }
 
-    if (!response.body) {
-      throw new OpenAIProviderError("unknown", "OpenAI returned no response body.");
-    }
+      if (!streaming) {
+        let parsed: unknown;
+        try {
+          parsed = await response.json();
+        } catch {
+          throw new OpenAIProviderError(
+            "unknown",
+            "OpenAI returned malformed JSON. Original text preserved.",
+          );
+        }
 
-    if (!streaming) {
-      let parsed: unknown;
-      try {
-        parsed = await response.json();
-      } catch {
+        responseStatus = extractResponseStatus(parsed);
+        const finishReasonFromPayload = extractFinishReason(parsed);
+        if (finishReasonFromPayload) {
+          finishReason = finishReasonFromPayload;
+          if (isLengthTruncationReason(finishReasonFromPayload)) {
+            truncatedByProvider = true;
+          }
+        }
+
+        const outputTextFromPayload = extractFinalOutputText(parsed);
+        if (!outputTextFromPayload.trim()) {
+          const canRetryForNoTextLengthLimit =
+            isLengthTruncationReason(finishReason) &&
+            !retriedForNoTextLengthLimit &&
+            currentMaxOutputTokens < 8192;
+          if (canRetryForNoTextLengthLimit) {
+            currentMaxOutputTokens = expandMaxOutputTokens(currentMaxOutputTokens);
+            retriedForNoTextLengthLimit = true;
+            continue;
+          }
+
+          throw new OpenAIProviderError(
+            "unknown",
+            buildNoTextTerminalMessage(responseStatus, finishReason),
+          );
+        }
+
+        outputText = outputTextFromPayload;
+        onDelta(outputTextFromPayload);
+        responseId = extractResponseId(parsed);
+
+        return {
+          outputText,
+          responseId,
+          finishReason,
+          truncatedByProvider,
+          maxOutputTokens: currentMaxOutputTokens,
+        };
+      }
+
+      await readEventStream(response.body, (event) => {
+        if (event.data === "[DONE]") {
+          sawExplicitStreamTermination = true;
+          return;
+        }
+
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(event.data);
+        } catch {
+          throw new OpenAIProviderError(
+            "unknown",
+            "OpenAI stream returned malformed JSON. Original text preserved.",
+          );
+        }
+
+        const streamErrorMessage = getStreamErrorMessage(parsed);
+        if (streamErrorMessage) {
+          throw new OpenAIProviderError("server", streamErrorMessage);
+        }
+
+        const nextResponseId = extractResponseId(parsed);
+        if (nextResponseId) {
+          responseId = nextResponseId;
+        }
+
+        const nextResponseStatus = extractResponseStatus(parsed);
+        if (nextResponseStatus) {
+          responseStatus = nextResponseStatus;
+          if (isTerminalResponseStatus(nextResponseStatus)) {
+            sawExplicitStreamTermination = true;
+          }
+        }
+
+        const eventType = extractEventType(parsed);
+        if (isTerminalStreamEventType(eventType)) {
+          sawExplicitStreamTermination = true;
+        }
+        const root = asObject(parsed);
+        if (root) {
+          const outputIndex = asInteger(root.output_index) ?? 0;
+          const contentIndex = asInteger(root.content_index) ?? 0;
+
+          if (eventType === "response.output_text.delta" && typeof root.delta === "string") {
+            sawDeltaEvent = true;
+            outputText += root.delta;
+            appendAssemblyPart(
+              streamAssembly,
+              outputIndex,
+              contentIndex,
+              "output_text",
+              root.delta,
+            );
+            onDelta(root.delta);
+          }
+
+          if (eventType === "response.output_text.done" && typeof root.text === "string") {
+            setAssemblyPart(streamAssembly, outputIndex, contentIndex, "output_text", root.text);
+          }
+
+          if (eventType === "response.refusal.delta" && typeof root.delta === "string") {
+            appendAssemblyPart(streamAssembly, outputIndex, contentIndex, "refusal", root.delta);
+          }
+
+          if (eventType === "response.refusal.done") {
+            const refusalText = asString(root.refusal) ?? asString(root.text);
+            if (refusalText) {
+              setAssemblyPart(streamAssembly, outputIndex, contentIndex, "refusal", refusalText);
+            }
+          }
+
+          if (
+            eventType === "response.content_part.added" ||
+            eventType === "response.content_part.done"
+          ) {
+            const extracted = extractTextPart(root.part);
+            if (extracted) {
+              setAssemblyPart(
+                streamAssembly,
+                outputIndex,
+                contentIndex,
+                extracted.kind,
+                extracted.text,
+              );
+            }
+          }
+
+          if (
+            eventType === "response.output_item.added" ||
+            eventType === "response.output_item.done"
+          ) {
+            ingestOutputItem(streamAssembly, root.item, outputIndex);
+          }
+
+          if (eventType === "response.completed") {
+            const response = asObject(root.response);
+            if (response) {
+              ingestOutputArray(streamAssembly, response.output);
+            }
+
+            const snapshotText = extractFinalOutputText(parsed);
+            if (snapshotText.trim()) {
+              responseSnapshotText = snapshotText;
+            }
+          }
+        }
+
+        const eventFinishReason = extractFinishReason(parsed);
+        if (eventFinishReason) {
+          finishReason = eventFinishReason;
+          if (isLengthTruncationReason(eventFinishReason)) {
+            truncatedByProvider = true;
+          }
+        }
+      });
+
+      const assembledOutputText = buildAssemblyText(streamAssembly, "output_text");
+      const refusalText = buildAssemblyText(streamAssembly, "refusal");
+
+      if (responseSnapshotText.trim()) {
+        const hadRenderedPreview = outputText.length > 0;
+        outputText = responseSnapshotText;
+        sawDeltaEvent = true;
+        if (!hadRenderedPreview) {
+          onDelta(responseSnapshotText);
+        }
+      } else if (assembledOutputText.trim()) {
+        const hadRenderedPreview = outputText.length > 0;
+        outputText = assembledOutputText;
+        sawDeltaEvent = true;
+        if (!hadRenderedPreview) {
+          onDelta(assembledOutputText);
+        }
+      } else if (refusalText.trim()) {
         throw new OpenAIProviderError(
           "unknown",
-          "OpenAI returned malformed JSON. Original text preserved.",
+          `OpenAI refused to rewrite this text. ${refusalText}`,
         );
       }
 
-      const finishReasonFromPayload = extractFinishReason(parsed);
-      if (finishReasonFromPayload) {
-        finishReason = finishReasonFromPayload;
-        if (isLengthTruncationReason(finishReasonFromPayload)) {
-          truncatedByProvider = true;
+      if (!sawDeltaEvent || !outputText.trim()) {
+        const canRetryForNoTextLengthLimit =
+          isLengthTruncationReason(finishReason) &&
+          !retriedForNoTextLengthLimit &&
+          currentMaxOutputTokens < 8192;
+        if (canRetryForNoTextLengthLimit) {
+          currentMaxOutputTokens = expandMaxOutputTokens(currentMaxOutputTokens);
+          retriedForNoTextLengthLimit = true;
+          continue;
         }
-      }
 
-      const outputTextFromPayload = extractFinalOutputText(parsed);
-      if (!outputTextFromPayload.trim()) {
         throw new OpenAIProviderError(
           "unknown",
-          "OpenAI returned empty output. Original text preserved.",
+          buildNoTextTerminalMessage(responseStatus, finishReason),
         );
       }
 
-      outputText = outputTextFromPayload;
-      onDelta(outputTextFromPayload);
-
-      if (typeof parsed === "object" && parsed !== null) {
-        const parsedObject = parsed as { id?: string; response?: { id?: string } };
-        if (typeof parsedObject.response?.id === "string") {
-          responseId = parsedObject.response.id;
-        } else if (typeof parsedObject.id === "string") {
-          responseId = parsedObject.id;
-        }
+      if (!sawExplicitStreamTermination && sawDeltaEvent && !finishReason) {
+        truncatedByProvider = true;
       }
 
-      return { outputText, responseId, finishReason, truncatedByProvider, maxOutputTokens };
+      return {
+        outputText,
+        responseId,
+        finishReason,
+        truncatedByProvider,
+        maxOutputTokens: currentMaxOutputTokens,
+      };
     }
-
-    await readEventStream(response.body, (event) => {
-      if (event.data === "[DONE]") {
-        return;
-      }
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(event.data);
-      } catch {
-        throw new OpenAIProviderError(
-          "unknown",
-          "OpenAI stream returned malformed JSON. Original text preserved.",
-        );
-      }
-
-      const streamErrorMessage = getStreamErrorMessage(parsed);
-      if (streamErrorMessage) {
-        throw new OpenAIProviderError("server", streamErrorMessage);
-      }
-
-      const eventOutputText = extractFinalOutputText(parsed);
-      if (eventOutputText.trim() && eventOutputText.length > fallbackOutputText.length) {
-        fallbackOutputText = eventOutputText;
-      }
-
-      if (typeof parsed === "object" && parsed !== null) {
-        const asObject = parsed as { response?: { id?: string } };
-        if (typeof asObject.response?.id === "string") {
-          responseId = asObject.response.id;
-        }
-      }
-
-      const eventFinishReason = extractFinishReason(parsed);
-      if (eventFinishReason) {
-        finishReason = eventFinishReason;
-        if (isLengthTruncationReason(eventFinishReason)) {
-          truncatedByProvider = true;
-        }
-      }
-
-      const delta = extractDelta(parsed);
-      if (!delta) {
-        return;
-      }
-
-      sawDeltaEvent = true;
-      outputText += delta;
-      onDelta(delta);
-    });
-
-    if ((!sawDeltaEvent || !outputText.trim()) && fallbackOutputText.trim()) {
-      const hadRenderedPreview = outputText.length > 0;
-      outputText = fallbackOutputText;
-      sawDeltaEvent = true;
-      if (!hadRenderedPreview) {
-        onDelta(fallbackOutputText);
-      }
-    }
-
-    if (!sawDeltaEvent || !outputText.trim()) {
-      throw new OpenAIProviderError(
-        "unknown",
-        "OpenAI returned empty output. Original text preserved.",
-      );
-    }
-
-    return { outputText, responseId, finishReason, truncatedByProvider, maxOutputTokens };
   } catch (error) {
     throw parseUnknownProviderError(error);
   } finally {

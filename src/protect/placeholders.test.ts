@@ -104,6 +104,18 @@ describe("placeholder protection", () => {
     expect(roundTrip(text)).toBe(text);
   });
 
+  it("prioritizes full ids over embedded date fragments", () => {
+    const text = "Reference INV-2026-03-05-A1B2C3 must remain exact.";
+    const { mapping } = encodeProtectedSpans(text);
+
+    const idEntry = mapping.find((entry) => entry.kind === "id");
+    const dateEntries = mapping.filter((entry) => entry.kind === "date");
+
+    expect(idEntry?.original).toBe("INV-2026-03-05-A1B2C3");
+    expect(dateEntries).toHaveLength(0);
+    expect(roundTrip(text)).toBe(text);
+  });
+
   it("allows literal placeholder-like text when mapping is empty", () => {
     const text = "Literal token __PZPTOK777__ should remain untouched.";
     const { encodedText, mapping } = encodeProtectedSpans(text);

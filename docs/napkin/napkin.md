@@ -6,6 +6,7 @@
 - 2026-03-05 | self | Vitest mock failed because hoisted module factory referenced a class declared later | Keep mocked classes/functions inside `vi.hoisted` and reference through the hoisted object.
 - 2026-03-05 | self | Used `apply_patch` through `exec_command` and triggered tool warning | Use the dedicated `apply_patch` tool directly for patch edits.
 - 2026-03-05 | self | Trimmed `response.output[].content[].text` fragments while assembling non-stream output, collapsing spaces/newlines | Never trim model text fragments during assembly; preserve chunk bytes exactly and add regression test.
+- 2026-03-06 | self | Reordered placeholder matchers without tightening `phone`, which caused date-shaped fragments (e.g. `2026-03-05`) to be classified as phones and blocked `id` protection | Keep phone/id before date/time, but constrain phone regex (min digit count and date-shape avoidance) to prevent overlap regressions.
 
 ## User Preferences
 - Strict gates: do not move past Gate A or Gate B without explicit approval.
@@ -18,6 +19,13 @@
 - Treat provider `result.outputText` as canonical at completion; streamed deltas are preview-only and can diverge on terminal fallback paths.
 - Placeholder tokens must skip literal `__PZPTOK###__` strings already present in source text, and validation must require exactly one occurrence per token.
 - OpenAI Responses streams can deliver final text via `response.output_text.done`, `response.content_part.done`, or `response.output_item.done`; do not assume only delta events or a populated `response.completed.response.output`.
+- OpenAI Responses streaming needs indexed assembly by `output_index` and `content_index`; a longest-snippet fallback drops multi-part output and can ignore authoritative final `...done` text.
+- Live OpenAI repro with saved `gpt-5-nano-2025-08-07` settings: first request is rejected for unsupported `temperature`, retry can return `response.incomplete(max_output_tokens)` after emitting only a reasoning item and zero user-visible text; GPT-5 rewrite requests need minimal reasoning spend and explicit no-text incomplete handling.
+- Live OpenAI repro also showed `Mode: POLISH` is ambiguous for `gpt-5-nano`; without an explicit anti-translation instruction the model can translate into Polish instead of polishing the existing language.
+- Live mode probes with `gpt-5-nano-2025-08-07`: mode wiring is correct, but weak prompt separation makes Casual/Professional/Direct collapse into near-identical rewrites on some inputs; Professional also tries to invent email scaffolding unless the prompt forbids it.
+- For the polish button, the provider prompt should avoid the literal label `Mode: POLISH`; use an unambiguous internal label like `Mode: REFINE` or the model may still translate into Polish even when told not to.
+- A live corpus gate (`pnpm eval:modes`) catches prompt collapse that unit tests miss; short and already-clean workplace inputs need explicit lexical preferences and request/follow-up handling or the modes collapse back together.
+- Utility scripts that can run from env overrides should treat unreadable `~/.polishpad` config as a warning and fall back to env/defaults instead of aborting.
 
 ## Patterns That Don't Work
 - Mocking SSE without abort support makes cancel tests unreliable.
