@@ -110,6 +110,7 @@ All LLM logic lives in `src/llm/`. All token protection lives in `src/protect/`.
 - `temperature`: `number` (default: `0.2`)
 - `streaming`: `boolean` (default: `true`)
 - `token_protection`: `boolean` (default: `true`)
+- `smart_structuring`: `boolean` (default: `true`; enables stronger paragraph and bullet guidance plus safe whitespace normalization)
 - `protect_structured_content`: `boolean` (default: `true`; sub-toggle of token_protection; controls whether markdown links and code blocks are protected)
 
 ### Secrets
@@ -173,14 +174,13 @@ Non-negotiable constraints:
 - Preserve the original language of the input. Do not translate unless the input explicitly asks for translation.
 - Keep the approximate length unless the mode explicitly asks for brevity. Light tightening is allowed; modest lengthening is allowed if it improves clarity and flow.
 - Preserve exactly (character-for-character) any: names, numbers, dates, times, currency amounts, percentages, addresses, URLs, email addresses, phone numbers, order/reference IDs, and quoted text.
-- Fix grammar, spelling, punctuation, and paragraphing.
-- Break up run-on sentences. Use natural paragraph breaks.
+- Fix grammar, spelling, punctuation, and sentence boundaries.
 - Remove obvious filler words (e.g., "um", "uh", "like", "you know") and unintentional verbatim repetition.
 - Homophones / wrong-word fixes: only change a word if the intended meaning is highly confident from context. If uncertain, leave it unchanged.
 - Do not add greetings, sign-offs, signatures, subject lines, placeholder names like "[Your Name]", or extra calls to action unless they already exist in the input.
 - Output only the rewritten text. No preamble, no labels, no explanations.
 
-If the input contains multiple distinct topics, keep them separated with clear paragraphs.
+When `smart_structuring` is enabled, append a structure guidance block that keeps output plain text, prefers single blank lines between paragraphs, isolates clear asks when natural, allows simple bullets for multiple asks/deliverables, and forbids invented headings/labels/signatures.
 Do not alter any placeholder tokens of the form __PZPTOK###__. Reproduce them exactly as they appear.
 ```
 

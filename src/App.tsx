@@ -7,6 +7,7 @@ import {
   encodeProtectedSpans,
   validatePlaceholders,
 } from "./protect/placeholders";
+import { normalizeStructuredPlainText } from "./structuring/plainText";
 import {
   AppSettings,
   DEFAULT_APP_SETTINGS,
@@ -192,6 +193,7 @@ function App() {
     }
 
     const shouldProtect = settings.tokenProtection;
+    const smartStructuringEnabled = settings.smartStructuring;
     const controller = new AbortController();
     const encoded = shouldProtect
       ? encodeProtectedSpans(sourceText)
@@ -222,6 +224,7 @@ function App() {
         model: settings.model,
         temperature: settings.temperature,
         streaming: settings.streaming,
+        smartStructuring: smartStructuringEnabled,
         maxOutputTokens: options.maxOutputTokens,
         signal: controller.signal,
         onDelta: (delta) => {
@@ -231,7 +234,12 @@ function App() {
       });
 
       const finalOutput = result.outputText;
-      const decodedText = shouldProtect ? decodePlaceholders(finalOutput, mapping) : finalOutput;
+      const normalizedOutput = smartStructuringEnabled
+        ? normalizeStructuredPlainText(finalOutput)
+        : finalOutput;
+      const decodedText = shouldProtect
+        ? decodePlaceholders(normalizedOutput, mapping)
+        : normalizedOutput;
       if (shouldProtect) {
         const validation = validatePlaceholders(decodedText, mapping);
         if (!validation.ok) {
@@ -239,13 +247,15 @@ function App() {
         }
       }
 
-      setText(decodedText);
+      const committedText = decodedText;
+
+      setText(committedText);
       const elapsed = Math.round(performance.now() - startedAt);
       setLatencyMs(elapsed);
       setCanUndo(true);
 
       const providerSignalledTruncation = result.truncatedByProvider;
-      const missingNaturalTerminator = !endsWithNaturalTerminator(decodedText);
+      const missingNaturalTerminator = !endsWithNaturalTerminator(committedText);
       if (providerSignalledTruncation || missingNaturalTerminator) {
         const retrySourceText = undoCheckpointRef.current ?? sourceText;
         const nextMaxOutputTokens = Math.min(
@@ -508,6 +518,26 @@ function App() {
               />
               Token protection
             </label>
+
+            <div className="settings-toggle-group">
+              <label className="settings-checkbox">
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.smartStructuring}
+                  onChange={(event) => {
+                    const nextSmartStructuring = event.currentTarget.checked;
+                    setSettingsDraft((current) => ({
+                      ...current,
+                      smartStructuring: nextSmartStructuring,
+                    }));
+                  }}
+                />
+                Smart message structuring
+              </label>
+              <p className="settings-help">
+                Use better paragraph breaks and bullets when they improve readability.
+              </p>
+            </div>
 
             <div className="settings-actions">
               <button type="submit" className="save-settings-button" disabled={isSavingSettings}>

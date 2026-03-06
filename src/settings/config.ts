@@ -6,6 +6,7 @@ export const DEFAULT_APP_SETTINGS = {
   temperature: 0.2,
   streaming: true,
   tokenProtection: true,
+  smartStructuring: true,
 } as const;
 
 export type AppSettings = {
@@ -14,6 +15,7 @@ export type AppSettings = {
   temperature: number;
   streaming: boolean;
   tokenProtection: boolean;
+  smartStructuring: boolean;
 };
 
 function normalizeSettings(input: Partial<AppSettings> | null | undefined): AppSettings {
@@ -31,6 +33,10 @@ function normalizeSettings(input: Partial<AppSettings> | null | undefined): AppS
     streaming: typeof input?.streaming === "boolean" ? input.streaming : base.streaming,
     tokenProtection:
       typeof input?.tokenProtection === "boolean" ? input.tokenProtection : base.tokenProtection,
+    smartStructuring:
+      typeof input?.smartStructuring === "boolean"
+        ? input.smartStructuring
+        : base.smartStructuring,
   };
 }
 
@@ -44,4 +50,3 @@ export async function writeAppSettings(settings: AppSettings): Promise<AppSettin
   await invoke("write_config", { config: normalized });
   return normalized;
 }
-

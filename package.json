@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "test": "vitest run",
     "eval:modes": "tsx scripts/eval-modes.ts",
+    "eval:structure": "tsx scripts/eval-structure.ts",
     "preview": "vite preview",
     "tauri": "tauri"
   },

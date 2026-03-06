@@ -210,6 +210,19 @@ body {
   color: #334155;
 }
 
+.settings-toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-help {
+  margin: 0;
+  padding-left: 26px;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
 .settings-actions {
   grid-column: 1 / -1;
   display: flex;

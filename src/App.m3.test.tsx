@@ -42,6 +42,7 @@ vi.mock("./settings/config", () => ({
     temperature: 0.2,
     streaming: true,
     tokenProtection: true,
+    smartStructuring: true,
   },
   readAppSettings: hoisted.readAppSettingsMock,
   writeAppSettings: hoisted.writeAppSettingsMock,
@@ -53,6 +54,7 @@ const TEST_SETTINGS = {
   temperature: 0.2,
   streaming: true,
   tokenProtection: true,
+  smartStructuring: true,
 };
 
 beforeEach(() => {
@@ -101,6 +103,38 @@ describe("M8 settings gating", () => {
     await waitFor(() => {
       expect(apiKeyInput.value).toBe("sk-proj-testkey-1234567890");
       expect(screen.getByRole("button", { name: "Save Settings" })).toBeTruthy();
+    });
+  });
+
+  it("passes smart structuring setting through to the provider", async () => {
+    streamTransformWithOpenAIMock.mockResolvedValue({
+      outputText: "Kept as typed",
+      truncatedByProvider: false,
+      maxOutputTokens: 128,
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await user.click(screen.getByRole("checkbox", { name: "Smart message structuring" }));
+    await user.click(screen.getByRole("button", { name: "Save Settings" }));
+
+    await waitFor(() => {
+      expect(writeAppSettingsMock).toHaveBeenCalledWith({
+        ...TEST_SETTINGS,
+        smartStructuring: false,
+      });
+    });
+
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+    await user.type(editor, "source text");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+
+    await waitFor(() => {
+      expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
+        expect.objectContaining({ smartStructuring: false }),
+      );
     });
   });
 });
@@ -209,6 +243,47 @@ describe("M3 transform resilience", () => {
     await waitFor(() => {
       expect(editor.value).toBe("Hello.");
       expect(screen.getByText(/Polish complete in/)).toBeTruthy();
+    });
+  });
+
+  it("normalizes paragraph spacing and bullet spacing when smart structuring is enabled", async () => {
+    streamTransformWithOpenAIMock.mockResolvedValue({
+      outputText: "\nFirst paragraph.\n\n\n- item one\n-   item two\n\n",
+      truncatedByProvider: false,
+      maxOutputTokens: 128,
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+
+    await user.type(editor, "source text");
+    await user.click(screen.getByRole("button", { name: "Direct" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("First paragraph.\n\n- item one\n- item two");
+      expect(screen.getByText("Warnings: None")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Retry (more room)" })).toBeNull();
+    });
+  });
+
+  it("preserves protected code blocks during smart-structuring normalization", async () => {
+    streamTransformWithOpenAIMock.mockImplementation(async ({ inputText }) => ({
+      outputText: String(inputText),
+      truncatedByProvider: false,
+      maxOutputTokens: 128,
+    }));
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+    const sourceText = `Please use this snippet:\n\`\`\`txt\n1.23 revenue\n2)foo\n\`\`\`\nThanks.`;
+
+    await user.type(editor, sourceText);
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe(sourceText);
     });
   });
 });

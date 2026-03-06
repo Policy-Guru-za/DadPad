@@ -5,6 +5,7 @@ import {
   type OpenAITransformMode,
 } from "./openaiPrompting";
 import { streamTransformWithOpenAI } from "./openai";
+import { deriveStructureIntent } from "../structuring/plainText";
 
 function createSseBody(events: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
@@ -26,7 +27,14 @@ describe("streamTransformWithOpenAI", () => {
 
   it("builds distinct instructions for every mode from the centralized prompt map", () => {
     const modes: OpenAITransformMode[] = ["polish", "casual", "professional", "direct"];
-    const instructionSet = new Set(modes.map((mode) => buildInstructions(mode)));
+    const instructionSet = new Set(
+      modes.map((mode) =>
+        buildInstructions(
+          mode,
+          deriveStructureIntent("Please send the latest draft and confirm the timing.", mode),
+        ),
+      ),
+    );
     expect(instructionSet.size).toBe(modes.length);
 
     for (const mode of modes) {
@@ -58,6 +66,47 @@ describe("streamTransformWithOpenAI", () => {
     );
     expect(buildInstructions("direct")).toContain(
       "When the input is already short or clean, still compress and simplify instead of only correcting punctuation or swapping synonyms.",
+    );
+  });
+
+  it("adds structure guidance only when smart structuring is enabled", () => {
+    const enabledInstructions = buildInstructions(
+      "professional",
+      deriveStructureIntent(
+        "We are close to finalising the plan, but a few items still need alignment across design, finance, and operations before we send the final note. Please confirm the scope, share the budget, and agree next steps for the launch review.",
+        "professional",
+      ),
+    );
+    const disabledInstructions = buildInstructions("professional");
+
+    expect(enabledInstructions).toContain("Structure guidance:");
+    expect(enabledInstructions).toContain(
+      "Preferred shape for this input: a short lead-in paragraph plus bullets or compact follow-on paragraphs.",
+    );
+    expect(enabledInstructions).toContain("Bullets are acceptable for deliverables, options, or action items when they improve clarity.");
+    expect(disabledInstructions).not.toContain("Structure guidance:");
+  });
+
+  it("keeps mode-specific structure behavior distinct", () => {
+    const sample = "Please send the final draft, confirm Monday works, and share the budget.";
+
+    const polishInstructions = buildInstructions("polish", deriveStructureIntent(sample, "polish"));
+    const casualInstructions = buildInstructions("casual", deriveStructureIntent(sample, "casual"));
+    const professionalInstructions = buildInstructions(
+      "professional",
+      deriveStructureIntent(sample, "professional"),
+    );
+    const directInstructions = buildInstructions("direct", deriveStructureIntent(sample, "direct"));
+
+    expect(polishInstructions).toContain("Use bullets only when multiple concrete asks or deliverables clearly make the message easier to scan.");
+    expect(casualInstructions).toContain(
+      "Use bullets rarely; keep the output feeling like a natural message, not a memo.",
+    );
+    expect(professionalInstructions).toContain(
+      "Bullets are acceptable for deliverables, options, or action items when they improve clarity.",
+    );
+    expect(directInstructions).toContain(
+      "When there are 2 or more asks, steps, or deliverables, prefer bullets over dense prose.",
     );
   });
 
@@ -233,6 +282,36 @@ describe("streamTransformWithOpenAI", () => {
     expect(requestBody.instructions).toContain(
       "Preserve the original language of the input. Do not translate unless the input explicitly asks for translation.",
     );
+  });
+
+  it("omits structure guidance from the provider request when smart structuring is disabled", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: {},
+      json: async () => ({
+        response: {
+          output: [{ content: [{ text: "Polished." }] }],
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: "source",
+      mode: "professional",
+      model: "gpt-5-nano-2025-08-07",
+      streaming: false,
+      smartStructuring: false,
+      timeoutMs: 5_000,
+      onDelta: () => undefined,
+    });
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >;
+    expect(requestBody.instructions).not.toContain("Structure guidance:");
   });
 
   it("tells professional mode not to invent email scaffolding", async () => {

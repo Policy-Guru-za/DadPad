@@ -71,7 +71,7 @@ Existing solutions require context switching (web app, email client) or do not p
 - Four transform buttons: Polish, Casual, Professional, Direct.
 - Copy button (manual copy only).
 - Undo (one-level minimum per transform).
-- Settings: provider (OpenAI / Anthropic), model name (string, shipped default: `gpt-5-nano-2025-08-07`), temperature (default 0.2), streaming on/off (default on), token protection on/off (default on), structured content protection on/off (default on, sub-toggle of token protection for markdown links and code blocks).
+- Settings: provider (OpenAI / Anthropic), model name (string, shipped default: `gpt-5-nano-2025-08-07`), temperature (default 0.2), streaming on/off (default on), token protection on/off (default on), smart message structuring on/off (default on), structured content protection on/off (default on, sub-toggle of token protection for markdown links and code blocks).
 - Truncation detection and warning with one-click retry.
 - Input size limits: soft warning at ~20,000 characters, hard stop at ~80,000 characters (adjust based on chosen model context limits).
 - Status bar with word count, character count, last mode, latency, and warnings.
@@ -155,7 +155,7 @@ Four modes with shared constraints and mode-specific behaviour.
 - Preserve meaning, intent, and factual content.
 - Preserve exactly (character-for-character): names, numbers, dates, times, currency, percentages, addresses, URLs, emails, phone numbers, reference IDs, quoted text.
 - Fix spelling, grammar, punctuation.
-- Improve sentence boundaries and paragraphing.
+- Improve sentence boundaries. When smart message structuring is enabled, improve paragraphing and plain-text layout using compact paragraphs and simple bullets when helpful.
 - Remove obvious filler words (e.g., "um", "uh", "like", "you know") and unintentional verbatim repetition.
 - Homophone corrections only when highly confident from context; otherwise leave unchanged.
 

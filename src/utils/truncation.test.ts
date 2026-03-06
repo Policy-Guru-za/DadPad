@@ -9,8 +9,11 @@ describe("truncation terminator heuristic", () => {
     expect(endsWithNaturalTerminator("Wrapped thought…")).toBe(true);
   });
 
+  it("accepts a completed bullet list as a natural ending", () => {
+    expect(endsWithNaturalTerminator("- Confirm Monday\n- Share the budget")).toBe(true);
+  });
+
   it("flags text without a natural ending terminator", () => {
     expect(endsWithNaturalTerminator("Likely cut off mid thought")).toBe(false);
   });
 });
-

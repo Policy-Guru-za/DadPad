@@ -17,6 +17,10 @@ const KEY_LENGTH_BYTES: usize = 32;
 const NONCE_LENGTH_BYTES: usize = 12;
 const DEFAULT_MODEL: &str = "gpt-5-nano-2025-08-07";
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
@@ -25,6 +29,8 @@ pub struct AppConfig {
     pub temperature: f64,
     pub streaming: bool,
     pub token_protection: bool,
+    #[serde(default = "default_true")]
+    pub smart_structuring: bool,
 }
 
 impl Default for AppConfig {
@@ -35,6 +41,7 @@ impl Default for AppConfig {
             temperature: 0.2,
             streaming: true,
             token_protection: true,
+            smart_structuring: true,
         }
     }
 }
@@ -89,6 +96,7 @@ fn normalize_config(config: AppConfig) -> AppConfig {
         temperature,
         streaming: config.streaming,
         token_protection: config.token_protection,
+        smart_structuring: config.smart_structuring,
     }
 }
 
@@ -277,6 +285,7 @@ mod tests {
             temperature: 0.4,
             streaming: true,
             token_protection: true,
+            smart_structuring: true,
         }
     }
 
@@ -319,5 +328,46 @@ mod tests {
 
         let loaded = load_config_in_directory(base_dir).expect("load corrupted config safely");
         assert_eq!(loaded, AppConfig::default());
+    }
+
+    #[test]
+    fn legacy_config_without_smart_structuring_defaults_to_true() {
+        let mut key = [0_u8; KEY_LENGTH_BYTES];
+        OsRng.fill_bytes(&mut key);
+
+        let plaintext = serde_json::json!({
+            "openaiApiKey": "sk-test-123",
+            "model": "gpt-5-nano-2025-08-07",
+            "temperature": 0.4,
+            "streaming": true,
+            "tokenProtection": false
+        });
+
+        let cipher = Aes256Gcm::new_from_slice(&key).expect("create cipher");
+        let mut nonce_bytes = [0_u8; NONCE_LENGTH_BYTES];
+        OsRng.fill_bytes(&mut nonce_bytes);
+        let ciphertext = cipher
+            .encrypt(
+                Nonce::from_slice(&nonce_bytes),
+                serde_json::to_vec(&plaintext).expect("serialize legacy config").as_ref(),
+            )
+            .expect("encrypt legacy config");
+
+        let mut payload = Vec::with_capacity(NONCE_LENGTH_BYTES + ciphertext.len());
+        payload.extend_from_slice(&nonce_bytes);
+        payload.extend_from_slice(&ciphertext);
+
+        let config = decrypt_config(&payload, &key).expect("decrypt legacy config");
+        assert_eq!(
+            config,
+            AppConfig {
+                openai_api_key: "sk-test-123".to_string(),
+                model: "gpt-5-nano-2025-08-07".to_string(),
+                temperature: 0.4,
+                streaming: true,
+                token_protection: false,
+                smart_structuring: true,
+            }
+        );
     }
 }

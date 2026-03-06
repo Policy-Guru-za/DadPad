@@ -1,3 +1,5 @@
+import type { StructureIntent } from "../structuring/plainText";
+
 export const DEFAULT_OPENAI_MODEL = "gpt-5-nano-2025-08-07";
 
 export type OpenAITransformMode = "polish" | "casual" | "professional" | "direct";
@@ -7,6 +9,7 @@ type TextVerbosity = "low" | "medium";
 export type ModePromptSpec = {
   label: string;
   styleRules: string[];
+  structureRules: string[];
   textVerbosity: TextVerbosity;
 };
 
@@ -18,14 +21,27 @@ const BASE_CONSTRAINTS = [
   "Preserve the original language of the input. Do not translate unless the input explicitly asks for translation.",
   "Keep the approximate length unless the mode explicitly asks for brevity. Light tightening is allowed; modest lengthening is allowed if it improves clarity and flow.",
   "Preserve exactly (character-for-character) any: names, numbers, dates, times, currency amounts, percentages, addresses, URLs, email addresses, phone numbers, order/reference IDs, and quoted text.",
-  "Fix grammar, spelling, punctuation, and paragraphing.",
-  "Break up run-on sentences. Use natural paragraph breaks.",
+  "Fix grammar, spelling, punctuation, and sentence boundaries.",
   'Remove obvious filler words (e.g., "um", "uh", "like", "you know") and unintentional verbatim repetition.',
   "Homophones / wrong-word fixes: only change a word if the intended meaning is highly confident from context. If uncertain, leave it unchanged.",
   "Do not alter placeholders of the form __PZPTOK###__.",
   'Do not add greetings, sign-offs, signatures, subject lines, placeholder names like "[Your Name]", or extra calls to action unless they already exist in the input.',
   "Output only the rewritten text. No preamble, no labels, no explanations.",
-  "If the input contains multiple distinct topics, keep them separated with clear paragraphs.",
+];
+
+const BASE_STRUCTURE_RULES = [
+  "Keep the output as plain text.",
+  "Prefer single blank lines between paragraphs.",
+  "Prefer 2 to 4 compact paragraphs instead of one dense block when the content contains multiple ideas.",
+  "Keep one idea per paragraph when possible: context/background, main request, next step/outcome, closing sentiment.",
+  "If there is a clear ask, isolate it in its own paragraph unless the message is extremely short.",
+  "If there is a closing sentiment, keep it separate from the operational request.",
+  "Use bullets only when the message naturally contains multiple requests, deliverables, steps, options, or agenda items.",
+  "Default bullet format is '- '. Use numbered items only when sequence matters or the source already implies sequence.",
+  "Do not return one long block when the content clearly contains separate ideas.",
+  "Do not over-format short or already clear messages.",
+  "Do not introduce headings, labels, subject lines, greetings, sign-offs, signatures, or placeholder names just to organize the text.",
+  "Do not flatten existing readable lists into prose unless that is clearly better.",
 ];
 
 export const MODE_PROMPT_SPECS: Record<OpenAITransformMode, ModePromptSpec> = {
@@ -45,6 +61,10 @@ export const MODE_PROMPT_SPECS: Record<OpenAITransformMode, ModePromptSpec> = {
       'Tone reference: "Could you send that over when you have a chance? Thanks."',
       "Keep approximate length: you may slightly tighten, and you may modestly expand if it makes the writing more elegant or easier to read.",
     ],
+    structureRules: [
+      "Prefer elegant, balanced paragraphs.",
+      "Use bullets only when multiple concrete asks or deliverables clearly make the message easier to scan.",
+    ],
   },
   casual: {
     label: "CASUAL",
@@ -58,6 +78,10 @@ export const MODE_PROMPT_SPECS: Record<OpenAITransformMode, ModePromptSpec> = {
       "When the input is already short or clean, still make the tone visibly more relaxed than professional mode instead of returning the same sentence with only punctuation fixes.",
       'Tone reference: "Can you send that over when you get a chance? Thanks!"',
       "Keep approximate length; light tightening allowed.",
+    ],
+    structureRules: [
+      "Prefer short conversational paragraphs.",
+      "Use bullets rarely; keep the output feeling like a natural message, not a memo.",
     ],
   },
   professional: {
@@ -80,6 +104,10 @@ export const MODE_PROMPT_SPECS: Record<OpenAITransformMode, ModePromptSpec> = {
       'Tone reference: "Could you please send that over when you have a chance? Thank you."',
       "Keep approximate length; light tightening allowed.",
     ],
+    structureRules: [
+      "Prefer scan-friendly business blocks.",
+      "Bullets are acceptable for deliverables, options, or action items when they improve clarity.",
+    ],
   },
   direct: {
     label: "DIRECT",
@@ -97,12 +125,59 @@ export const MODE_PROMPT_SPECS: Record<OpenAITransformMode, ModePromptSpec> = {
       "Use bullet points when it improves clarity.",
       "Shorten meaningfully, but do not remove essential information.",
     ],
+    structureRules: [
+      "Prefer the shortest useful blocks.",
+      "When there are 2 or more asks, steps, or deliverables, prefer bullets over dense prose.",
+    ],
   },
 };
 
-export function buildInstructions(mode: OpenAITransformMode): string {
+function buildStructureGuidance(structureIntent: StructureIntent): string[] {
+  const shapeRuleMap: Record<StructureIntent["targetShape"], string> = {
+    paragraphs: "Preferred shape for this input: paragraphs.",
+    bullets: "Preferred shape for this input: bullets or a very short lead-in followed by bullets.",
+    hybrid: "Preferred shape for this input: a short lead-in paragraph plus bullets or compact follow-on paragraphs.",
+  };
+
+  const contentTypeRuleMap: Record<StructureIntent["inferredContentType"], string> = {
+    message: "Treat the input as a plain-text message.",
+    email: "Treat the input as a plain-text email body.",
+    note: "Treat the input as a plain-text note.",
+    mixed: "Treat the input as a plain-text message that may contain mixed prose and list structure.",
+  };
+
+  const rules = [
+    "Structure guidance:",
+    ...BASE_STRUCTURE_RULES.map((rule) => `- ${rule}`),
+    `- ${contentTypeRuleMap[structureIntent.inferredContentType]}`,
+    `- ${shapeRuleMap[structureIntent.targetShape]}`,
+  ];
+
+  if (structureIntent.isolateRequest) {
+    rules.push("- The main request should stand on its own paragraph or bullet when natural.");
+  }
+
+  if (structureIntent.isolateClosing) {
+    rules.push("- Keep any closing sentiment separate from the operational request.");
+  }
+
+  if (structureIntent.preserveExistingLists) {
+    rules.push("- Preserve existing readable bullets or numbering; improve spacing only.");
+  }
+
+  if (structureIntent.preserveExistingParagraphs) {
+    rules.push("- Preserve existing paragraph separation when it is already clear.");
+  }
+
+  return rules;
+}
+
+export function buildInstructions(
+  mode: OpenAITransformMode,
+  structureIntent?: StructureIntent,
+): string {
   const promptSpec = MODE_PROMPT_SPECS[mode];
-  return [
+  const instructions = [
     BASE_PROMPT_INTRO,
     "",
     "Non-negotiable constraints:",
@@ -110,7 +185,13 @@ export function buildInstructions(mode: OpenAITransformMode): string {
     "",
     `Mode: ${promptSpec.label}`,
     ...promptSpec.styleRules,
-  ].join("\n");
+  ];
+
+  if (structureIntent?.enabled) {
+    instructions.push("", ...buildStructureGuidance(structureIntent), ...promptSpec.structureRules);
+  }
+
+  return instructions.join("\n");
 }
 
 function isGpt5FamilyModel(model: string): boolean {

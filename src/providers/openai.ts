@@ -5,6 +5,7 @@ import {
   getModelRequestControls,
   type OpenAITransformMode,
 } from "./openaiPrompting";
+import { deriveStructureIntent } from "../structuring/plainText";
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 
@@ -38,6 +39,7 @@ export type StreamTransformArgs = {
   model?: string;
   temperature?: number;
   streaming?: boolean;
+  smartStructuring?: boolean;
   maxOutputTokens?: number;
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -641,6 +643,7 @@ export async function streamTransformWithOpenAI({
   model = DEFAULT_OPENAI_MODEL,
   temperature = 0.2,
   streaming = true,
+  smartStructuring = true,
   maxOutputTokens: maxOutputTokensOverride,
   signal,
   timeoutMs = 30_000,
@@ -657,6 +660,7 @@ export async function streamTransformWithOpenAI({
       ? Math.min(8192, Math.max(1, Math.round(maxOutputTokensOverride)))
       : getMaxOutputTokens(mode, inputText);
   const modelRequestControls = getModelRequestControls(model, mode);
+  const structureIntent = deriveStructureIntent(inputText, mode, smartStructuring);
   let currentMaxOutputTokens = maxOutputTokens;
   let includeTemperature = typeof temperature === "number" && Number.isFinite(temperature);
   let retriedForNoTextLengthLimit = false;
@@ -687,7 +691,7 @@ export async function streamTransformWithOpenAI({
             ...modelRequestControls,
             stream: streaming,
             max_output_tokens: currentMaxOutputTokens,
-            instructions: buildInstructions(mode),
+            instructions: buildInstructions(mode, structureIntent),
             input: `${USER_WRAPPER_PREFIX}${inputText}${USER_WRAPPER_SUFFIX}`,
           }),
         });

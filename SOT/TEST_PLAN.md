@@ -4,6 +4,9 @@
 - placeholder encode/decode/validate
 - truncation heuristic (finish_reason and punctuation end-check)
 - retry multiplier/cap logic
+- smart structuring intent derivation (dense prose, multi-item asks, existing bullets, short messages)
+- smart structuring whitespace normalization (blank lines, trailing spaces, bullet spacing)
+- settings normalization defaults missing `smartStructuring` to `true`
 
 ## Integration tests (mocked)
 - streaming success for each mode
@@ -13,6 +16,8 @@
 - centralized prompt builder emits distinct instructions for each mode
 - professional prompt forbids invented email scaffolding
 - direct mode uses lower GPT-5 verbosity than the other rewrite modes
+- smart structuring toggle passes through to provider requests
+- smart structuring commit path preserves single blank lines and normalized bullet spacing
 
 ## Manual test cases
 1. Dictated run-on paragraph -> Polish -> paragraphs + punctuation
@@ -27,3 +32,7 @@
 10. `pnpm eval:modes` -> Direct shorter than Polish on >=80% eligible samples
 11. `pnpm eval:modes` -> Professional adds no new greeting/sign-off/signature when absent
 12. `pnpm eval:modes` -> Polish does not translate English inputs
+13. `pnpm eval:structure` -> dense prose expands into multiple paragraphs on >=90% of eligible outputs
+14. `pnpm eval:structure` -> multi-item asks become bullets on >=80% of eligible Direct/Professional outputs
+15. `pnpm eval:structure` -> short/simple messages are not over-formatted
+16. `pnpm eval:structure` -> existing bullets remain bullets and protected tokens remain exact

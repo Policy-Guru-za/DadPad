@@ -7,6 +7,8 @@
 - 2026-03-05 | self | Used `apply_patch` through `exec_command` and triggered tool warning | Use the dedicated `apply_patch` tool directly for patch edits.
 - 2026-03-05 | self | Trimmed `response.output[].content[].text` fragments while assembling non-stream output, collapsing spaces/newlines | Never trim model text fragments during assembly; preserve chunk bytes exactly and add regression test.
 - 2026-03-06 | self | Reordered placeholder matchers without tightening `phone`, which caused date-shaped fragments (e.g. `2026-03-05`) to be classified as phones and blocked `id` protection | Keep phone/id before date/time, but constrain phone regex (min digit count and date-shape avoidance) to prevent overlap regressions.
+- 2026-03-06 | self | Added a new persisted settings field without accounting for old encrypted configs; serde would have treated missing field as a full config decode failure and reset user settings | Any new field in `src-tauri/src/config.rs` needs an explicit serde default/backward-compat test before shipping.
+- 2026-03-06 | self | Ran smart-structuring cleanup after placeholder decode and used punctuation-only truncation checks, which mutated protected code/list content and falsely flagged completed bullet lists | Normalize structured text before placeholder decode, keep list-marker cleanup stricter than decimal/version prefixes, and treat completed list items as natural endings in truncation heuristics.
 
 ## User Preferences
 - Strict gates: do not move past Gate A or Gate B without explicit approval.
@@ -26,6 +28,7 @@
 - For the polish button, the provider prompt should avoid the literal label `Mode: POLISH`; use an unambiguous internal label like `Mode: REFINE` or the model may still translate into Polish even when told not to.
 - A live corpus gate (`pnpm eval:modes`) catches prompt collapse that unit tests miss; short and already-clean workplace inputs need explicit lexical preferences and request/follow-up handling or the modes collapse back together.
 - Utility scripts that can run from env overrides should treat unreadable `~/.polishpad` config as a warning and fall back to env/defaults instead of aborting.
+- Structure evaluation is only trustworthy if it mirrors the app path: placeholder encode -> provider rewrite -> decode/validate -> local whitespace normalization. Raw provider-only checks miss real commit behavior.
 
 ## Patterns That Don't Work
 - Mocking SSE without abort support makes cancel tests unreliable.
