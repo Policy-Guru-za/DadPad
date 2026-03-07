@@ -652,6 +652,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "dadpad"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-opener",
+ "tempfile",
+]
+
+[[package]]
 name = "darling"
 version = "0.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2570,20 +2584,6 @@ dependencies = [
  "fdeflate",
  "flate2",
  "miniz_oxide",
-]
-
-[[package]]
-name = "polishpad"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-opener",
- "tempfile",
 ]
 
 [[package]]

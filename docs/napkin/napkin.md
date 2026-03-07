@@ -1,6 +1,7 @@
 # Napkin
 
 ## Corrections
+- 2026-03-07 | self | Assumed changing only `productName` and `identifier` would regenerate DadPad-native Apple slugs, but `pnpm tauri ios init` kept reusing the old generated tree and left `polishpad.xcodeproj` behind | Treat `src-tauri/gen/apple` as sticky derived output during Tauri iOS identity cutovers; update the canonical slug inputs first, clear stale generated Apple files, then rerun `tauri ios init`.
 - 2026-03-07 | self | Assumed `pnpm tauri ios dev --no-dev-server` would make simulator work once host-served dev content was removed, but the simulator still failed on `tauri://localhost/` | Treat Tauri iOS simulator dev mode as independently unstable; disabling the host dev server does not make the simulator dev path reliable.
 - 2026-03-07 | self | Assumed repo-local CocoaPods could bypass host setup once Rust iOS targets were installed, but system Ruby 2.6 pulled an incompatible `ffi` path and older `ffi` source builds still needed Xcode/Ruby headers that are not present with CommandLineTools alone | Treat CocoaPods on this machine as blocked by the host Ruby/Xcode stack, not by the repo; once `xcodegen` exists, the next hard prerequisite is full Xcode plus a working host `pod`.
 - 2026-03-07 | self | Ran `pnpm tauri ios init` before checking whether the CLI would try to install host prerequisites, which crossed outside the repo by attempting `brew install xcodegen` | Treat Tauri mobile init as host-mutating unless prerequisites are already present; verify `xcodegen`, full Xcode, and Rust targets first, and stop before any system package install.
@@ -28,6 +29,7 @@
 - User is the only one who commits changes; never auto-commit.
 
 ## Patterns That Work
+- For DadPad-native identity cutover on this repo, regenerate `src-tauri/gen/apple` from a clean derived tree after updating the canonical Tauri/package/Rust slug inputs; otherwise stale `polishpad.xcodeproj` outputs can linger even when bundle metadata is already DadPad-native.
 - For iPad simulator proof on this repo, the reliable route is `pnpm tauri ios build --debug -t aarch64-sim --ci` followed by `simctl install` and `simctl launch`; use that instead of treating `tauri ios dev` as the primary simulator workflow.
 - For DadPad storage, use Tauri path resolver base directories plus an explicit `DadPad` namespace; do not derive persistence from the copied bundle identifier or `~/.polishpad`.
 - For agent-prompt postprocessing, strip edge blank lines only; preserve Markdown hard breaks, fenced-block spacing, and other inner formatting exactly.

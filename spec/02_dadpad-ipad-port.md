@@ -34,7 +34,7 @@ Port the copied PolishPad codebase into DadPad by reusing the existing transform
 5. Initialize Tauri iOS support and prove a static simulator build/install/launch path. Completed.
 6. Prove Share on the static simulator app; if simulator evidence is inconclusive, immediately choose physical-iPad proof or the native `share_text` fallback decision. Completed.
 7. Complete the first working DadPad transform loop on the static simulator app and record DadPad Gate A evidence. Completed.
-8. Perform identity cutover for names/icons/native metadata after the mobile path is proven. Next.
+8. Perform identity cutover for names/icons/native metadata after the mobile path is proven. Completed.
 
 ## Proof Gate Ownership
 - DadPad product scope and DadPad proof gates come from `SOT/DADPAD_BRIEF.md` plus this spec.
@@ -46,8 +46,10 @@ Port the copied PolishPad codebase into DadPad by reusing the existing transform
 - `pnpm build`
 - `cargo test --manifest-path src-tauri/Cargo.toml`
 - `pnpm tauri ios build --debug -t aarch64-sim --ci`
-- `xcrun simctl install booted src-tauri/gen/apple/build/arm64-sim/PolishPad.app`
-- `xcrun simctl launch booted com.ryanlaubscher.polishpad`
+- `xcrun simctl uninstall booted com.ryanlaubscher.polishpad || true`
+- `xcrun simctl uninstall booted com.ryanlaubscher.dadpad || true`
+- `xcrun simctl install booted src-tauri/gen/apple/build/arm64-sim/DadPad.app`
+- `xcrun simctl launch booted com.ryanlaubscher.dadpad`
 - `pnpm tauri ios dev` only as a secondary / experimental simulator check or physical-iPad path, not as the default iPad proof route
 - Manual dogfood of the changed UI flow
 
@@ -59,4 +61,5 @@ Port the copied PolishPad codebase into DadPad by reusing the existing transform
 - DadPad-specific tests cover clear/share/status/setup behavior
 - Share proof is completed or the fallback path is explicitly locked
 - First working DadPad transform loop is proven on iPad
-- Later identity cutover can proceed from a stable static-simulator baseline
+- Native identity is DadPad-native across Tauri config, generated Apple project naming, bundle id, and simulator install target. Completed.
+- Fresh DadPad simulator container can save config and keep it across relaunch. Completed.

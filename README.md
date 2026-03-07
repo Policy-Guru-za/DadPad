@@ -2,11 +2,11 @@
 
 DadPad is an iPad-first text-polishing app built by adapting the existing PolishPad Tauri + React + TypeScript codebase.
 
-Current repo stage: DadPad port in progress; static iPad simulator route proven; Share proof + first iPad transform loop next.
+Current repo stage: DadPad-native identity cutover complete; static iPad simulator route proven; broader iPad polish next.
 
 Notes:
 - Visible app UI is DadPad.
-- Native bundle identifiers / product metadata still carry copied PolishPad values until a later identity cutover.
+- Native product metadata now targets DadPad: app name `DadPad`, bundle id `com.ryanlaubscher.dadpad`.
 - Primary iPad simulator workflow is a static simulator build/install/launch path.
 - `pnpm tauri ios dev` is secondary / experimental on simulator and may still be useful for physical-iPad work.
 
@@ -36,8 +36,10 @@ Current DadPad UI:
 
 ```bash
 pnpm tauri ios build --debug -t aarch64-sim --ci
-xcrun simctl install booted src-tauri/gen/apple/build/arm64-sim/PolishPad.app
-xcrun simctl launch booted com.ryanlaubscher.polishpad
+xcrun simctl uninstall booted com.ryanlaubscher.polishpad || true
+xcrun simctl uninstall booted com.ryanlaubscher.dadpad || true
+xcrun simctl install booted src-tauri/gen/apple/build/arm64-sim/DadPad.app
+xcrun simctl launch booted com.ryanlaubscher.dadpad
 ```
 
 This is the current primary iPad simulator route.
@@ -57,13 +59,13 @@ pnpm build
 pnpm tauri build
 ```
 
-Release artifacts (current desktop identity):
-- `.app` bundle: `src-tauri/target/release/bundle/macos/PolishPad.app`
-- installer package: `src-tauri/target/release/bundle/dmg/PolishPad_0.1.0_aarch64.dmg` (filename may vary by architecture/version)
+Expected release artifacts after `pnpm tauri build`:
+- `.app` bundle: `src-tauri/target/release/bundle/macos/DadPad.app`
+- installer package: `src-tauri/target/release/bundle/dmg/DadPad_0.1.0_aarch64.dmg` (filename may vary by architecture/version)
 
 Run the built app:
 ```bash
-open src-tauri/target/release/bundle/macos/PolishPad.app
+open src-tauri/target/release/bundle/macos/DadPad.app
 ```
 
 Signing/notarization is intentionally not configured in V1.

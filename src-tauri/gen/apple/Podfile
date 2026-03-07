@@ -1,13 +1,13 @@
 # Uncomment the next line to define a global platform for your project
 
-target 'polishpad_iOS' do
+target 'dadpad_iOS' do
 platform :ios, '14.0'
-  # Pods for polishpad_iOS
+  # Pods for dadpad_iOS
 end
 
-target 'polishpad_macOS' do
+target 'dadpad_macOS' do
 platform :osx, '11.0'
-  # Pods for polishpad_macOS
+  # Pods for dadpad_macOS
 end
 
 # Delete the deployment target for iOS and macOS, causing it to be inherited from the Podfile

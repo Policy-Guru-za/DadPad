@@ -1,0 +1,41 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tileGradient" x1="192" y1="144" x2="832" y2="896" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#DB8453"/>
+      <stop offset="0.55" stop-color="#C96B3C"/>
+      <stop offset="1" stop-color="#A74C1F"/>
+    </linearGradient>
+    <radialGradient id="tileGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(310 240) rotate(46.3) scale(520)">
+      <stop offset="0" stop-color="#FFF6E8" stop-opacity="0.52"/>
+      <stop offset="0.42" stop-color="#FFF6E8" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#FFF6E8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="paperGradient" x1="322" y1="212" x2="700" y2="808" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFDF7"/>
+      <stop offset="1" stop-color="#F2E9D9"/>
+    </linearGradient>
+    <filter id="paperShadow" x="216" y="144" width="592" height="748" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="18"/>
+      <feGaussianBlur stdDeviation="22"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0902 0 0 0 0 0.1961 0 0 0 0 0.302 0 0 0 0.18 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
+    </filter>
+  </defs>
+
+  <rect x="96" y="96" width="832" height="832" rx="212" fill="url(#tileGradient)"/>
+  <rect x="96.75" y="96.75" width="830.5" height="830.5" rx="211.25" stroke="#FFF3E6" stroke-opacity="0.24" stroke-width="1.5"/>
+  <circle cx="308" cy="236" r="272" fill="url(#tileGlow)"/>
+
+  <g filter="url(#paperShadow)">
+    <path d="M292 198C292 171.49 313.49 150 340 150H612.627C625.357 150 637.566 155.053 646.569 164.047L740.373 257.761C749.385 266.763 754.449 278.978 754.449 291.711V684C754.449 710.51 732.959 732 706.449 732H340C313.49 732 292 710.51 292 684V198Z" fill="url(#paperGradient)"/>
+    <path d="M612.627 150V243.979C612.627 270.489 634.116 291.979 660.627 291.979H754.449" fill="#E8DCC7"/>
+    <path d="M612.627 150V243.979C612.627 270.489 634.116 291.979 660.627 291.979H754.449" stroke="#DCCDB4" stroke-width="18" stroke-linejoin="round"/>
+    <path d="M388 282H486C629.594 282 710 363.917 710 512C710 660.083 629.594 742 486 742H388V282ZM484 366V658H486C570.418 658 614 606.142 614 512C614 417.858 570.418 366 486 366H484Z" fill="#17324D"/>
+    <rect x="372" y="792" width="312" height="26" rx="13" fill="#D8C9B2"/>
+    <rect x="372" y="844" width="248" height="26" rx="13" fill="#E4D7C4"/>
+    <rect x="372" y="896" width="194" height="26" rx="13" fill="#EBDDCA"/>
+  </g>
+</svg>

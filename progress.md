@@ -4,10 +4,10 @@
 - `02_dadpad-ipad-port`
 
 ## Current Stage
-- Stage 8 — Identity cutover for names/icons/native metadata
+- Stage 8 — Identity cutover complete
 
 ## Status
-- DadPad Gate A is complete on the static simulator route; ready for identity cutover from a proven iPad baseline
+- Spec `02_dadpad-ipad-port` is complete. DadPad now builds, installs, launches, stores config, and relaunches under DadPad-native identity on simulator.
 
 ## Last Green Commands
 - `pnpm test`
@@ -17,8 +17,10 @@
 - `rustup target add aarch64-apple-ios aarch64-apple-ios-sim`
 - `pnpm tauri ios init --ci --skip-targets-install`
 - `pnpm tauri ios build --debug -t aarch64-sim --ci`
-- `xcrun simctl install booted src-tauri/gen/apple/build/arm64-sim/PolishPad.app`
-- `xcrun simctl launch booted com.ryanlaubscher.polishpad`
+- `xcrun simctl uninstall booted com.ryanlaubscher.polishpad || true`
+- `xcrun simctl uninstall booted com.ryanlaubscher.dadpad || true`
+- `xcrun simctl install booted src-tauri/gen/apple/build/arm64-sim/DadPad.app`
+- `xcrun simctl launch booted com.ryanlaubscher.dadpad`
 
 ## Blockers
 - No hard blocker on the primary static simulator route.
@@ -29,25 +31,25 @@
 - `pnpm tauri ios dev --no-watch --no-dev-server -c '{"build":{"beforeDevCommand":"pnpm build","devUrl":null}}' 'iPad Pro 13-inch (M5)'` still fails on simulator, but now against `tauri://localhost/` instead of a Mac LAN URL.
 - That failure is stronger evidence that the simulator `tauri ios dev` path is the unstable layer, not the host-served frontend route alone.
 - Primary simulator route is now the static-assets build/install path:
-  - build `src-tauri/gen/apple/build/arm64-sim/PolishPad.app`
+  - build `src-tauri/gen/apple/build/arm64-sim/DadPad.app`
   - install with `simctl`
   - launch with `simctl`
 - Remaining limitation: `tauri ios dev` on simulator should be treated as likely upstream Tauri iOS dev-path instability unless later evidence isolates a local repo issue.
 - Xcode MCP is host-configured, but live-session availability must be verified per run. If `xcode` MCP startup fails or cancels, fall back to CLI/Xcode directly.
-- Remaining product risk: native identity is still PolishPad-derived in bundle metadata, generated Apple project naming, and simulator install target until the explicit identity cutover phase lands.
 - Remaining proof gap: no physical-iPad smoke yet; current proof is simulator-only.
 
 ## Next Step
-- Continue simulator work on the static-assets route, not `tauri ios dev`.
-- Perform identity cutover:
-  - rename product name, bundle identifier, icons, and native strings from PolishPad to DadPad
-  - keep DadPad storage on the already-explicit `DadPad/` namespace; do not migrate it again
-- After identity cutover, continue broader iPad polish and optional physical-iPad smoke.
+- Create the next spec for broader iPad polish and optional physical-iPad smoke.
+- Keep simulator work on the static-assets route, not `tauri ios dev`, unless new evidence proves the simulator dev path is reliable again.
 
 ## Dogfood Evidence
 - DadPad UI implemented. `pnpm tauri dev --no-watch` compiled and launched the desktop Tauri binary successfully.
-- `pnpm tauri ios build --debug -t aarch64-sim --ci` completed and produced `src-tauri/gen/apple/build/arm64-sim/PolishPad.app`.
-- Installing and launching that built app on `iPad Pro 13-inch (M5)` renders the DadPad setup screen on simulator. Initial frame was blank, then the actual UI appeared with the DadPad header, setup prompt, API-key field, and editor shell.
+- `pnpm tauri ios build --debug -t aarch64-sim --ci` now completes with DadPad-native identity and produces `src-tauri/gen/apple/build/arm64-sim/DadPad.app`.
+- Installing and launching `com.ryanlaubscher.dadpad` on `iPad Pro 13-inch (M5)` renders the DadPad setup screen on a fresh simulator container.
+- The interim DadPad icon is visibly present on the simulator home screen and dock in `tmp/identity-cutover/02-home-screen.png`.
+- The fresh DadPad setup screen is captured in `tmp/identity-cutover/01-dadpad-launch.png`.
+- After manual key save, DadPad writes `config.enc` and `encryption.key` under `Library/Application Support/DadPad/` inside the new simulator app container.
+- After terminate + relaunch of `com.ryanlaubscher.dadpad`, DadPad returns to the main editor with status `Ready.` and the setup card hidden. Evidence: `tmp/identity-cutover/03-after-relaunch.png`.
 - `tauri ios dev` remains unreliable on simulator and is no longer the primary route.
 - Share proof on the static simulator app succeeded:
   - sample text entered into the editor: `share me from dadpad`

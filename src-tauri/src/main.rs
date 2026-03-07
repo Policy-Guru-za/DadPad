@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    polishpad_lib::run()
+    dadpad_lib::run()
 }

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "PolishPad",
+  "productName": "DadPad",
   "version": "0.1.0",
-  "identifier": "com.ryanlaubscher.polishpad",
+  "identifier": "com.ryanlaubscher.dadpad",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "PolishPad",
+        "title": "DadPad",
         "width": 1100,
         "height": 880,
         "minWidth": 920,
