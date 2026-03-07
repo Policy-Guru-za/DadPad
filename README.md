@@ -2,13 +2,14 @@
 
 DadPad is an iPad-first text-polishing app built by adapting the existing PolishPad Tauri + React + TypeScript codebase.
 
-Current repo stage: DadPad-native identity cutover complete; static iPad simulator route proven; broader iPad polish next.
+Current repo stage: DadPad-native identity cutover and broader iPad polish complete; static iPad simulator route proven.
 
 Notes:
 - Visible app UI is DadPad.
 - Native product metadata now targets DadPad: app name `DadPad`, bundle id `com.ryanlaubscher.dadpad`.
 - Primary iPad simulator workflow is a static simulator build/install/launch path.
 - `pnpm tauri ios dev` is secondary / experimental on simulator and may still be useful for physical-iPad work.
+- Current shell is hardened for iPad portrait, landscape, and software-keyboard use on the simulator.
 
 ## Requirements
 
@@ -31,6 +32,7 @@ Current DadPad UI:
 - one large editor
 - `Polish`, `Undo`, `Cancel`, `Clear`, `Copy`, `Share`
 - minimal API-key setup
+- viewport-safe shell with large tap targets and keyboard-safe action layout
 
 ## iPad Simulator (Primary)
 

@@ -1,5 +1,6 @@
 import "./App.css";
 import { useDadPadController } from "./dadpad/useDadPadController";
+import { useViewportShell } from "./dadpad/useViewportShell";
 
 function App() {
   const {
@@ -25,11 +26,16 @@ function App() {
     handleSettingsSave,
     updateOpenAiApiKey,
   } = useDadPadController();
+  const { isKeyboardOpen, shellStyle } = useViewportShell();
 
   const actionDisabled = text.length === 0 || isStreaming;
 
   return (
-    <main className="app-shell">
+    <main
+      className={`app-shell${isKeyboardOpen ? " keyboard-open" : ""}`}
+      style={shellStyle}
+      aria-busy={isStreaming}
+    >
       <section className="hero">
         <div className="hero-copy">
           <p className="eyebrow">iPad-first writing help</p>
@@ -49,10 +55,14 @@ function App() {
 
       <section
         className={`status-strip ${status.tone}`}
+        role="status"
         aria-live="polite"
+        aria-atomic="true"
       >
         <span className="status-label">Status</span>
-        <span>{isSettingsLoaded ? status.message : "Loading DadPad…"}</span>
+        <span className="status-message">
+          {isSettingsLoaded ? status.message : "Loading DadPad…"}
+        </span>
       </section>
 
       {isSettingsOpen ? (

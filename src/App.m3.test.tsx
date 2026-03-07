@@ -59,6 +59,15 @@ const TEST_SETTINGS = {
 
 let clipboardWriteMock: ReturnType<typeof vi.fn>;
 let shareMock: ReturnType<typeof vi.fn>;
+let visualViewportListeners: Map<string, Set<() => void>>;
+let visualViewportMock:
+  | {
+      height: number;
+      offsetTop: number;
+      addEventListener: ReturnType<typeof vi.fn>;
+      removeEventListener: ReturnType<typeof vi.fn>;
+    }
+  | undefined;
 
 function createSuccessfulTransform(outputText: string) {
   return {
@@ -86,6 +95,12 @@ beforeEach(() => {
     configurable: true,
     value: shareMock,
   });
+  visualViewportListeners = new Map();
+  visualViewportMock = undefined;
+  Object.defineProperty(window, "visualViewport", {
+    configurable: true,
+    value: undefined,
+  });
 });
 
 afterEach(() => {
@@ -109,6 +124,47 @@ describe("DadPad app", () => {
       expect(screen.queryByRole("button", { name: "Professional" })).toBeNull();
       expect(screen.queryByRole("button", { name: "Direct" })).toBeNull();
       expect(screen.queryByRole("button", { name: "Markdown" })).toBeNull();
+    });
+  });
+
+  it("shrinks the shell when visualViewport reports the software keyboard", async () => {
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: 1024,
+    });
+
+    visualViewportMock = {
+      height: 1024,
+      offsetTop: 0,
+      addEventListener: vi.fn((event: string, listener: () => void) => {
+        const listeners = visualViewportListeners.get(event) ?? new Set<() => void>();
+        listeners.add(listener);
+        visualViewportListeners.set(event, listeners);
+      }),
+      removeEventListener: vi.fn((event: string, listener: () => void) => {
+        visualViewportListeners.get(event)?.delete(listener);
+      }),
+    };
+
+    Object.defineProperty(window, "visualViewport", {
+      configurable: true,
+      value: visualViewportMock,
+    });
+
+    render(<App />);
+
+    const main = await screen.findByRole("main");
+    await waitFor(() => {
+      expect(main.style.getPropertyValue("--viewport-height")).toBe("1024px");
+    });
+
+    visualViewportMock.height = 700;
+    visualViewportListeners.get("resize")?.forEach((listener) => listener());
+
+    await waitFor(() => {
+      expect(main.classList.contains("keyboard-open")).toBe(true);
+      expect(main.style.getPropertyValue("--viewport-height")).toBe("700px");
+      expect(main.style.getPropertyValue("--keyboard-inset")).toBe("324px");
     });
   });
 
