@@ -1,12 +1,12 @@
-import type { AgentPromptIntent } from "../agentPrompts/markdown";
+import type { MarkdownIntent } from "../agentPrompts/markdown";
 import type { StructureIntent } from "../structuring/plainText";
 
 export const DEFAULT_OPENAI_MODEL = "gpt-5-nano-2025-08-07";
 
 export type RewriteTransformMode = "polish" | "casual" | "professional" | "direct";
-export type AgentPromptPreset = "universal" | "codex" | "claude";
-export type AgentPromptTransformMode = `agent-${AgentPromptPreset}`;
-export type OpenAITransformMode = RewriteTransformMode | AgentPromptTransformMode;
+export type MarkdownPreset = "universal" | "codex" | "claude";
+export type MarkdownTransformMode = `agent-${MarkdownPreset}`;
+export type OpenAITransformMode = RewriteTransformMode | MarkdownTransformMode;
 
 type TextVerbosity = "low" | "medium";
 
@@ -17,18 +17,16 @@ export type ModePromptSpec = {
   textVerbosity: TextVerbosity;
 };
 
-export type AgentPromptSpec = {
-  label: string;
+export type MarkdownPresetSpec = {
   textVerbosity: TextVerbosity;
   styleRules: string[];
-  sections: string[];
 };
 
 const REWRITE_PROMPT_INTRO =
   "You are a rewriting engine. Rewrite the user's text according to the requested mode.";
 
-const AGENT_PROMPT_INTRO =
-  "You turn user source material into a clean Markdown prompt for an AI coding agent.";
+const MARKDOWN_PROMPT_INTRO =
+  "You format the user's existing text as clean Markdown for use with AI coding agents.";
 
 const REWRITE_USER_WRAPPER_PREFIX = `Rewrite the text below.
 
@@ -38,13 +36,11 @@ const REWRITE_USER_WRAPPER_PREFIX = `Rewrite the text below.
 const REWRITE_USER_WRAPPER_SUFFIX = `
 [END TEXT]`;
 
-const AGENT_PROMPT_USER_WRAPPER_PREFIX = `Convert the source material below into a Markdown prompt for the requested coding-agent preset.
+const MARKDOWN_USER_WRAPPER_PREFIX =
+  "Format the following text as clean Markdown. Preserve the original wording and intent as closely as possible.\n\n[BEGIN TEXT]\n";
 
-[BEGIN SOURCE]
-`;
-
-const AGENT_PROMPT_USER_WRAPPER_SUFFIX = `
-[END SOURCE]`;
+const MARKDOWN_USER_WRAPPER_SUFFIX = `
+[END TEXT]`;
 
 const BASE_CONSTRAINTS = [
   "Preserve the original meaning, facts, and intent. Do not invent new information.",
@@ -74,23 +70,18 @@ const BASE_STRUCTURE_RULES = [
   "Do not flatten existing readable lists into prose unless that is clearly better.",
 ];
 
-const AGENT_PROMPT_BASE_CONSTRAINTS = [
-  "Output valid Markdown only.",
-  "Reorganize the source into a clean, useful coding-agent prompt.",
-  "Do not invent facts, files, APIs, commands, deadlines, dependencies, or repository context.",
+const MARKDOWN_BASE_CONSTRAINTS = [
+  "Convert the current text into clean Markdown.",
+  "Preserve the original wording, intent, order, commitments, and imperative voice as closely as possible.",
+  "Do not summarize the source or restate it as a meta-task.",
+  "Do not describe the conversion task or address the user about the source material.",
+  'Do not add wrapper text or prefatory lines like "Convert the provided source material..." or "Here is the Markdown version."',
+  "Do not add fixed scaffold headings like `## Objective`, `## Repository Context`, `## Requested Changes`, `## Acceptance Criteria`, or `## Notes` unless equivalent structure is already clearly present in the source.",
   "Preserve quoted text, URLs, paths, code, IDs, numbers, dates, and explicit constraints exactly.",
-  "If the source references attachments, screenshots, or documents you have not seen, keep them as referenced inputs and do not imply their unseen contents.",
-  "Prefer headings, bullets, short sections, and checklists over dense prose.",
-  "Omit empty sections instead of emitting placeholders.",
-  "Do not add explanatory preamble outside the Markdown.",
+  "If the source references attachments, screenshots, or documents you have not seen, keep them only as referenced inputs; do not infer their contents.",
+  "Prefer paragraphs and bullets over rigid templates. Use headings only when the source already implies clear sections.",
+  "Output only Markdown. No extra prose before or after.",
   "Do not alter placeholders of the form __PZPTOK###__.",
-];
-
-const AGENT_PROMPT_SECTION_BEHAVIOR = [
-  "Keep section order fixed for the selected preset.",
-  "Emit only sections that have meaningful content.",
-  "Preserve existing bullets, quoted text, inline code, and fenced code blocks when they improve clarity.",
-  "Convert dense prose into concise bullets where it improves scanability.",
 ];
 
 export const MODE_PROMPT_SPECS: Record<RewriteTransformMode, ModePromptSpec> = {
@@ -181,71 +172,43 @@ export const MODE_PROMPT_SPECS: Record<RewriteTransformMode, ModePromptSpec> = {
   },
 };
 
-export const AGENT_PROMPT_SPECS: Record<AgentPromptPreset, AgentPromptSpec> = {
+export const MARKDOWN_PRESET_SPECS: Record<MarkdownPreset, MarkdownPresetSpec> = {
   universal: {
-    label: "UNIVERSAL",
     textVerbosity: "medium",
     styleRules: [
-      "Optimize the prompt for cross-agent clarity and portability.",
-      "Make the final Markdown useful for any capable coding agent without assuming a specific product or toolchain.",
-      "Prefer plain, explicit language over agent-specific jargon.",
-    ],
-    sections: [
-      "## Objective",
-      "## Context",
-      "## Inputs and References",
-      "## Constraints",
-      "## Deliverable",
-      "## Success Criteria",
-      "## Open Questions",
+      "Be maximally faithful to the source wording.",
+      "Prefer paragraphs and bullets only when they clearly improve readability.",
+      "Use headings sparingly and only when the source already implies them.",
     ],
   },
   codex: {
-    label: "CODEX",
     textVerbosity: "medium",
     styleRules: [
-      "Optimize the prompt for a coding agent working directly in a repository and terminal workflow.",
-      "Surface repository context, requested changes, and acceptance criteria as clearly as possible.",
-      "Bias toward implementation-oriented phrasing rather than general brainstorming language.",
-    ],
-    sections: [
-      "## Objective",
-      "## Repository Context",
-      "## Constraints",
-      "## Requested Changes",
-      "## Acceptance Criteria",
-      "## Notes",
+      "For repository-oriented material, slightly prefer crisp bullets or checklists for multiple concrete tasks.",
+      "Preserve commands, file paths, and code exactly as written.",
+      "Do not add repository-specific scaffolding or acceptance-criteria sections unless the source already implies them.",
     ],
   },
   claude: {
-    label: "CLAUDE",
     textVerbosity: "medium",
     styleRules: [
-      "Optimize the prompt for a coding agent that benefits from clear requirements, expected output shape, and unresolved questions.",
-      "Bias toward explicit requirements and expected output framing over repository-specific assumptions.",
-      "Keep the structure concise but unambiguous.",
-    ],
-    sections: [
-      "## Objective",
-      "## Context",
-      "## Requirements",
-      "## Constraints",
-      "## Expected Output",
-      "## Open Questions",
+      "Slightly prefer explicit formatting of requirements and open questions when they already exist in the source.",
+      "Keep the structure readable and calm, without turning it into a template.",
+      "Do not add requirement or expected-output headings unless the source already implies them.",
     ],
   },
 };
 
-export function isAgentPromptMode(mode: OpenAITransformMode): mode is AgentPromptTransformMode {
+export function isMarkdownTransformMode(mode: OpenAITransformMode): mode is MarkdownTransformMode {
   return mode.startsWith("agent-");
 }
 
 export function isRewriteTransformMode(mode: OpenAITransformMode): mode is RewriteTransformMode {
-  return !isAgentPromptMode(mode);
+  return !isMarkdownTransformMode(mode);
 }
 
-export function getAgentPromptPreset(mode: AgentPromptTransformMode): AgentPromptPreset {
-  return mode.slice("agent-".length) as AgentPromptPreset;
+export function getMarkdownPreset(mode: MarkdownTransformMode): MarkdownPreset {
+  return mode.slice("agent-".length) as MarkdownPreset;
 }
 
 function buildStructureGuidance(structureIntent: StructureIntent): string[] {
@@ -289,46 +252,58 @@ function buildStructureGuidance(structureIntent: StructureIntent): string[] {
   return rules;
 }
 
-function buildAgentPromptIntentGuidance(intent: AgentPromptIntent): string[] {
+function buildMarkdownIntentGuidance(intent: MarkdownIntent): string[] {
   const rules = [
-    "Input-specific guidance:",
-    "- Preserve quoted text, list items, and explicit constraints exactly.",
+    "Markdown formatting guidance:",
+    "- Preserve the original paragraph order.",
   ];
 
-  if (intent.hasReferencedFiles) {
-    rules.push("- The source references file paths or repository artifacts. Keep every path exactly as written.");
-  }
-
-  if (intent.hasUrls) {
-    rules.push("- The source contains URLs. Keep each URL exactly as written and place it in a relevant reference section.");
-  }
-
-  if (intent.hasCodeBlocks) {
-    rules.push("- The source includes fenced code blocks. Preserve them exactly when they are relevant context.");
-  }
-
-  if (intent.hasInlineCode) {
-    rules.push("- The source includes inline code. Keep inline code spans exactly as written.");
-  }
-
-  if (intent.hasExplicitConstraints) {
-    rules.push("- Surface explicit must/must-not requirements under Constraints.");
-  }
-
-  if (intent.hasDeliverableLanguage) {
-    rules.push("- Make the requested deliverable or output shape explicit in the relevant section.");
-  }
-
-  if (intent.hasOpenQuestions) {
-    rules.push("- Pull unresolved questions or missing information into Open Questions or Notes.");
-  }
-
-  if (intent.hasAttachmentReferences) {
-    rules.push("- The source references attachments, screenshots, or documents you have not seen. Mention them as referenced inputs only; do not infer their contents.");
+  if (intent.hasExistingParagraphs) {
+    rules.push("- Preserve the existing paragraph breaks unless a tiny Markdown cleanup makes them clearer.");
   }
 
   if (intent.hasListStructure) {
-    rules.push("- Preserve useful list structure instead of flattening it into prose.");
+    rules.push("- Preserve useful existing list structure instead of flattening it into prose.");
+  } else {
+    rules.push("- Convert dense inline enumerations into bullets only when they become materially easier to scan.");
+  }
+
+  if (intent.hasSectionCues) {
+    rules.push("- The source already contains section-like cues; preserve them as Markdown headings only when that keeps the same structure.");
+  } else {
+    rules.push("- Do not introduce new headings unless the source clearly implies section boundaries.");
+  }
+
+  if (intent.hasReferencedFiles) {
+    rules.push("- Keep every referenced file path exactly as written.");
+  }
+
+  if (intent.hasUrls) {
+    rules.push("- Keep every URL exactly as written.");
+  }
+
+  if (intent.hasCodeBlocks) {
+    rules.push("- Preserve fenced code blocks exactly as written.");
+  }
+
+  if (intent.hasInlineCode) {
+    rules.push("- Preserve inline code spans exactly as written.");
+  }
+
+  if (intent.hasExplicitConstraints) {
+    rules.push("- Keep explicit constraints prominent and easy to scan.");
+  }
+
+  if (intent.hasDeliverableLanguage) {
+    rules.push("- Keep explicit deliverables or requested outputs easy to identify, preferably with bullets when grouped.");
+  }
+
+  if (intent.hasOpenQuestions) {
+    rules.push("- Keep open questions explicit rather than burying them inside dense paragraphs.");
+  }
+
+  if (intent.hasAttachmentReferences) {
+    rules.push("- Keep unseen attachments or screenshots only as references; do not infer their contents.");
   }
 
   return rules;
@@ -356,31 +331,22 @@ function buildRewriteInstructions(
   return instructions.join("\n");
 }
 
-function buildAgentPromptInstructions(
-  mode: AgentPromptTransformMode,
-  intent?: AgentPromptIntent,
+function buildMarkdownInstructions(
+  mode: MarkdownTransformMode,
+  intent?: MarkdownIntent,
 ): string {
-  const preset = getAgentPromptPreset(mode);
-  const promptSpec = AGENT_PROMPT_SPECS[preset];
-  const sectionRules = promptSpec.sections.map((section) => `- ${section}`);
+  const promptSpec = MARKDOWN_PRESET_SPECS[getMarkdownPreset(mode)];
   const instructions = [
-    AGENT_PROMPT_INTRO,
+    MARKDOWN_PROMPT_INTRO,
     "",
     "Non-negotiable constraints:",
-    ...AGENT_PROMPT_BASE_CONSTRAINTS.map((constraint) => `- ${constraint}`),
+    ...MARKDOWN_BASE_CONSTRAINTS.map((constraint) => `- ${constraint}`),
     "",
-    `Preset: ${promptSpec.label}`,
     ...promptSpec.styleRules,
-    "",
-    "Section order:",
-    ...sectionRules,
-    "",
-    "Section behavior:",
-    ...AGENT_PROMPT_SECTION_BEHAVIOR.map((rule) => `- ${rule}`),
   ];
 
   if (intent) {
-    instructions.push("", ...buildAgentPromptIntentGuidance(intent));
+    instructions.push("", ...buildMarkdownIntentGuidance(intent));
   }
 
   return instructions.join("\n");
@@ -388,18 +354,18 @@ function buildAgentPromptInstructions(
 
 export function buildInstructions(
   mode: OpenAITransformMode,
-  context?: StructureIntent | AgentPromptIntent,
+  context?: StructureIntent | MarkdownIntent,
 ): string {
-  if (isAgentPromptMode(mode)) {
-    return buildAgentPromptInstructions(mode, context as AgentPromptIntent | undefined);
+  if (isMarkdownTransformMode(mode)) {
+    return buildMarkdownInstructions(mode, context as MarkdownIntent | undefined);
   }
 
   return buildRewriteInstructions(mode, context as StructureIntent | undefined);
 }
 
 export function buildUserInput(mode: OpenAITransformMode, inputText: string): string {
-  if (isAgentPromptMode(mode)) {
-    return `${AGENT_PROMPT_USER_WRAPPER_PREFIX}${inputText}${AGENT_PROMPT_USER_WRAPPER_SUFFIX}`;
+  if (isMarkdownTransformMode(mode)) {
+    return `${MARKDOWN_USER_WRAPPER_PREFIX}${inputText}${MARKDOWN_USER_WRAPPER_SUFFIX}`;
   }
 
   return `${REWRITE_USER_WRAPPER_PREFIX}${inputText}${REWRITE_USER_WRAPPER_SUFFIX}`;
@@ -418,8 +384,8 @@ export function getModelRequestControls(
     return {};
   }
 
-  const textVerbosity = isAgentPromptMode(mode)
-    ? AGENT_PROMPT_SPECS[getAgentPromptPreset(mode)].textVerbosity
+  const textVerbosity = isMarkdownTransformMode(mode)
+    ? MARKDOWN_PRESET_SPECS[getMarkdownPreset(mode)].textVerbosity
     : MODE_PROMPT_SPECS[mode].textVerbosity;
 
   return {

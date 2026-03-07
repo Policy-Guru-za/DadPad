@@ -4,10 +4,10 @@ import {
   DEFAULT_OPENAI_MODEL,
   getMaxOutputTokens,
   getModelRequestControls,
-  isAgentPromptMode,
+  isMarkdownTransformMode,
   type OpenAITransformMode,
 } from "./openaiPrompting";
-import { deriveAgentPromptIntent } from "../agentPrompts/markdown";
+import { deriveMarkdownIntent } from "../agentPrompts/markdown";
 import { deriveStructureIntent } from "../structuring/plainText";
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
@@ -610,16 +610,16 @@ function expandMaxOutputTokens(current: number): number {
   return Math.min(MAX_OUTPUT_TOKENS_CEILING, Math.max(current + 256, Math.round(current * 1.75)));
 }
 
-function getTransformNoun(mode: OpenAITransformMode): "rewrite" | "prompt" {
-  return isAgentPromptMode(mode) ? "prompt" : "rewrite";
-}
-
 function buildPartialLengthMessage(mode: OpenAITransformMode): string {
-  return `OpenAI stopped before completing the ${getTransformNoun(mode)}. Original text preserved.`;
+  return isMarkdownTransformMode(mode)
+    ? "OpenAI stopped before completing the Markdown conversion. Original text preserved."
+    : "OpenAI stopped before completing the rewrite. Original text preserved.";
 }
 
 function buildUnexpectedStreamEndMessage(mode: OpenAITransformMode): string {
-  return `OpenAI stream ended before completing the ${getTransformNoun(mode)}. Original text preserved.`;
+  return isMarkdownTransformMode(mode)
+    ? "OpenAI stream ended before completing the Markdown conversion. Original text preserved."
+    : "OpenAI stream ended before completing the rewrite. Original text preserved.";
 }
 
 function buildNoTextTerminalMessage(
@@ -627,27 +627,38 @@ function buildNoTextTerminalMessage(
   responseStatus: string | undefined,
   finishReason: string | undefined,
 ): string {
-  const transformNoun = getTransformNoun(mode);
-
   if (isLengthTruncationReason(finishReason)) {
-    return `OpenAI used the output budget before producing the ${transformNoun}. Original text preserved.`;
+    return isMarkdownTransformMode(mode)
+      ? "OpenAI used the output budget before producing Markdown output. Original text preserved."
+      : "OpenAI used the output budget before producing the rewrite. Original text preserved.";
   }
 
   if (responseStatus === "cancelled") {
-    return `OpenAI cancelled the response before producing the ${transformNoun}. Original text preserved.`;
+    return isMarkdownTransformMode(mode)
+      ? "OpenAI cancelled the response before producing Markdown output. Original text preserved."
+      : "OpenAI cancelled the response before producing the rewrite. Original text preserved.";
   }
 
   if (responseStatus === "incomplete") {
+    if (isMarkdownTransformMode(mode)) {
+      return finishReason
+        ? `OpenAI ended the response before producing Markdown output (${finishReason}). Original text preserved.`
+        : "OpenAI ended the response before producing Markdown output. Original text preserved.";
+    }
     return finishReason
-      ? `OpenAI ended the response before producing the ${transformNoun} (${finishReason}). Original text preserved.`
-      : `OpenAI ended the response before producing the ${transformNoun}. Original text preserved.`;
+      ? `OpenAI ended the response before producing the rewrite (${finishReason}). Original text preserved.`
+      : "OpenAI ended the response before producing the rewrite. Original text preserved.";
   }
 
   if (responseStatus === "failed") {
-    return `OpenAI failed before producing the ${transformNoun}. Original text preserved.`;
+    return isMarkdownTransformMode(mode)
+      ? "OpenAI failed before producing Markdown output. Original text preserved."
+      : "OpenAI failed before producing the rewrite. Original text preserved.";
   }
 
-  return `OpenAI returned empty ${transformNoun} output. Original text preserved.`;
+  return isMarkdownTransformMode(mode)
+    ? "OpenAI returned empty Markdown output. Original text preserved."
+    : "OpenAI returned empty rewrite output. Original text preserved.";
 }
 
 export async function streamTransformWithOpenAI({
@@ -674,11 +685,11 @@ export async function streamTransformWithOpenAI({
       ? Math.min(MAX_OUTPUT_TOKENS_CEILING, Math.max(1, Math.round(maxOutputTokensOverride)))
       : getMaxOutputTokens(mode, inputText);
   const modelRequestControls = getModelRequestControls(model, mode);
-  const structureIntent = isAgentPromptMode(mode)
+  const structureIntent = isMarkdownTransformMode(mode)
     ? undefined
     : deriveStructureIntent(inputText, mode, smartStructuring);
-  const agentPromptIntent = isAgentPromptMode(mode)
-    ? deriveAgentPromptIntent(inputText)
+  const markdownIntent = isMarkdownTransformMode(mode)
+    ? deriveMarkdownIntent(inputText)
     : undefined;
   let currentMaxOutputTokens = maxOutputTokens;
   let includeTemperature = typeof temperature === "number" && Number.isFinite(temperature);
@@ -710,7 +721,7 @@ export async function streamTransformWithOpenAI({
             ...modelRequestControls,
             stream: streaming,
             max_output_tokens: currentMaxOutputTokens,
-            instructions: buildInstructions(mode, agentPromptIntent ?? structureIntent),
+            instructions: buildInstructions(mode, markdownIntent ?? structureIntent),
             input: buildUserInput(mode, inputText),
           }),
         });
@@ -919,8 +930,8 @@ export async function streamTransformWithOpenAI({
       } else if (refusalText.trim()) {
         throw new OpenAIProviderError(
           "unknown",
-          isAgentPromptMode(mode)
-            ? `OpenAI refused to generate this prompt. ${refusalText}`
+          isMarkdownTransformMode(mode)
+            ? `OpenAI refused to format this text as Markdown. ${refusalText}`
             : `OpenAI refused to rewrite this text. ${refusalText}`,
         );
       }

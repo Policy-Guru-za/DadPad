@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  AGENT_PROMPT_SPECS,
   buildInstructions,
   buildUserInput,
+  MARKDOWN_PRESET_SPECS,
   MODE_PROMPT_SPECS,
   type OpenAITransformMode,
   type RewriteTransformMode,
 } from "./openaiPrompting";
 import { streamTransformWithOpenAI } from "./openai";
-import { deriveAgentPromptIntent } from "../agentPrompts/markdown";
+import { deriveMarkdownIntent } from "../agentPrompts/markdown";
 import { deriveStructureIntent } from "../structuring/plainText";
 
 function createSseBody(events: string[]): ReadableStream<Uint8Array> {
@@ -73,44 +73,46 @@ describe("streamTransformWithOpenAI", () => {
     );
   });
 
-  it("builds distinct Markdown prompt instructions for every agent preset", () => {
+  it("builds distinct Markdown instructions for every markdown preset", () => {
     const source =
       "Review src/App.tsx, keep https://example.com/spec intact, and confirm what remains unclear.";
     const modes: OpenAITransformMode[] = ["agent-universal", "agent-codex", "agent-claude"];
-    const intent = deriveAgentPromptIntent(source);
+    const intent = deriveMarkdownIntent(source);
     const instructionSet = new Set(modes.map((mode) => buildInstructions(mode, intent)));
 
     expect(instructionSet.size).toBe(modes.length);
     expect(buildInstructions("agent-universal", intent)).toContain(
-      `Preset: ${AGENT_PROMPT_SPECS.universal.label}`,
+      MARKDOWN_PRESET_SPECS.universal.styleRules[0],
     );
     expect(buildInstructions("agent-codex", intent)).toContain(
-      `Preset: ${AGENT_PROMPT_SPECS.codex.label}`,
+      MARKDOWN_PRESET_SPECS.codex.styleRules[0],
     );
     expect(buildInstructions("agent-claude", intent)).toContain(
-      `Preset: ${AGENT_PROMPT_SPECS.claude.label}`,
+      MARKDOWN_PRESET_SPECS.claude.styleRules[0],
     );
   });
 
-  it("keeps the agent prompt family separate from the rewrite prompt family", () => {
+  it("keeps the markdown family separate from the rewrite prompt family and avoids scaffold templates", () => {
     const instructions = buildInstructions(
       "agent-codex",
-      deriveAgentPromptIntent(
+      deriveMarkdownIntent(
         "Use docs/POLISHPAD-UI-RESKIN-PROMPT.md and keep `pnpm test` unchanged.",
       ),
     );
 
     expect(instructions).not.toContain("You are a rewriting engine.");
-    expect(instructions).toContain("You turn user source material into a clean Markdown prompt");
-    expect(instructions).toContain("## Repository Context");
-    expect(instructions).toContain("## Acceptance Criteria");
-    expect(instructions).toContain("The source references file paths or repository artifacts.");
-    expect(instructions).toContain("The source includes inline code. Keep inline code spans exactly as written.");
+    expect(instructions).toContain("You format the user's existing text as clean Markdown");
+    expect(instructions).not.toContain("coding-agent prompt");
+    expect(instructions).not.toContain("Preset:");
+    expect(instructions).not.toContain("Section order:");
+    expect(instructions).not.toContain("Keep section order fixed");
+    expect(instructions).toContain("Keep every referenced file path exactly as written.");
+    expect(instructions).toContain("Preserve inline code spans exactly as written.");
   });
 
-  it("wraps agent-prompt source input with the dedicated source markers", () => {
+  it("wraps markdown source input with the neutral Markdown formatter wrapper", () => {
     expect(buildUserInput("agent-universal", "source")).toBe(
-      "Convert the source material below into a Markdown prompt for the requested coding-agent preset.\n\n[BEGIN SOURCE]\nsource\n[END SOURCE]",
+      "Format the following text as clean Markdown. Preserve the original wording and intent as closely as possible.\n\n[BEGIN TEXT]\nsource\n[END TEXT]",
     );
     expect(buildUserInput("polish", "source")).toBe(
       "Rewrite the text below.\n\n[BEGIN TEXT]\nsource\n[END TEXT]",
@@ -300,7 +302,7 @@ describe("streamTransformWithOpenAI", () => {
     expect(requestBody.text).toEqual({ verbosity: "low" });
   });
 
-  it("uses GPT-5 prompt controls and the larger token budget path for agent prompt modes", async () => {
+  it("uses GPT-5 prompt controls and the larger token budget path for markdown modes", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       body: {},
@@ -328,8 +330,11 @@ describe("streamTransformWithOpenAI", () => {
     >;
     expect(requestBody.text).toEqual({ verbosity: "medium" });
     expect(requestBody.max_output_tokens).toBe(306);
-    expect(requestBody.instructions).toContain("Preset: CODEX");
-    expect(String(requestBody.input)).toContain("[BEGIN SOURCE]");
+    expect(requestBody.instructions).toContain(
+      "Do not add fixed scaffold headings like `## Objective`, `## Repository Context`, `## Requested Changes`, `## Acceptance Criteria`, or `## Notes` unless equivalent structure is already clearly present in the source.",
+    );
+    expect(requestBody.instructions).not.toContain("Preset:");
+    expect(String(requestBody.input)).toContain("[BEGIN TEXT]");
   });
 
   it("uses larger default output budgets for polish-style rewrites", async () => {
@@ -733,7 +738,7 @@ describe("streamTransformWithOpenAI", () => {
     ).rejects.toThrow("OpenAI refused to rewrite this text.");
   });
 
-  it("surfaces prompt-mode refusals with prompt-specific language", async () => {
+  it("surfaces markdown-mode refusals with markdown-specific language", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       body: createSseBody([
@@ -753,7 +758,7 @@ describe("streamTransformWithOpenAI", () => {
         timeoutMs: 5_000,
         onDelta: () => undefined,
       }),
-    ).rejects.toThrow("OpenAI refused to generate this prompt.");
+    ).rejects.toThrow("OpenAI refused to format this text as Markdown.");
   });
 
   it("retries once with more room when the stream exhausts the output budget before any text arrives", async () => {

@@ -7,8 +7,8 @@
 - explicit length-stop fail-safe preserves original text instead of committing partial output
 - smart structuring intent derivation (dense prose, multi-item asks, existing bullets, short messages)
 - smart structuring whitespace normalization (blank lines, trailing spaces, bullet spacing)
-- agent-prompt intent derivation (paths, URLs, code, constraints, attachments, lists)
-- agent-prompt Markdown normalization (outer whitespace only; preserve headings, bullets, and fences)
+- markdown intent derivation (paragraphs, lists, paths, URLs, code, constraints, attachments, section cues)
+- Markdown normalization + scaffold drift guard
 - settings normalization defaults missing `smartStructuring` to `true`
 
 ## Integration tests (mocked)
@@ -23,10 +23,10 @@
 - smart structuring commit path preserves single blank lines and normalized bullet spacing
 - tone transforms stay locked until the current text has been polished once
 - tone transforms stay unlocked through normal edits and undo, and re-lock only on clear/full-content paste replacement
-- agent prompt stays locked until any successful transform completes for the current text session
-- agent prompt routes `Universal`, `Codex`, and `Claude` to distinct provider modes and updates footer mode text accordingly
-- agent prompt undo restores the prior rewritten text exactly
-- agent prompt uses the Markdown-safe postprocessor instead of the plain-text structuring postprocessor
+- Markdown stays locked until any successful transform completes for the current text session
+- Markdown routes `Universal`, `Codex`, and `Claude` to distinct provider modes and updates footer mode text accordingly
+- Markdown undo restores the prior rewritten text exactly
+- Markdown uses the Markdown-safe postprocessor and rejects unsupported scaffold drift
 - no truncation warning or retry button is shown in the UI
 
 ## Manual test cases
@@ -46,9 +46,9 @@
 14. `pnpm eval:structure` -> multi-item asks become bullets on >=80% of eligible Direct/Professional outputs
 15. `pnpm eval:structure` -> short/simple messages are not over-formatted
 16. `pnpm eval:structure` -> existing bullets remain bullets and protected tokens remain exact
-17. Polish → Agent Prompt (Universal) -> Markdown output with heading sections, no prose preamble
-18. Polish → Agent Prompt (Codex) -> repo/change/acceptance-criteria oriented structure
-19. Polish → Agent Prompt (Claude) -> requirements/expected-output/open-questions oriented structure
-20. Agent Prompt preserves file paths, URLs, code fences, quoted text, and explicit constraints exactly
-21. Agent Prompt does not invent unseen attachment or screenshot contents
-22. `pnpm eval:agent-prompts` -> headings present, presets diverge materially, referenced tokens remain exact
+17. Polish → Markdown (Universal) -> faithful Markdown, no meta-wrapper, no fixed scaffold headings
+18. Polish → Markdown (Codex) -> same task in cleaner Markdown, slightly crisper bullets/checklists, no invented repo scaffolding
+19. Polish → Markdown (Claude) -> same task in cleaner Markdown, slightly clearer requirements/questions formatting, no invented scaffold
+20. Markdown preserves file paths, URLs, code fences, quoted text, and explicit constraints exactly
+21. Markdown rejects unsupported scaffold drift and restores original text
+22. `pnpm eval:agent-prompts` -> referenced tokens remain exact, unsupported meta-scaffold drift fails, presets show at least some bias across corpus

@@ -60,7 +60,7 @@ Existing solutions require context switching (web app, email client) or do not p
 1. Dictation cleanup: paste raw transcript → Polish → edit → copy.
 2. Tone shift: paste content → Professional, Casual, or Direct.
 3. Iterative refine: Polish → Direct → small manual edits → copy.
-4. Coding-agent prompt conversion: Polish → Agent Prompt → copy Markdown into Codex, Claude, or another coding agent.
+4. Markdown conversion for coding agents: Polish → Markdown → copy faithful Markdown into Codex, Claude, or another coding agent.
 
 ---
 
@@ -72,7 +72,7 @@ Existing solutions require context switching (web app, email client) or do not p
 - One text editor area.
 - One primary transform button: Polish.
 - Three secondary tone transforms: Casual, Professional, Direct. Tone transforms unlock after the current text has been polished once.
-- One secondary post-rewrite action: Agent Prompt, with presets `Universal`, `Codex`, and `Claude`. Agent Prompt unlocks after any successful transform on the current text session.
+- One secondary post-rewrite action: Markdown, with presets `Universal`, `Codex`, and `Claude`. Markdown unlocks after any successful transform on the current text session.
 - Copy button (manual copy only).
 - Undo (one-level minimum per transform).
 - Settings: provider (OpenAI / Anthropic), model name (string, shipped default: `gpt-5-nano-2025-08-07`), temperature (default 0.2), streaming on/off (default on), token protection on/off (default on), smart message structuring on/off (default on), structured content protection on/off (default on, sub-toggle of token protection for markdown links and code blocks).
@@ -100,7 +100,7 @@ Existing solutions require context switching (web app, email client) or do not p
 
 Single standard window (not always-on-top). Simple layout:
 
-- Toolbar row: standalone Polish button | secondary tone cluster (Casual, Professional, Direct) | compact "For agents" cluster (Agent Prompt + preset selector) | actions (Cancel, Undo, Copy, Settings)
+- Toolbar row: standalone Polish button | secondary tone cluster (Casual, Professional, Direct) | compact "For agents" cluster (Markdown + preset selector) | actions (Cancel, Undo, Copy, Settings)
 - Main area: multiline text editor
 - Footer status bar: word count, character count, last transform mode, latency (ms), warnings
 - Persistent footer hint: "Transforms apply to the current editor text" (clarifies that modes can be stacked iteratively)
@@ -116,8 +116,8 @@ Single standard window (not always-on-top). Simple layout:
 - Re-enable editing on completion.
 - Casual, Professional, and Direct remain disabled until a successful Polish pass has completed for the current text session.
 - Tone transforms remain unlocked through normal edits and undo, and re-lock only when the editor is cleared or the full editor content is replaced by a fresh paste.
-- Agent Prompt remains disabled until any successful transform has completed for the current text session.
-- Agent Prompt remains unlocked through normal edits and undo, and re-locks only when the editor is cleared or the full editor content is replaced by a fresh paste.
+- Markdown remains disabled until any successful transform has completed for the current text session.
+- Markdown remains unlocked through normal edits and undo, and re-locks only when the editor is cleared or the full editor content is replaced by a fresh paste.
 
 **Copy:**
 
@@ -174,28 +174,29 @@ Four modes with shared constraints and mode-specific behaviour.
 - **Professional:** Neutral workplace email tone. Clear, calm, well-structured. Not stiff, not verbose. Approximate length preserved; light tightening allowed.
 - **Direct:** Concise and action-oriented. Short sentences. Filler and softening language removed. Bullets allowed when they improve clarity. Meaningful shortening permitted, but essential information preserved.
 
-### FR2A — Coding-agent prompt Markdown mode
+### FR2A — Markdown conversion mode
 
-Add one post-rewrite transform action, `Agent Prompt`, with three presets:
+Add one post-rewrite transform action, `Markdown`, with three presets:
 
-- **Universal:** general-purpose Markdown prompt for any coding agent.
-- **Codex:** repository/task/acceptance-criteria oriented Markdown prompt for a coding agent working directly in a repo and terminal workflow.
-- **Claude:** requirements/output/open-questions oriented Markdown prompt for a coding agent that benefits from explicit expected-output framing.
+- **Universal:** most faithful; minimal headings; paragraphs and bullets only when clearly useful.
+- **Codex:** slightly prefers crisp bullets/checklists for repo-task material, while preserving the original wording and structure as closely as possible.
+- **Claude:** slightly prefers explicit formatting of requirements and open questions when they are already present in the source.
 
 **Shared constraints (all presets):**
 
 - Output valid Markdown only.
-- Reorganize the current editor text into a clean coding-agent prompt.
+- Reformat the current editor text as clean Markdown while preserving wording, intent, order, commitments, and imperative voice as closely as possible.
 - Preserve quoted text, URLs, paths, code, IDs, numbers, dates, and explicit constraints exactly.
 - Do not invent facts, files, APIs, commands, deadlines, dependencies, repo context, or unseen attachment contents.
-- Prefer headings, bullets, short sections, and checklists over dense prose.
-- Omit empty sections rather than emitting placeholders.
+- Do not summarize the source, describe the conversion task, or add wrapper text.
+- Do not add fixed scaffold headings such as `## Objective`, `## Repository Context`, `## Requested Changes`, `## Acceptance Criteria`, or `## Notes` unless equivalent structure is already clearly present in the source.
+- Prefer paragraphs and bullets over rigid templates, and add headings only when the source already implies clear sections.
 
 **Behavior rules:**
 
 - Disabled until at least one successful transform has completed for the current text session.
 - Uses the same streaming, cancel, undo, copy-disable, placeholder protection, and fail-safe pipeline as the rewrite modes.
-- Replaces the editor text with Markdown output and updates the footer/status mode to include the preset, e.g. `Agent Prompt (Codex)`.
+- Replaces the editor text with Markdown output and updates the footer/status mode to include the preset, e.g. `Markdown (Codex)`.
 
 ### FR3 — Provider support
 

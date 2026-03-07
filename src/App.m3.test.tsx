@@ -148,7 +148,7 @@ describe("M8 settings gating", () => {
         true,
       );
       expect(
-        (screen.getByRole("button", { name: "Agent Prompt" }) as HTMLButtonElement).disabled,
+        (screen.getByRole("button", { name: "Markdown" }) as HTMLButtonElement).disabled,
       ).toBe(true);
       expect(
         (screen.getByRole("button", { name: "Universal" }) as HTMLButtonElement).disabled,
@@ -156,7 +156,7 @@ describe("M8 settings gating", () => {
       expect(screen.getByText("After polish")).toBeTruthy();
       expect(screen.getByText("For agents")).toBeTruthy();
       expect(screen.getByLabelText("Tone options")).toBeTruthy();
-      expect(screen.getByLabelText("Agent prompt presets")).toBeTruthy();
+      expect(screen.getByLabelText("Markdown presets")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
     });
   });
@@ -349,12 +349,12 @@ describe("M8 settings gating", () => {
         true,
       );
       expect(
-        (screen.getByRole("button", { name: "Agent Prompt" }) as HTMLButtonElement).disabled,
+        (screen.getByRole("button", { name: "Markdown" }) as HTMLButtonElement).disabled,
       ).toBe(true);
     });
   });
 
-  it("keeps agent prompt unlocked when full-content typing replaces the editor text", async () => {
+  it("keeps markdown unlocked when full-content typing replaces the editor text", async () => {
     render(<App />);
     const user = userEvent.setup();
     const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
@@ -373,7 +373,7 @@ describe("M8 settings gating", () => {
         true,
       );
       expect(
-        (screen.getByRole("button", { name: "Agent Prompt" }) as HTMLButtonElement).disabled,
+        (screen.getByRole("button", { name: "Markdown" }) as HTMLButtonElement).disabled,
       ).toBe(false);
     });
   });
@@ -575,8 +575,8 @@ describe("M3 transform resilience", () => {
   });
 });
 
-describe("M4 direct mode wiring", () => {
-  it("agent prompt unlocks after a successful rewrite and routes the selected preset", async () => {
+describe("M4 direct + markdown wiring", () => {
+  it("markdown unlocks after a successful rewrite and routes the selected preset", async () => {
     streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
       expect(mode).toBe("polish");
       onDelta("Polished base.");
@@ -585,13 +585,10 @@ describe("M4 direct mode wiring", () => {
     streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
       expect(mode).toBe("agent-claude");
       const markdown = [
-        "## Objective",
+        "Please turn this into clean Markdown for a coding agent.",
         "",
-        "Turn this into an agent-ready brief.",
-        "",
-        "## Expected Output",
-        "",
-        "- Markdown prompt",
+        "- Keep the original wording as closely as possible.",
+        "- Preserve file paths and commands exactly.",
       ].join("\n");
       onDelta(markdown);
       return createSuccessfulTransform(markdown);
@@ -606,24 +603,24 @@ describe("M4 direct mode wiring", () => {
 
     await waitFor(() => {
       expect(
-        (screen.getByRole("button", { name: "Agent Prompt" }) as HTMLButtonElement).disabled,
+        (screen.getByRole("button", { name: "Markdown" }) as HTMLButtonElement).disabled,
       ).toBe(false);
     });
 
     await user.click(screen.getByRole("button", { name: "Claude" }));
-    await user.click(screen.getByRole("button", { name: "Agent Prompt" }));
+    await user.click(screen.getByRole("button", { name: "Markdown" }));
 
     await waitFor(() => {
-      expect(editor.value).toContain("## Objective");
-      expect(editor.value).toContain("## Expected Output");
-      expect(screen.getByText("Mode: Agent Prompt (Claude)")).toBeTruthy();
+      expect(editor.value).toContain("clean Markdown");
+      expect(editor.value).not.toContain("## Objective");
+      expect(screen.getByText("Mode: Markdown (Claude)")).toBeTruthy();
       expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
         expect.objectContaining({ mode: "agent-claude" }),
       );
     });
   });
 
-  it("undo restores the prior rewritten text after agent prompt conversion", async () => {
+  it("undo restores the prior rewritten text after markdown conversion", async () => {
     streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
       expect(mode).toBe("polish");
       onDelta("Polished draft.");
@@ -632,9 +629,9 @@ describe("M4 direct mode wiring", () => {
     streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
       expect(mode).toBe("agent-universal");
       const markdown = [
-        "## Objective",
+        "Please update agents.md.",
         "",
-        "Create a clean coding-agent prompt.",
+        "- Preserve the existing workflow.",
       ].join("\n");
       onDelta(markdown);
       return createSuccessfulTransform(markdown);
@@ -650,10 +647,10 @@ describe("M4 direct mode wiring", () => {
       expect(editor.value).toBe("Polished draft.");
     });
 
-    await user.click(screen.getByRole("button", { name: "Agent Prompt" }));
+    await user.click(screen.getByRole("button", { name: "Markdown" }));
 
     await waitFor(() => {
-      expect(editor.value).toContain("## Objective");
+      expect(editor.value).toContain("Please update agents.md.");
     });
 
     await user.click(screen.getByRole("button", { name: "Undo" }));
@@ -661,14 +658,14 @@ describe("M4 direct mode wiring", () => {
     await waitFor(() => {
       expect(editor.value).toBe("Polished draft.");
       expect(
-        (screen.getByRole("button", { name: "Agent Prompt" }) as HTMLButtonElement).disabled,
+        (screen.getByRole("button", { name: "Markdown" }) as HTMLButtonElement).disabled,
       ).toBe(false);
     });
   });
 
-  it("preserves markdown hard breaks and code-block spacing in agent prompt output", async () => {
+  it("preserves markdown hard breaks and code-block spacing in markdown output", async () => {
     const expectedMarkdown =
-      "## Objective\u0020\u0020\nShip the fix.\u0020\u0020\n\n```ts\nconst x = 1;\n\n\nconst y = 2;\n```";
+      "Please ship the fix.\u0020\u0020\nKeep the commands below intact.\u0020\u0020\n\n```ts\nconst x = 1;\n\n\nconst y = 2;\n```";
 
     streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
       expect(mode).toBe("polish");
@@ -692,10 +689,88 @@ describe("M4 direct mode wiring", () => {
       expect(editor.value).toBe("Polished draft.");
     });
 
-    await user.click(screen.getByRole("button", { name: "Agent Prompt" }));
+    await user.click(screen.getByRole("button", { name: "Markdown" }));
 
     await waitFor(() => {
       expect(editor.value).toBe(expectedMarkdown);
+    });
+  });
+
+  it("fails safe when markdown output introduces unsupported prompt scaffolding", async () => {
+    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
+      expect(mode).toBe("polish");
+      onDelta("Polished draft.");
+      return createSuccessfulTransform("Polished draft.");
+    });
+    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
+      expect(mode).toBe("agent-codex");
+      const markdown = [
+        "## Objective",
+        "",
+        "Convert the provided source material into a clean coding-agent prompt.",
+      ].join("\n");
+      onDelta(markdown);
+      return createSuccessfulTransform(markdown);
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+
+    await user.type(editor, "Source text");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+    await waitFor(() => {
+      expect(editor.value).toBe("Polished draft.");
+    });
+
+    await user.click(screen.getByRole("button", { name: "Codex" }));
+    await user.click(screen.getByRole("button", { name: "Markdown" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("Polished draft.");
+      expect(
+        screen.getByText(
+          "Warnings: Markdown conversion introduced unsupported prompt scaffolding. Original text preserved.",
+        ),
+      ).toBeTruthy();
+    });
+  });
+
+  it("allows markdown headings derived from inline source labels", async () => {
+    const polished = "Objective: Update agents.md\nAcceptance Criteria: Preserve paths";
+    const markdown = "## Objective\nUpdate agents.md\n\n## Acceptance Criteria\nPreserve paths";
+
+    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
+      expect(mode).toBe("polish");
+      onDelta(polished);
+      return createSuccessfulTransform(polished);
+    });
+    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
+      expect(mode).toBe("agent-codex");
+      onDelta(markdown);
+      return createSuccessfulTransform(markdown);
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+
+    await user.type(editor, "Objective: Update agents.md\nAcceptance Criteria: Preserve paths");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+    await waitFor(() => {
+      expect(editor.value).toBe(polished);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Codex" }));
+    await user.click(screen.getByRole("button", { name: "Markdown" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe(markdown);
+      expect(
+        screen.queryByText(
+          "Warnings: Markdown conversion introduced unsupported prompt scaffolding. Original text preserved.",
+        ),
+      ).toBeNull();
     });
   });
 

@@ -20,7 +20,11 @@ import {
   encodeProtectedSpans,
   validatePlaceholders,
 } from "./protect/placeholders";
-import { normalizePromptMarkdown } from "./agentPrompts/markdown";
+import {
+  MARKDOWN_SCAFFOLD_DRIFT_MESSAGE,
+  detectUnsupportedMarkdownScaffolding,
+  normalizePromptMarkdown,
+} from "./agentPrompts/markdown";
 import { normalizeStructuredPlainText } from "./structuring/plainText";
 import {
   AppSettings,
@@ -30,9 +34,9 @@ import {
 } from "./settings/config";
 
 type RewriteTransformMode = "Polish" | "Casual" | "Professional" | "Direct";
-type AgentPromptPreset = "Universal" | "Codex" | "Claude";
-type AgentTransformMode = `Agent Prompt (${AgentPromptPreset})`;
-type TransformMode = RewriteTransformMode | AgentTransformMode;
+type MarkdownPreset = "Universal" | "Codex" | "Claude";
+type MarkdownTransformMode = `Markdown (${MarkdownPreset})`;
+type TransformMode = RewriteTransformMode | MarkdownTransformMode;
 type WiredTransformMode = TransformMode;
 type ToneMode = Exclude<RewriteTransformMode, "Polish">;
 type SettingsSaveStatus = "idle" | "saving" | "saved" | "error";
@@ -42,7 +46,7 @@ const TONE_MODES: ToneMode[] = [
   "Professional",
   "Direct",
 ];
-const AGENT_PROMPT_PRESETS: AgentPromptPreset[] = ["Universal", "Codex", "Claude"];
+const MARKDOWN_PRESETS: MarkdownPreset[] = ["Universal", "Codex", "Claude"];
 
 const MISSING_API_KEY_MESSAGE = "Set API key in Settings.";
 const CREATOR_HANDLE = "@laup30";
@@ -96,6 +100,10 @@ function mapProviderError(error: unknown): string {
       return PROTECTED_CONTENT_MISMATCH_MESSAGE;
     }
 
+    if (error.message === MARKDOWN_SCAFFOLD_DRIFT_MESSAGE) {
+      return MARKDOWN_SCAFFOLD_DRIFT_MESSAGE;
+    }
+
     return error.message;
   }
 
@@ -106,12 +114,12 @@ function mapProviderError(error: unknown): string {
   return "Transform failed. Original text restored.";
 }
 
-function isAgentPromptMode(mode: WiredTransformMode | null): mode is AgentTransformMode {
-  return mode !== null && mode.startsWith("Agent Prompt (");
+function isMarkdownMode(mode: WiredTransformMode | null): mode is MarkdownTransformMode {
+  return mode !== null && mode.startsWith("Markdown (");
 }
 
-function createAgentPromptMode(preset: AgentPromptPreset): AgentTransformMode {
-  return `Agent Prompt (${preset})`;
+function createMarkdownMode(preset: MarkdownPreset): MarkdownTransformMode {
+  return `Markdown (${preset})`;
 }
 
 function toProviderMode(mode: WiredTransformMode): OpenAITransformMode {
@@ -127,15 +135,15 @@ function toProviderMode(mode: WiredTransformMode): OpenAITransformMode {
     return "direct";
   }
 
-  if (mode === "Agent Prompt (Universal)") {
+  if (mode === "Markdown (Universal)") {
     return "agent-universal";
   }
 
-  if (mode === "Agent Prompt (Codex)") {
+  if (mode === "Markdown (Codex)") {
     return "agent-codex";
   }
 
-  if (mode === "Agent Prompt (Claude)") {
+  if (mode === "Markdown (Claude)") {
     return "agent-claude";
   }
 
@@ -162,8 +170,8 @@ function App() {
   const [hasPolishedCurrentSession, setHasPolishedCurrentSession] = useState(false);
   const [hasSuccessfulTransformCurrentSession, setHasSuccessfulTransformCurrentSession] =
     useState(false);
-  const [selectedAgentPromptPreset, setSelectedAgentPromptPreset] =
-    useState<AgentPromptPreset>("Universal");
+  const [selectedMarkdownPreset, setSelectedMarkdownPreset] =
+    useState<MarkdownPreset>("Universal");
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [settingsDraft, setSettingsDraft] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -186,7 +194,7 @@ function App() {
   const apiKeyMissing = settings.openaiApiKey.trim().length === 0;
   const transformsDisabled = isStreaming || !isSettingsLoaded || apiKeyMissing;
   const toneModesDisabled = transformsDisabled || !hasPolishedCurrentSession;
-  const agentPromptDisabled = transformsDisabled || !hasSuccessfulTransformCurrentSession;
+  const markdownDisabled = transformsDisabled || !hasSuccessfulTransformCurrentSession;
   const isSavingSettings = settingsSaveStatus === "saving";
 
   const clearSettingsSaveResetTimeout = (): void => {
@@ -307,7 +315,7 @@ function App() {
       });
 
       const finalOutput = result.outputText;
-      const normalizedOutput = isAgentPromptMode(mode)
+      const normalizedOutput = isMarkdownMode(mode)
         ? normalizePromptMarkdown(finalOutput)
         : smartStructuringEnabled
           ? normalizeStructuredPlainText(finalOutput)
@@ -319,6 +327,13 @@ function App() {
         const validation = validatePlaceholders(decodedText, mapping);
         if (!validation.ok) {
           throw new OpenAIProviderError("unknown", validation.error);
+        }
+      }
+
+      if (isMarkdownMode(mode)) {
+        const markdownDrift = detectUnsupportedMarkdownScaffolding(sourceText, decodedText);
+        if (markdownDrift.length > 0) {
+          throw new OpenAIProviderError("unknown", MARKDOWN_SCAFFOLD_DRIFT_MESSAGE);
         }
       }
 
@@ -480,8 +495,8 @@ function App() {
     }
   };
 
-  const handleAgentPromptClick = (): void => {
-    void handleTransform(createAgentPromptMode(selectedAgentPromptPreset));
+  const handleMarkdownClick = (): void => {
+    void handleTransform(createMarkdownMode(selectedMarkdownPreset));
   };
 
   return (
@@ -697,23 +712,23 @@ function App() {
           <div className="agent-controls">
             <button
               type="button"
-              className={`agent-prompt-btn${isAgentPromptMode(lastMode) ? " active" : ""}${isAgentPromptMode(activeStreamMode) && isStreaming ? " streaming" : ""}`}
-              disabled={agentPromptDisabled}
-              onClick={handleAgentPromptClick}
+              className={`agent-prompt-btn${isMarkdownMode(lastMode) ? " active" : ""}${isMarkdownMode(activeStreamMode) && isStreaming ? " streaming" : ""}`}
+              disabled={markdownDisabled}
+              onClick={handleMarkdownClick}
             >
-              <span>Agent Prompt</span>
+              <span>Markdown</span>
             </button>
             <div
               className={`agent-preset-group${hasSuccessfulTransformCurrentSession ? "" : " locked"}`}
-              aria-label="Agent prompt presets"
+              aria-label="Markdown presets"
             >
-              {AGENT_PROMPT_PRESETS.map((preset) => (
+              {MARKDOWN_PRESETS.map((preset) => (
                 <button
                   key={preset}
                   type="button"
-                  className={`agent-preset-btn${selectedAgentPromptPreset === preset ? " active" : ""}`}
-                  disabled={agentPromptDisabled}
-                  onClick={() => setSelectedAgentPromptPreset(preset)}
+                  className={`agent-preset-btn${selectedMarkdownPreset === preset ? " active" : ""}`}
+                  disabled={markdownDisabled}
+                  onClick={() => setSelectedMarkdownPreset(preset)}
                 >
                   {preset}
                 </button>
