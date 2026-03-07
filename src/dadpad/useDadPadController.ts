@@ -28,6 +28,13 @@ type StatusState = {
 
 const READY_MESSAGE = "Ready.";
 const MISSING_API_KEY_MESSAGE = "Add your OpenAI API key to start.";
+const CLEAR_STATUS_DURATION_MS = 1000;
+
+function getRestingStatus(openaiApiKey: string): StatusState {
+  return openaiApiKey.trim().length > 0
+    ? { message: READY_MESSAGE, tone: "idle" }
+    : { message: MISSING_API_KEY_MESSAGE, tone: "error" };
+}
 
 async function writeClipboard(text: string): Promise<void> {
   if (navigator.clipboard?.writeText) {
@@ -82,6 +89,7 @@ export function useDadPadController() {
   const [text, setText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
+  const [editorResetVersion, setEditorResetVersion] = useState(0);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [settingsDraft, setSettingsDraft] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -95,10 +103,31 @@ export function useDadPadController() {
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const undoCheckpointRef = useRef<string | null>(null);
+  const statusResetTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
   const apiKeyMissing = settings.openaiApiKey.trim().length === 0;
   const polishDisabled =
     isStreaming || !isSettingsLoaded || apiKeyMissing || text.trim().length === 0;
+
+  const clearPendingStatusReset = (): void => {
+    if (statusResetTimeoutRef.current !== null) {
+      window.clearTimeout(statusResetTimeoutRef.current);
+      statusResetTimeoutRef.current = null;
+    }
+  };
+
+  const applyStatus = (nextStatus: StatusState): void => {
+    clearPendingStatusReset();
+    setStatus(nextStatus);
+  };
+
+  const scheduleRestingStatusReset = (): void => {
+    clearPendingStatusReset();
+    statusResetTimeoutRef.current = window.setTimeout(() => {
+      statusResetTimeoutRef.current = null;
+      setStatus(getRestingStatus(settings.openaiApiKey));
+    }, CLEAR_STATUS_DURATION_MS);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -114,17 +143,14 @@ export function useDadPadController() {
         setSettingsDraft(loaded);
         const needsSetup = loaded.openaiApiKey.trim().length === 0;
         setIsSettingsOpen(needsSetup);
-        setStatus({
-          message: needsSetup ? MISSING_API_KEY_MESSAGE : READY_MESSAGE,
-          tone: needsSetup ? "error" : "idle",
-        });
+        applyStatus(getRestingStatus(loaded.openaiApiKey));
       } catch {
         if (cancelled) {
           return;
         }
 
         setIsSettingsOpen(true);
-        setStatus({
+        applyStatus({
           message: "Unable to load DadPad settings.",
           tone: "error",
         });
@@ -138,6 +164,7 @@ export function useDadPadController() {
 
     return () => {
       cancelled = true;
+      clearPendingStatusReset();
     };
   }, []);
 
@@ -152,14 +179,14 @@ export function useDadPadController() {
 
     const sourceText = text;
     if (!sourceText.trim()) {
-      setStatus({ message: "Add text before polishing.", tone: "error" });
+      applyStatus({ message: "Add text before polishing.", tone: "error" });
       return;
     }
 
     const apiKey = settings.openaiApiKey.trim();
     if (!apiKey) {
       setIsSettingsOpen(true);
-      setStatus({ message: MISSING_API_KEY_MESSAGE, tone: "error" });
+      applyStatus({ message: MISSING_API_KEY_MESSAGE, tone: "error" });
       return;
     }
 
@@ -175,7 +202,7 @@ export function useDadPadController() {
     setCanUndo(false);
     setIsStreaming(true);
     setText("");
-    setStatus({ message: "Polishing…", tone: "idle" });
+    applyStatus({ message: "Polishing…", tone: "idle" });
 
     try {
       const result = await streamTransformWithOpenAI({
@@ -213,16 +240,16 @@ export function useDadPadController() {
 
       setText(decodedText);
       setCanUndo(true);
-      setStatus({ message: "Polished.", tone: "success" });
+      applyStatus({ message: "Polished.", tone: "success" });
     } catch (error) {
       setText(undoCheckpointRef.current ?? sourceText);
       undoCheckpointRef.current = null;
       setCanUndo(false);
 
       if (controller.signal.aborted) {
-        setStatus({ message: "Cancelled. Original text restored.", tone: "idle" });
+        applyStatus({ message: "Cancelled. Original text restored.", tone: "idle" });
       } else {
-        setStatus({ message: mapProviderError(error), tone: "error" });
+        applyStatus({ message: mapProviderError(error), tone: "error" });
       }
     } finally {
       abortControllerRef.current = null;
@@ -235,7 +262,7 @@ export function useDadPadController() {
       return;
     }
 
-    setStatus({ message: "Cancelling…", tone: "idle" });
+    applyStatus({ message: "Cancelling…", tone: "idle" });
     abortControllerRef.current?.abort();
   };
 
@@ -247,7 +274,7 @@ export function useDadPadController() {
     setText(undoCheckpointRef.current);
     undoCheckpointRef.current = null;
     setCanUndo(false);
-    setStatus({ message: "Undo restored the original text.", tone: "success" });
+    applyStatus({ message: "Undo restored the original text.", tone: "success" });
   };
 
   const handleClear = (): void => {
@@ -256,22 +283,24 @@ export function useDadPadController() {
     }
 
     if (!window.confirm("Clear all text and start over?")) {
-      setStatus({ message: "Clear cancelled.", tone: "idle" });
+      applyStatus({ message: "Clear cancelled.", tone: "idle" });
       return;
     }
 
     setText("");
     undoCheckpointRef.current = null;
     setCanUndo(false);
+    setEditorResetVersion((current) => current + 1);
     setStatus({ message: "Cleared.", tone: "success" });
+    scheduleRestingStatusReset();
   };
 
   const handleCopy = async (): Promise<void> => {
     try {
       await writeClipboard(text);
-      setStatus({ message: "Copied.", tone: "success" });
+      applyStatus({ message: "Copied.", tone: "success" });
     } catch {
-      setStatus({
+      applyStatus({
         message: "Clipboard write failed. Check app clipboard permissions.",
         tone: "error",
       });
@@ -281,19 +310,19 @@ export function useDadPadController() {
   const handleShare = async (): Promise<void> => {
     try {
       await shareText(text);
-      setStatus({ message: "Share sheet opened.", tone: "success" });
+      applyStatus({ message: "Share sheet opened.", tone: "success" });
     } catch (error) {
       if (error instanceof ShareUnavailableError) {
-        setStatus({ message: error.message, tone: "error" });
+        applyStatus({ message: error.message, tone: "error" });
         return;
       }
 
       if (error instanceof DOMException && error.name === "AbortError") {
-        setStatus({ message: "Share cancelled.", tone: "idle" });
+        applyStatus({ message: "Share cancelled.", tone: "idle" });
         return;
       }
 
-      setStatus({ message: "Sharing failed.", tone: "error" });
+      applyStatus({ message: "Sharing failed.", tone: "error" });
     }
   };
 
@@ -314,14 +343,14 @@ export function useDadPadController() {
       setSettingsSaveStatus("saved");
       setIsSettingsOpen(!hasKey);
       setSettingsMessage(hasKey ? "Saved." : "OpenAI API key required.");
-      setStatus({
+      applyStatus({
         message: hasKey ? "DadPad is ready." : MISSING_API_KEY_MESSAGE,
         tone: hasKey ? "success" : "error",
       });
     } catch {
       setSettingsSaveStatus("error");
       setSettingsMessage("Unable to save settings.");
-      setStatus({ message: "Unable to save settings.", tone: "error" });
+      applyStatus({ message: "Unable to save settings.", tone: "error" });
     }
   };
 
@@ -338,6 +367,7 @@ export function useDadPadController() {
     text,
     isStreaming,
     canUndo,
+    editorResetVersion,
     isSettingsOpen,
     isSettingsLoaded,
     apiKeyMissing,

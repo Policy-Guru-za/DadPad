@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import "./App.css";
 import { useDadPadController } from "./dadpad/useDadPadController";
 import { useViewportShell } from "./dadpad/useViewportShell";
@@ -7,6 +8,7 @@ function App() {
     text,
     isStreaming,
     canUndo,
+    editorResetVersion,
     isSettingsOpen,
     isSettingsLoaded,
     apiKeyMissing,
@@ -27,8 +29,25 @@ function App() {
     updateOpenAiApiKey,
   } = useDadPadController();
   const { isKeyboardOpen, shellStyle } = useViewportShell();
+  const editorRef = useRef<HTMLTextAreaElement | null>(null);
 
   const actionDisabled = text.length === 0 || isStreaming;
+
+  useEffect(() => {
+    if (editorResetVersion === 0) {
+      return;
+    }
+
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    editor.scrollTop = 0;
+    editor.scrollLeft = 0;
+    editor.focus();
+    editor.setSelectionRange(0, 0);
+  }, [editorResetVersion]);
 
   return (
     <main
@@ -109,6 +128,8 @@ function App() {
           Your text
         </label>
         <textarea
+          key={editorResetVersion}
+          ref={editorRef}
           id="dadpad-editor"
           className="editor"
           value={text}

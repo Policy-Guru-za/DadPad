@@ -104,6 +104,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
@@ -293,11 +294,17 @@ describe("DadPad app", () => {
     await user.type(editor, "clear me");
     await user.click(screen.getByRole("button", { name: "Clear" }));
 
-    await waitFor(() => {
-      expect(confirmMock).toHaveBeenCalledWith("Clear all text and start over?");
-      expect(editor.value).toBe("");
-      expect(screen.getByText("Cleared.")).toBeTruthy();
+    const clearedEditor = screen.getByLabelText("Your text") as HTMLTextAreaElement;
+    expect(confirmMock).toHaveBeenCalledWith("Clear all text and start over?");
+    expect(clearedEditor.value).toBe("");
+    expect(screen.getByText("Cleared.")).toBeTruthy();
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 1050));
     });
+
+    expect(screen.getByText("Ready.")).toBeTruthy();
+    expect(screen.queryByText("Cleared.")).toBeNull();
   });
 
   it("leaves text untouched when clear is cancelled", async () => {
@@ -314,6 +321,110 @@ describe("DadPad app", () => {
     await waitFor(() => {
       expect(editor.value).toBe("keep me");
       expect(screen.getByText("Clear cancelled.")).toBeTruthy();
+    });
+  });
+
+  it("returns to the missing-key resting status after clear when setup is still required", async () => {
+    readAppSettingsMock.mockResolvedValue({
+      ...TEST_SETTINGS,
+      openaiApiKey: "",
+    });
+
+    const confirmMock = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirmMock);
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+
+    await user.type(editor, "draft without key");
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+
+    expect(confirmMock).toHaveBeenCalledWith("Clear all text and start over?");
+    expect(screen.getByText("Cleared.")).toBeTruthy();
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 1050));
+    });
+
+    expect(screen.getByText("Add your OpenAI API key to start.")).toBeTruthy();
+    expect(screen.queryByText("Cleared.")).toBeNull();
+  });
+
+  it("remounts and resets the editor DOM state on confirmed clear", async () => {
+    const confirmMock = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirmMock);
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+
+    await user.type(editor, "Line 1\nLine 2\nLine 3\nLine 4\nLine 5");
+    editor.focus();
+    editor.setSelectionRange(8, 8);
+    editor.scrollTop = 120;
+    editor.scrollLeft = 18;
+
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+
+    await waitFor(() => {
+      const resetEditor = screen.getByLabelText("Your text") as HTMLTextAreaElement;
+      expect(confirmMock).toHaveBeenCalledWith("Clear all text and start over?");
+      expect(resetEditor).not.toBe(editor);
+      expect(resetEditor.value).toBe("");
+      expect(document.activeElement).toBe(resetEditor);
+      expect(resetEditor.selectionStart).toBe(0);
+      expect(resetEditor.selectionEnd).toBe(0);
+      expect(resetEditor.scrollTop).toBe(0);
+      expect(resetEditor.scrollLeft).toBe(0);
+    });
+  });
+
+  it("does not let the delayed clear reset overwrite a newer status", async () => {
+    let resolveTransform:
+      | ((result: ReturnType<typeof createSuccessfulTransform>) => void)
+      | undefined;
+
+    streamTransformWithOpenAIMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveTransform = resolve;
+        }),
+    );
+
+    const confirmMock = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirmMock);
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+
+    await user.type(editor, "clear then polish");
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+
+    const resetEditor = screen.getByLabelText("Your text") as HTMLTextAreaElement;
+    await user.type(resetEditor, "second pass");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+
+    expect(confirmMock).toHaveBeenCalledWith("Clear all text and start over?");
+    expect(screen.getByRole("status").textContent).toContain("Polishing…");
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 1050));
+    });
+
+    expect(screen.getByRole("status").textContent).toContain("Polishing…");
+    expect(screen.queryByText("Ready.")).toBeNull();
+
+    act(() => {
+      resolveTransform?.(createSuccessfulTransform("Second pass polished."));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Polished.")).toBeTruthy();
+      expect((screen.getByLabelText("Your text") as HTMLTextAreaElement).value).toBe(
+        "Second pass polished.",
+      );
     });
   });
 
