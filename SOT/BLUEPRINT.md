@@ -13,13 +13,13 @@
 **Tauri frontend (TypeScript/React):**
 
 - Text editor component
-- Toolbar (rewrite buttons, agent-prompt controls, Copy)
+- Toolbar (rewrite buttons, Markdown controls, Copy)
 - Status bar (word count, char count, mode, latency, warnings)
 - Settings UI
 - Streaming render logic
 - Undo management
 - LLM provider clients (OpenAI, Anthropic)
-- Agent-prompt Markdown intent analysis + postprocessing
+- Markdown intent analysis + postprocessing
 - Token protection (placeholder encode/decode/validate)
 - Output completion fail-safe
 
@@ -46,12 +46,12 @@ For a private utility tool used by one person, calling LLM APIs directly from th
 4. Frontend applies placeholder encoding to the text (if token protection enabled).
 5. Frontend constructs prompt:
    - rewrite modes: rewrite system prompt + mode snippet + wrapped user text
-   - markdown modes: Markdown-formatting system prompt + light preset bias + wrapped user text
+   - markdown modes: visibly structured Markdown system prompt + stronger preset bias + wrapped user text
 6. Frontend calls provider API with streaming enabled.
 7. As chunks arrive: append to stream buffer, render progressively in editor.
 8. On stream completion:
    - rewrite modes: optionally normalize plain-text paragraph spacing if smart structuring is enabled
-   - markdown modes: normalize Markdown outer whitespace only, then run the unsupported-scaffold drift guard
+   - markdown modes: normalize Markdown outer whitespace only, then run the unsupported-scaffold drift guard plus the visible-structure sufficiency guard
    - decode placeholders, validate placeholder restoration, and fail safe if the provider explicitly reports a length stop before finishing
 9. If validation passes: commit final text to editor, re-enable editing, show latency and mode in status bar.
 10. If validation fails: revert to undo snapshot, show warning ("Protected tokens could not be restored — original text preserved"), optionally show model output for manual review.
@@ -280,28 +280,31 @@ Use a separate prompt family for `Markdown`. Do not reuse the rewrite-engine int
 **Base prompt requirements:**
 
 - Output valid Markdown only.
-- Convert the current editor text into clean Markdown while preserving wording, intent, order, commitments, and imperative voice as closely as possible.
+- Convert the current editor text into visibly structured Markdown while preserving wording, intent, order, commitments, and imperative voice as closely as possible.
 - Do not invent facts, files, APIs, commands, deadlines, dependencies, or repository context.
 - Preserve quoted text, URLs, paths, code, IDs, numbers, dates, and explicit constraints exactly.
 - If the source references attachments, screenshots, or documents the model has not seen, keep them as referenced inputs only and do not imply their contents.
 - Do not summarize the source, describe the conversion task, or add wrapper text.
-- Do not add fixed scaffold headings such as `## Objective`, `## Repository Context`, `## Requested Changes`, `## Acceptance Criteria`, or `## Notes` unless equivalent structure is already clearly present in the source.
-- Prefer paragraphs and bullets over rigid templates. Use headings only when the source already implies clear sections.
+- Do not add fixed scaffold headings such as `## Objective`, `## Repository Context`, `## Requested Changes`, `## Acceptance Criteria`, `## Notes`, or `## Expected Output` unless equivalent structure is already clearly present in the source.
+- For dense prose with multiple tasks, constraints, references, deliverables, or questions, do not return prose only; introduce visible Markdown syntax.
+- Prefer headings, bullets, numbered steps, checklists, blockquotes, or fenced code blocks when they make the content easier to scan.
+- If headings help, only use grounded neutral headings from this set: `## Task`, `## Context`, `## References`, `## Files`, `## Requirements`, `## Constraints`, `## Deliverable`, `## Questions`, `## Validation`.
+- Do not emit empty sections.
 - Do not add explanatory preamble outside the Markdown.
 
 **Preset biases:**
 
 - `Universal`
-  - most faithful to the source wording
-  - minimal headings
-  - paragraphs and bullets only when clearly useful
+  - neutral visible structure
+  - short grounded headings plus bullets when the source contains multiple instructions, constraints, or references
 - `Codex`
-  - slightly prefers crisp bullets or checklists for repo-task material
+  - strongest task-execution structure
+  - prefers grounded `Task`, `Files`, `Constraints`, and `Validation` sections for repo-task material
   - preserves commands, paths, and code exactly
-  - must not invent repository scaffolding
 - `Claude`
-  - slightly prefers explicit formatting of requirements and open questions
-  - must not invent requirement/output scaffolding
+  - strongest requirement/unknowns structure
+  - prefers grounded `Context`, `Requirements`, `Constraints`, and `Questions` sections
+  - must not invent generic expected-output scaffolding
 
 **Markdown source wrapper:**
 
@@ -392,6 +395,14 @@ After receiving the complete response:
 2. If the provider explicitly reports a length-style finish reason (`"length"`, `"max_output_tokens"`, or `"max_tokens"`), treat the rewrite as incomplete.
 3. If no user-visible text is produced and the budget can still expand, retry once internally with a larger budget.
 4. If partial user-visible text exists and the provider still reports a length stop, do not commit it. Restore the original editor text and surface a clear error message instead.
+
+### Markdown hidden retry
+
+For Markdown modes only:
+
+1. If a non-trivial input returns prose-only near-no-op output with no meaningful Markdown syntax, retry once internally with stricter visible-structure instructions.
+2. On retry, require headings, bullets, checklists, numbered steps, blockquotes, or fenced code blocks as appropriate.
+3. If the retry still fails the visible-structure guard, restore the original editor text and show a clear warning.
 
 ---
 

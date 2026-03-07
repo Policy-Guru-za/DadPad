@@ -2,8 +2,11 @@ import { pathToFileURL } from "node:url";
 import { type MarkdownTransformMode } from "../src/providers/openaiPrompting";
 import { streamTransformWithOpenAI } from "../src/providers/openai";
 import {
+  MARKDOWN_INSUFFICIENT_STRUCTURE_MESSAGE,
   MARKDOWN_SCAFFOLD_DRIFT_MESSAGE,
+  detectInsufficientMarkdownization,
   detectUnsupportedMarkdownScaffolding,
+  deriveMarkdownIntent,
   normalizePromptMarkdown,
 } from "../src/agentPrompts/markdown";
 import {
@@ -117,6 +120,7 @@ async function run(): Promise<void> {
 
   const tokenFailures: string[] = [];
   const scaffoldFailures: string[] = [];
+  const visibilityFailures: string[] = [];
   let divergentSamples = 0;
 
   for (const { sample, outputs } of results) {
@@ -148,6 +152,16 @@ async function run(): Promise<void> {
       if (scaffoldFindings.length > 0) {
         scaffoldFailures.push(`${sample.id}/${mode}: ${scaffoldFindings.join(", ")}`);
       }
+
+      if (
+        detectInsufficientMarkdownization(
+          sample.input,
+          outputs[mode],
+          deriveMarkdownIntent(sample.input),
+        )
+      ) {
+        visibilityFailures.push(`${sample.id}/${mode}: prose-only near-no-op output`);
+      }
     }
   }
 
@@ -166,10 +180,23 @@ async function run(): Promise<void> {
   }
 
   console.log(
+    `- non-trivial prompts produce visible Markdown syntax: ${visibilityFailures.length === 0 ? "PASS" : "FAIL"}`,
+  );
+  if (visibilityFailures.length > 0) {
+    console.log(`  failures: ${visibilityFailures.join(", ")}`);
+    console.log(`  expected guard message: ${MARKDOWN_INSUFFICIENT_STRUCTURE_MESSAGE}`);
+  }
+
+  console.log(
     `- presets show at least some layout bias across corpus: ${divergentSamples > 0 ? "PASS" : "FAIL"} (${divergentSamples}/${results.length} samples)`,
   );
 
-  if (tokenFailures.length > 0 || scaffoldFailures.length > 0 || divergentSamples === 0) {
+  if (
+    tokenFailures.length > 0 ||
+    scaffoldFailures.length > 0 ||
+    visibilityFailures.length > 0 ||
+    divergentSamples === 0
+  ) {
     process.exitCode = 1;
   }
 }

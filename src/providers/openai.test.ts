@@ -8,7 +8,10 @@ import {
   type RewriteTransformMode,
 } from "./openaiPrompting";
 import { streamTransformWithOpenAI } from "./openai";
-import { deriveMarkdownIntent } from "../agentPrompts/markdown";
+import {
+  MARKDOWN_INSUFFICIENT_STRUCTURE_MESSAGE,
+  deriveMarkdownIntent,
+} from "../agentPrompts/markdown";
 import { deriveStructureIntent } from "../structuring/plainText";
 
 function createSseBody(events: string[]): ReadableStream<Uint8Array> {
@@ -90,6 +93,9 @@ describe("streamTransformWithOpenAI", () => {
     expect(buildInstructions("agent-claude", intent)).toContain(
       MARKDOWN_PRESET_SPECS.claude.styleRules[0],
     );
+    expect(buildInstructions("agent-universal", intent)).toContain(
+      "This input requires visible Markdown structure. Do not return prose only.",
+    );
   });
 
   it("keeps the markdown family separate from the rewrite prompt family and avoids scaffold templates", () => {
@@ -101,13 +107,16 @@ describe("streamTransformWithOpenAI", () => {
     );
 
     expect(instructions).not.toContain("You are a rewriting engine.");
-    expect(instructions).toContain("You format the user's existing text as clean Markdown");
+    expect(instructions).toContain("You convert the user's existing text into visibly structured Markdown");
     expect(instructions).not.toContain("coding-agent prompt");
     expect(instructions).not.toContain("Preset:");
     expect(instructions).not.toContain("Section order:");
     expect(instructions).not.toContain("Keep section order fixed");
     expect(instructions).toContain("Keep every referenced file path exactly as written.");
     expect(instructions).toContain("Preserve inline code spans exactly as written.");
+    expect(instructions).toContain(
+      "If headings help, only use grounded neutral headings from this set: `## Task`, `## Context`, `## References`, `## Files`, `## Requirements`, `## Constraints`, `## Deliverable`, `## Questions`, `## Validation`.",
+    );
   });
 
   it("wraps markdown source input with the neutral Markdown formatter wrapper", () => {
@@ -331,7 +340,7 @@ describe("streamTransformWithOpenAI", () => {
     expect(requestBody.text).toEqual({ verbosity: "medium" });
     expect(requestBody.max_output_tokens).toBe(306);
     expect(requestBody.instructions).toContain(
-      "Do not add fixed scaffold headings like `## Objective`, `## Repository Context`, `## Requested Changes`, `## Acceptance Criteria`, or `## Notes` unless equivalent structure is already clearly present in the source.",
+      "For dense prose with multiple tasks, constraints, references, deliverables, or questions, do not return plain prose only. Introduce visible Markdown structure.",
     );
     expect(requestBody.instructions).not.toContain("Preset:");
     expect(String(requestBody.input)).toContain("[BEGIN TEXT]");
@@ -759,6 +768,231 @@ describe("streamTransformWithOpenAI", () => {
         onDelta: () => undefined,
       }),
     ).rejects.toThrow("OpenAI refused to format this text as Markdown.");
+  });
+
+  it("retries once with stricter instructions when markdown output is prose-only and too similar", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        body: createSseBody([
+          JSON.stringify({
+            type: "response.output_text.done",
+            text: "Please read agents.md, compare it to the build loop, identify gaps, preserve file paths, and return a patch plus open questions.",
+          }),
+          JSON.stringify({
+            type: "response.completed",
+            response: {
+              id: "resp_md_retry_1",
+              status: "completed",
+              output: [
+                {
+                  content: [
+                    {
+                      type: "output_text",
+                      text: "Please read agents.md, compare it to the build loop, identify gaps, preserve file paths, and return a patch plus open questions.",
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        ]),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        body: createSseBody([
+          JSON.stringify({
+            type: "response.output_text.delta",
+            delta: "## Task\n- Read `agents.md`.\n",
+          }),
+          JSON.stringify({
+            type: "response.output_text.done",
+            text: "## Task\n- Read `agents.md`.\n- Compare it to the build loop.\n\n## Constraints\n- Preserve file paths.\n\n## Deliverable\n- Return a patch.\n\n## Questions\n- Capture open questions.",
+          }),
+          JSON.stringify({
+            type: "response.completed",
+            response: {
+              id: "resp_md_retry_2",
+              status: "completed",
+              output: [
+                {
+                  content: [
+                    {
+                      type: "output_text",
+                      text: "## Task\n- Read `agents.md`.\n- Compare it to the build loop.\n\n## Constraints\n- Preserve file paths.\n\n## Deliverable\n- Return a patch.\n\n## Questions\n- Capture open questions.",
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        ]),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const deltas: string[] = [];
+    const onRetrying = vi.fn();
+    const result = await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText:
+        "Please read agents.md, compare it to the build loop, identify gaps, preserve file paths, and return a patch plus open questions.",
+      mode: "agent-codex",
+      timeoutMs: 5_000,
+      onRetrying,
+      onDelta: (delta) => {
+        deltas.push(delta);
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(onRetrying).toHaveBeenCalledTimes(1);
+    expect(result.outputText).toContain("## Task");
+    expect(deltas).toEqual([
+      "## Task\n- Read `agents.md`.\n",
+    ]);
+
+    const secondRequestBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >;
+    expect(String(secondRequestBody.instructions)).toContain("Retry override:");
+    expect(String(secondRequestBody.instructions)).toContain(
+      "This input requires visible Markdown syntax.",
+    );
+  });
+
+  it("retries when an existing markdown input is flattened into prose", async () => {
+    const source = "## Task\n- Read agents.md\n- Run `pnpm test`";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        body: createSseBody([
+          JSON.stringify({
+            type: "response.output_text.done",
+            text: "Read agents.md and run `pnpm test`.",
+          }),
+          JSON.stringify({
+            type: "response.completed",
+            response: {
+              id: "resp_md_existing_1",
+              status: "completed",
+              output: [
+                {
+                  content: [
+                    {
+                      type: "output_text",
+                      text: "Read agents.md and run `pnpm test`.",
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        ]),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        body: createSseBody([
+          JSON.stringify({
+            type: "response.output_text.delta",
+            delta: "## Task\n- Read agents.md\n",
+          }),
+          JSON.stringify({
+            type: "response.output_text.done",
+            text: "## Task\n- Read agents.md\n- Run `pnpm test`",
+          }),
+          JSON.stringify({
+            type: "response.completed",
+            response: {
+              id: "resp_md_existing_2",
+              status: "completed",
+              output: [
+                {
+                  content: [
+                    {
+                      type: "output_text",
+                      text: "## Task\n- Read agents.md\n- Run `pnpm test`",
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        ]),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const deltas: string[] = [];
+    const onRetrying = vi.fn();
+    const result = await streamTransformWithOpenAI({
+      apiKey: "test-key",
+      inputText: source,
+      mode: "agent-codex",
+      timeoutMs: 5_000,
+      onRetrying,
+      onDelta: (delta) => {
+        deltas.push(delta);
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(onRetrying).toHaveBeenCalledTimes(1);
+    expect(result.outputText).toBe("## Task\n- Read agents.md\n- Run `pnpm test`");
+    expect(deltas).toEqual(["## Task\n- Read agents.md\n"]);
+
+    const firstRequestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >;
+    expect(String(firstRequestBody.instructions)).toContain(
+      "This input requires visible Markdown structure. Do not return prose only.",
+    );
+  });
+
+  it("fails safe when markdown retry still does not produce visible structure", async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        body: createSseBody([
+          JSON.stringify({
+            type: "response.output_text.done",
+            text: "Please read agents.md, compare it to the build loop, identify gaps, preserve file paths, and return a patch plus open questions.",
+          }),
+          JSON.stringify({
+            type: "response.completed",
+            response: {
+              status: "completed",
+              output: [
+                {
+                  content: [
+                    {
+                      type: "output_text",
+                      text: "Please read agents.md, compare it to the build loop, identify gaps, preserve file paths, and return a patch plus open questions.",
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        ]),
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      streamTransformWithOpenAI({
+        apiKey: "test-key",
+        inputText:
+          "Please read agents.md, compare it to the build loop, identify gaps, preserve file paths, and return a patch plus open questions.",
+        mode: "agent-universal",
+        timeoutMs: 5_000,
+        onDelta: () => undefined,
+      }),
+    ).rejects.toThrow(MARKDOWN_INSUFFICIENT_STRUCTURE_MESSAGE);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("retries once with more room when the stream exhausts the output budget before any text arrives", async () => {

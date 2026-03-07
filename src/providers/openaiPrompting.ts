@@ -26,7 +26,7 @@ const REWRITE_PROMPT_INTRO =
   "You are a rewriting engine. Rewrite the user's text according to the requested mode.";
 
 const MARKDOWN_PROMPT_INTRO =
-  "You format the user's existing text as clean Markdown for use with AI coding agents.";
+  "You convert the user's existing text into visibly structured Markdown for use with AI coding agents.";
 
 const REWRITE_USER_WRAPPER_PREFIX = `Rewrite the text below.
 
@@ -71,15 +71,18 @@ const BASE_STRUCTURE_RULES = [
 ];
 
 const MARKDOWN_BASE_CONSTRAINTS = [
-  "Convert the current text into clean Markdown.",
+  "Convert the current text into visibly structured Markdown for an AI coding agent.",
   "Preserve the original wording, intent, order, commitments, and imperative voice as closely as possible.",
   "Do not summarize the source or restate it as a meta-task.",
   "Do not describe the conversion task or address the user about the source material.",
   'Do not add wrapper text or prefatory lines like "Convert the provided source material..." or "Here is the Markdown version."',
-  "Do not add fixed scaffold headings like `## Objective`, `## Repository Context`, `## Requested Changes`, `## Acceptance Criteria`, or `## Notes` unless equivalent structure is already clearly present in the source.",
+  "Do not add fixed scaffold headings like `## Objective`, `## Repository Context`, `## Requested Changes`, `## Acceptance Criteria`, `## Notes`, or `## Expected Output` unless equivalent structure is already clearly present in the source.",
   "Preserve quoted text, URLs, paths, code, IDs, numbers, dates, and explicit constraints exactly.",
   "If the source references attachments, screenshots, or documents you have not seen, keep them only as referenced inputs; do not infer their contents.",
-  "Prefer paragraphs and bullets over rigid templates. Use headings only when the source already implies clear sections.",
+  "For dense prose with multiple tasks, constraints, references, deliverables, or questions, do not return plain prose only. Introduce visible Markdown structure.",
+  "Prefer headings, bullets, numbered steps, checklists, blockquotes, or fenced code blocks when they make the content easier to scan.",
+  "If headings help, only use grounded neutral headings from this set: `## Task`, `## Context`, `## References`, `## Files`, `## Requirements`, `## Constraints`, `## Deliverable`, `## Questions`, `## Validation`.",
+  "Do not emit empty sections.",
   "Output only Markdown. No extra prose before or after.",
   "Do not alter placeholders of the form __PZPTOK###__.",
 ];
@@ -176,25 +179,28 @@ export const MARKDOWN_PRESET_SPECS: Record<MarkdownPreset, MarkdownPresetSpec> =
   universal: {
     textVerbosity: "medium",
     styleRules: [
-      "Be maximally faithful to the source wording.",
-      "Prefer paragraphs and bullets only when they clearly improve readability.",
-      "Use headings sparingly and only when the source already implies them.",
+      "Be faithful to the source wording, but still make the Markdown visibly structured for non-trivial prompts.",
+      "Prefer short grounded headings plus bullets when the source contains multiple instructions, constraints, or references.",
+      "Keep sectioning minimal and neutral; do not introduce repo-specific vocabulary unless it is already present in the source.",
     ],
   },
   codex: {
     textVerbosity: "medium",
     styleRules: [
-      "For repository-oriented material, slightly prefer crisp bullets or checklists for multiple concrete tasks.",
+      "Use the strongest task-execution structure of the presets.",
+      "For repository-oriented material, prefer `## Task`, `## Files`, `## Constraints`, and `## Validation` when those concepts are grounded in the source.",
+      "Prefer crisp bullets or checklists for multi-step repo tasks.",
       "Preserve commands, file paths, and code exactly as written.",
-      "Do not add repository-specific scaffolding or acceptance-criteria sections unless the source already implies them.",
+      "Do not add synthetic acceptance-criteria or repository-context scaffolding unless validation requirements already exist in the source.",
     ],
   },
   claude: {
     textVerbosity: "medium",
     styleRules: [
-      "Slightly prefer explicit formatting of requirements and open questions when they already exist in the source.",
-      "Keep the structure readable and calm, without turning it into a template.",
-      "Do not add requirement or expected-output headings unless the source already implies them.",
+      "Use the strongest requirement-and-unknowns structure of the presets.",
+      "Prefer `## Context`, `## Requirements`, `## Constraints`, and `## Questions` when those concepts are grounded in the source.",
+      "Separate assumptions, unknowns, and requested outputs more clearly when they already exist in the source.",
+      "Do not add generic expected-output scaffolding unless the source already asks for an output artifact.",
     ],
   },
 };
@@ -258,6 +264,17 @@ function buildMarkdownIntentGuidance(intent: MarkdownIntent): string[] {
     "- Preserve the original paragraph order.",
   ];
 
+  if (intent.shouldRequireVisibleStructure) {
+    rules.push(
+      "- This input requires visible Markdown structure. Do not return prose only.",
+      "- Introduce headings, bullets, checklists, numbered steps, blockquotes, or fenced code blocks as appropriate.",
+    );
+  }
+
+  if (intent.hasExistingMarkdownSyntax) {
+    rules.push("- Preserve useful existing Markdown structure instead of flattening it.");
+  }
+
   if (intent.hasExistingParagraphs) {
     rules.push("- Preserve the existing paragraph breaks unless a tiny Markdown cleanup makes them clearer.");
   }
@@ -265,13 +282,13 @@ function buildMarkdownIntentGuidance(intent: MarkdownIntent): string[] {
   if (intent.hasListStructure) {
     rules.push("- Preserve useful existing list structure instead of flattening it into prose.");
   } else {
-    rules.push("- Convert dense inline enumerations into bullets only when they become materially easier to scan.");
+    rules.push("- Convert dense inline enumerations into bullets when they become materially easier to scan.");
   }
 
   if (intent.hasSectionCues) {
-    rules.push("- The source already contains section-like cues; preserve them as Markdown headings only when that keeps the same structure.");
-  } else {
-    rules.push("- Do not introduce new headings unless the source clearly implies section boundaries.");
+    rules.push(
+      "- The source already contains section-like cues; preserve them as grounded Markdown headings when that keeps the same structure.",
+    );
   }
 
   if (intent.hasReferencedFiles) {
@@ -295,15 +312,27 @@ function buildMarkdownIntentGuidance(intent: MarkdownIntent): string[] {
   }
 
   if (intent.hasDeliverableLanguage) {
-    rules.push("- Keep explicit deliverables or requested outputs easy to identify, preferably with bullets when grouped.");
+    rules.push("- Keep explicit deliverables or requested outputs easy to identify, preferably with bullets or a short `## Deliverable` section when grounded.");
   }
 
   if (intent.hasOpenQuestions) {
-    rules.push("- Keep open questions explicit rather than burying them inside dense paragraphs.");
+    rules.push("- Keep open questions explicit rather than burying them inside dense paragraphs, preferably with bullets or a short `## Questions` section when grounded.");
   }
 
   if (intent.hasAttachmentReferences) {
     rules.push("- Keep unseen attachments or screenshots only as references; do not infer their contents.");
+  }
+
+  if (intent.hasMultipleActionItems) {
+    rules.push("- Multiple action items are present. Break them into bullets, a checklist, or numbered steps.");
+  }
+
+  if (intent.hasConstraintCluster) {
+    rules.push("- Multiple constraints are present. Surface them as a short bullet list or a grounded `## Constraints` section.");
+  }
+
+  if (intent.hasReferenceCluster) {
+    rules.push("- Multiple references are present. Surface them clearly, ideally under bullets or a grounded `## Files` / `## References` section.");
   }
 
   return rules;

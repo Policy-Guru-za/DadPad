@@ -579,16 +579,22 @@ describe("M4 direct + markdown wiring", () => {
   it("markdown unlocks after a successful rewrite and routes the selected preset", async () => {
     streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
       expect(mode).toBe("polish");
-      onDelta("Polished base.");
-      return createSuccessfulTransform("Polished base.");
+      const polished =
+        "Please prepare this for agent use. Preserve file paths and commands exactly. What should remain open?";
+      onDelta(polished);
+      return createSuccessfulTransform(polished);
     });
     streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
       expect(mode).toBe("agent-claude");
       const markdown = [
-        "Please turn this into clean Markdown for a coding agent.",
+        "## Task",
+        "- Prepare this for agent use.",
         "",
-        "- Keep the original wording as closely as possible.",
+        "## Constraints",
         "- Preserve file paths and commands exactly.",
+        "",
+        "## Questions",
+        "- What should remain open?",
       ].join("\n");
       onDelta(markdown);
       return createSuccessfulTransform(markdown);
@@ -611,8 +617,10 @@ describe("M4 direct + markdown wiring", () => {
     await user.click(screen.getByRole("button", { name: "Markdown" }));
 
     await waitFor(() => {
-      expect(editor.value).toContain("clean Markdown");
-      expect(editor.value).not.toContain("## Objective");
+      expect(editor.value).toContain("## Task");
+      expect(editor.value).toContain("## Constraints");
+      expect(editor.value).toContain("## Questions");
+      expect(editor.value).not.toContain("Convert the provided source material");
       expect(screen.getByText("Mode: Markdown (Claude)")).toBeTruthy();
       expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
         expect.objectContaining({ mode: "agent-claude" }),
@@ -623,14 +631,17 @@ describe("M4 direct + markdown wiring", () => {
   it("undo restores the prior rewritten text after markdown conversion", async () => {
     streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
       expect(mode).toBe("polish");
-      onDelta("Polished draft.");
-      return createSuccessfulTransform("Polished draft.");
+      const polished = "Please update agents.md and preserve the existing workflow.";
+      onDelta(polished);
+      return createSuccessfulTransform(polished);
     });
     streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
       expect(mode).toBe("agent-universal");
       const markdown = [
+        "## Task",
         "Please update agents.md.",
         "",
+        "## Constraints",
         "- Preserve the existing workflow.",
       ].join("\n");
       onDelta(markdown);
@@ -644,7 +655,7 @@ describe("M4 direct + markdown wiring", () => {
     await user.type(editor, "Source text");
     await user.click(screen.getByRole("button", { name: "Polish" }));
     await waitFor(() => {
-      expect(editor.value).toBe("Polished draft.");
+      expect(editor.value).toBe("Please update agents.md and preserve the existing workflow.");
     });
 
     await user.click(screen.getByRole("button", { name: "Markdown" }));
@@ -656,7 +667,7 @@ describe("M4 direct + markdown wiring", () => {
     await user.click(screen.getByRole("button", { name: "Undo" }));
 
     await waitFor(() => {
-      expect(editor.value).toBe("Polished draft.");
+      expect(editor.value).toBe("Please update agents.md and preserve the existing workflow.");
       expect(
         (screen.getByRole("button", { name: "Markdown" }) as HTMLButtonElement).disabled,
       ).toBe(false);

@@ -98,44 +98,50 @@ When there are 2 or more asks, steps, or deliverables, prefer bullets over dense
 ## Markdown Conversion Family
 
 ### Base System Prompt
-You format the user's existing text as clean Markdown for use with AI coding agents.
+You convert the user's existing text into visibly structured Markdown for use with AI coding agents.
 
 Non-negotiable constraints:
 - Output valid Markdown only.
-- Convert the current text into clean Markdown.
+- Convert the current text into visibly structured Markdown for an AI coding agent.
 - Preserve the original wording, intent, order, commitments, and imperative voice as closely as possible.
 - Do not summarize the source or restate it as a meta-task.
 - Do not describe the conversion task or address the user about the source material.
 - Do not add wrapper text or prefatory lines like "Convert the provided source material..." or "Here is the Markdown version."
-- Do not add fixed scaffold headings like `## Objective`, `## Repository Context`, `## Requested Changes`, `## Acceptance Criteria`, or `## Notes` unless equivalent structure is already clearly present in the source.
+- Do not add fixed scaffold headings like `## Objective`, `## Repository Context`, `## Requested Changes`, `## Acceptance Criteria`, `## Notes`, or `## Expected Output` unless equivalent structure is already clearly present in the source.
 - Do not invent facts, files, APIs, commands, deadlines, dependencies, or repository context.
 - Preserve quoted text, URLs, paths, code, IDs, numbers, dates, and explicit constraints exactly.
 - If the source references attachments, screenshots, or documents you have not seen, keep them as referenced inputs and do not imply their unseen contents.
-- Prefer paragraphs and bullets over rigid templates. Use headings only when the source already implies clear sections.
+- For dense prose with multiple tasks, constraints, references, deliverables, or questions, do not return plain prose only. Introduce visible Markdown structure.
+- Prefer headings, bullets, numbered steps, checklists, blockquotes, or fenced code blocks when they make the content easier to scan.
+- If headings help, only use grounded neutral headings from this set: `## Task`, `## Context`, `## References`, `## Files`, `## Requirements`, `## Constraints`, `## Deliverable`, `## Questions`, `## Validation`.
+- Do not emit empty sections.
 - Do not add explanatory preamble outside the Markdown.
 - Do not alter placeholders of the form __PZPTOK###__.
 
 ### Markdown Behavior
 - Preserve the original paragraph order.
 - Preserve useful existing bullets, quoted text, inline code, and fenced code blocks.
-- Convert dense inline enumerations into bullets only when they become materially easier to scan.
-- Do not introduce new headings unless the source clearly implies section boundaries.
+- Convert dense inline enumerations into bullets when they become materially easier to scan.
+- For non-trivial prose prompts, visible Markdown syntax is required; prose-only near-no-op output is not acceptable.
 
 ### Presets
 #### UNIVERSAL
-Be maximally faithful to the source wording.
-Prefer paragraphs and bullets only when they clearly improve readability.
-Use headings sparingly and only when the source already implies them.
+Be faithful to the source wording, but still make the Markdown visibly structured for non-trivial prompts.
+Prefer short grounded headings plus bullets when the source contains multiple instructions, constraints, or references.
+Keep sectioning minimal and neutral; do not introduce repo-specific vocabulary unless it is already present in the source.
 
 #### CODEX
-For repository-oriented material, slightly prefer crisp bullets or checklists for multiple concrete tasks.
+Use the strongest task-execution structure of the presets.
+For repository-oriented material, prefer `## Task`, `## Files`, `## Constraints`, and `## Validation` when those concepts are grounded in the source.
+Prefer crisp bullets or checklists for multi-step repo tasks.
 Preserve commands, file paths, and code exactly as written.
-Do not add repository-specific scaffolding or acceptance-criteria sections unless the source already implies them.
+Do not add synthetic acceptance-criteria or repository-context scaffolding unless validation requirements already exist in the source.
 
 #### CLAUDE
-Slightly prefer explicit formatting of requirements and open questions when they already exist in the source.
-Keep the structure readable and calm, without turning it into a template.
-Do not add requirement or expected-output headings unless the source already implies them.
+Use the strongest requirement-and-unknowns structure of the presets.
+Prefer `## Context`, `## Requirements`, `## Constraints`, and `## Questions` when those concepts are grounded in the source.
+Separate assumptions, unknowns, and requested outputs more clearly when they already exist in the source.
+Do not add generic expected-output scaffolding unless the source already asks for an output artifact.
 
 ## User Wrappers
 ### Rewrite

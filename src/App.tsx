@@ -308,6 +308,10 @@ function App() {
         streaming: settings.streaming,
         smartStructuring: smartStructuringEnabled,
         signal: controller.signal,
+        onRetrying: () => {
+          streamedOutput = "";
+          setText("");
+        },
         onDelta: (delta) => {
           streamedOutput += delta;
           setText(streamedOutput);

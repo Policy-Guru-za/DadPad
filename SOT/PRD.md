@@ -31,7 +31,7 @@ Existing solutions require context switching (web app, email client) or do not p
 - Make transforms predictable and meaning-preserving.
 - Provide low latency (perceived and actual) via streaming.
 - Make the LLM provider and model configurable.
-- Let the user turn already-polished text into clean Markdown prompts for coding agents without leaving the app.
+- Let the user turn already-polished text into visibly structured raw Markdown prompts for coding agents without leaving the app.
 
 ---
 
@@ -60,7 +60,7 @@ Existing solutions require context switching (web app, email client) or do not p
 1. Dictation cleanup: paste raw transcript → Polish → edit → copy.
 2. Tone shift: paste content → Professional, Casual, or Direct.
 3. Iterative refine: Polish → Direct → small manual edits → copy.
-4. Markdown conversion for coding agents: Polish → Markdown → copy faithful Markdown into Codex, Claude, or another coding agent.
+4. Markdown conversion for coding agents: Polish → Markdown → copy visibly structured raw Markdown into Codex, Claude, or another coding agent.
 
 ---
 
@@ -178,25 +178,27 @@ Four modes with shared constraints and mode-specific behaviour.
 
 Add one post-rewrite transform action, `Markdown`, with three presets:
 
-- **Universal:** most faithful; minimal headings; paragraphs and bullets only when clearly useful.
-- **Codex:** slightly prefers crisp bullets/checklists for repo-task material, while preserving the original wording and structure as closely as possible.
-- **Claude:** slightly prefers explicit formatting of requirements and open questions when they are already present in the source.
+- **Universal:** neutral visible structure; short grounded headings plus bullets when the source contains multiple instructions, constraints, or references.
+- **Codex:** strongest task-execution structure; prefers grounded `Task`, `Files`, `Constraints`, and `Validation` sections plus checklists for repo-task material.
+- **Claude:** strongest requirement/unknowns structure; prefers grounded `Context`, `Requirements`, `Constraints`, and `Questions` sections when those concepts exist.
 
 **Shared constraints (all presets):**
 
 - Output valid Markdown only.
-- Reformat the current editor text as clean Markdown while preserving wording, intent, order, commitments, and imperative voice as closely as possible.
+- Reformat the current editor text as visibly structured raw Markdown while preserving wording, intent, order, commitments, and imperative voice as closely as possible.
 - Preserve quoted text, URLs, paths, code, IDs, numbers, dates, and explicit constraints exactly.
 - Do not invent facts, files, APIs, commands, deadlines, dependencies, repo context, or unseen attachment contents.
 - Do not summarize the source, describe the conversion task, or add wrapper text.
-- Do not add fixed scaffold headings such as `## Objective`, `## Repository Context`, `## Requested Changes`, `## Acceptance Criteria`, or `## Notes` unless equivalent structure is already clearly present in the source.
-- Prefer paragraphs and bullets over rigid templates, and add headings only when the source already implies clear sections.
+- Do not add fixed scaffold headings such as `## Objective`, `## Repository Context`, `## Requested Changes`, `## Acceptance Criteria`, `## Notes`, or `## Expected Output` unless equivalent structure is already clearly present in the source.
+- For dense prose with multiple tasks, constraints, references, deliverables, or questions, do not return prose only; introduce visible Markdown syntax.
+- Use only grounded neutral headings from this set when headings help: `Task`, `Context`, `References`, `Files`, `Requirements`, `Constraints`, `Deliverable`, `Questions`, `Validation`.
 
 **Behavior rules:**
 
 - Disabled until at least one successful transform has completed for the current text session.
 - Uses the same streaming, cancel, undo, copy-disable, placeholder protection, and fail-safe pipeline as the rewrite modes.
 - Replaces the editor text with Markdown output and updates the footer/status mode to include the preset, e.g. `Markdown (Codex)`.
+- If the first Markdown attempt comes back as prose-only near-no-op output for a non-trivial prompt, the app performs one hidden stricter retry before failing safe.
 
 ### FR3 — Provider support
 

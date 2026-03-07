@@ -7,7 +7,12 @@ import {
   isMarkdownTransformMode,
   type OpenAITransformMode,
 } from "./openaiPrompting";
-import { deriveMarkdownIntent } from "../agentPrompts/markdown";
+import {
+  MARKDOWN_INSUFFICIENT_STRUCTURE_MESSAGE,
+  detectInsufficientMarkdownization,
+  deriveMarkdownIntent,
+  hasVisibleMarkdownSyntax,
+} from "../agentPrompts/markdown";
 import { deriveStructureIntent } from "../structuring/plainText";
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
@@ -40,6 +45,7 @@ export type StreamTransformArgs = {
   signal?: AbortSignal;
   timeoutMs?: number;
   onDelta: (delta: string) => void;
+  onRetrying?: () => void;
 };
 
 export type StreamTransformResult = {
@@ -610,6 +616,16 @@ function expandMaxOutputTokens(current: number): number {
   return Math.min(MAX_OUTPUT_TOKENS_CEILING, Math.max(current + 256, Math.round(current * 1.75)));
 }
 
+function buildStrictMarkdownRetrySuffix(): string {
+  return [
+    "Retry override:",
+    "- This input requires visible Markdown syntax.",
+    "- Do not return prose-only output for this input.",
+    "- Introduce headings, bullets, checklists, numbered steps, blockquotes, or fenced code blocks as appropriate.",
+    "- If headings help, only use grounded neutral headings from: Task, Context, References, Files, Requirements, Constraints, Deliverable, Questions, Validation.",
+  ].join("\n");
+}
+
 function buildPartialLengthMessage(mode: OpenAITransformMode): string {
   return isMarkdownTransformMode(mode)
     ? "OpenAI stopped before completing the Markdown conversion. Original text preserved."
@@ -673,6 +689,7 @@ export async function streamTransformWithOpenAI({
   signal,
   timeoutMs = 30_000,
   onDelta,
+  onRetrying,
 }: StreamTransformArgs): Promise<StreamTransformResult> {
   const timeoutController = new AbortController();
   const timeoutId = window.setTimeout(() => {
@@ -694,6 +711,8 @@ export async function streamTransformWithOpenAI({
   let currentMaxOutputTokens = maxOutputTokens;
   let includeTemperature = typeof temperature === "number" && Number.isFinite(temperature);
   let retriedForNoTextLengthLimit = false;
+  let retriedForInsufficientMarkdown = false;
+  let enforceVisibleMarkdown = false;
 
   try {
     while (true) {
@@ -705,7 +724,32 @@ export async function streamTransformWithOpenAI({
       let truncatedByProvider = false;
       let sawDeltaEvent = false;
       let sawExplicitStreamTermination = false;
+      let emittedPreviewToClient = false;
+      let bufferedMarkdownPreview = "";
       const streamAssembly: StreamAssembly = new Map();
+      const shouldBufferMarkdownPreview = Boolean(
+        isMarkdownTransformMode(mode) && markdownIntent?.shouldRequireVisibleStructure,
+      );
+
+      const emitPreview = (delta: string): void => {
+        if (!shouldBufferMarkdownPreview) {
+          onDelta(delta);
+          emittedPreviewToClient = true;
+          return;
+        }
+
+        if (emittedPreviewToClient) {
+          onDelta(delta);
+          return;
+        }
+
+        bufferedMarkdownPreview += delta;
+        if (hasVisibleMarkdownSyntax(bufferedMarkdownPreview)) {
+          onDelta(bufferedMarkdownPreview);
+          bufferedMarkdownPreview = "";
+          emittedPreviewToClient = true;
+        }
+      };
 
       const makeRequest = async (withTemperature: boolean): Promise<Response> =>
         fetch(OPENAI_RESPONSES_URL, {
@@ -721,7 +765,14 @@ export async function streamTransformWithOpenAI({
             ...modelRequestControls,
             stream: streaming,
             max_output_tokens: currentMaxOutputTokens,
-            instructions: buildInstructions(mode, markdownIntent ?? structureIntent),
+            instructions: [
+              buildInstructions(mode, markdownIntent ?? structureIntent),
+              enforceVisibleMarkdown && isMarkdownTransformMode(mode)
+                ? buildStrictMarkdownRetrySuffix()
+                : "",
+            ]
+              .filter(Boolean)
+              .join("\n\n"),
             input: buildUserInput(mode, inputText),
           }),
         });
@@ -785,7 +836,26 @@ export async function streamTransformWithOpenAI({
         if (isLengthTruncationReason(finishReason)) {
           throw new OpenAIProviderError("unknown", buildPartialLengthMessage(mode));
         }
-        onDelta(outputTextFromPayload);
+
+        if (
+          isMarkdownTransformMode(mode) &&
+          markdownIntent &&
+          detectInsufficientMarkdownization(inputText, outputText, markdownIntent)
+        ) {
+          if (!retriedForInsufficientMarkdown) {
+            retriedForInsufficientMarkdown = true;
+            enforceVisibleMarkdown = true;
+            onRetrying?.();
+            continue;
+          }
+
+          throw new OpenAIProviderError("unknown", MARKDOWN_INSUFFICIENT_STRUCTURE_MESSAGE);
+        }
+
+        if (!emittedPreviewToClient) {
+          onDelta(outputTextFromPayload);
+          emittedPreviewToClient = true;
+        }
         responseId = extractResponseId(parsed);
 
         return {
@@ -850,7 +920,7 @@ export async function streamTransformWithOpenAI({
               "output_text",
               root.delta,
             );
-            onDelta(root.delta);
+            emitPreview(root.delta);
           }
 
           if (eventType === "response.output_text.done" && typeof root.text === "string") {
@@ -914,18 +984,18 @@ export async function streamTransformWithOpenAI({
       const refusalText = buildAssemblyText(streamAssembly, "refusal");
 
       if (responseSnapshotText.trim()) {
-        const hadRenderedPreview = outputText.length > 0;
         outputText = responseSnapshotText;
         sawDeltaEvent = true;
-        if (!hadRenderedPreview) {
+        if (!shouldBufferMarkdownPreview && !emittedPreviewToClient) {
           onDelta(responseSnapshotText);
+          emittedPreviewToClient = true;
         }
       } else if (assembledOutputText.trim()) {
-        const hadRenderedPreview = outputText.length > 0;
         outputText = assembledOutputText;
         sawDeltaEvent = true;
-        if (!hadRenderedPreview) {
+        if (!shouldBufferMarkdownPreview && !emittedPreviewToClient) {
           onDelta(assembledOutputText);
+          emittedPreviewToClient = true;
         }
       } else if (refusalText.trim()) {
         throw new OpenAIProviderError(
@@ -955,6 +1025,26 @@ export async function streamTransformWithOpenAI({
 
       if (isLengthTruncationReason(finishReason)) {
         throw new OpenAIProviderError("unknown", buildPartialLengthMessage(mode));
+      }
+
+      if (
+        isMarkdownTransformMode(mode) &&
+        markdownIntent &&
+        detectInsufficientMarkdownization(inputText, outputText, markdownIntent)
+      ) {
+        if (!retriedForInsufficientMarkdown) {
+          retriedForInsufficientMarkdown = true;
+          enforceVisibleMarkdown = true;
+          onRetrying?.();
+          continue;
+        }
+
+        throw new OpenAIProviderError("unknown", MARKDOWN_INSUFFICIENT_STRUCTURE_MESSAGE);
+      }
+
+      if (!emittedPreviewToClient) {
+        onDelta(outputText);
+        emittedPreviewToClient = true;
       }
 
       if (!sawExplicitStreamTermination) {

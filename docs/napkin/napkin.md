@@ -1,6 +1,7 @@
 # Napkin
 
 ## Corrections
+- 2026-03-07 | self | Tightened Markdown mode to be too faithful, so raw textarea output often looked unchanged even though it was technically valid Markdown | For this feature, non-trivial prompts need visibly structured raw Markdown plus a deterministic insufficiency guard and one stricter retry before failing safe.
 - 2026-03-06 | self | Markdown scaffold drift guard covered only a subset of synthetic headings, rejected inline cue forms like `Objective: ...`, and trimmed fenced trailing spaces during normalization | Keep fixed scaffold headings in one shared list, treat inline label lines as equivalent section cues, and never trim line endings once a fenced block has started.
 - 2026-03-06 | self | Built the Markdown feature as a scaffolded coding-agent prompt generator, so the model meta-rephrased user text instead of faithfully markdownizing it | For Markdown conversion here, preserve wording/voice first, keep presets as light layout biases only, and add a deterministic guard against synthetic scaffold headings/wrapper text.
 - 2026-03-06 | self | Treated agent-prompt Markdown cleanup like plain-text cleanup and stripped line-end spaces / inner blank lines, which broke Markdown hard breaks and fenced-block spacing | For `src/agentPrompts/markdown.ts`, normalize only outer blank lines; never trim or collapse inner Markdown content.

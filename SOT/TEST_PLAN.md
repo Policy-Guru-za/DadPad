@@ -7,8 +7,8 @@
 - explicit length-stop fail-safe preserves original text instead of committing partial output
 - smart structuring intent derivation (dense prose, multi-item asks, existing bullets, short messages)
 - smart structuring whitespace normalization (blank lines, trailing spaces, bullet spacing)
-- markdown intent derivation (paragraphs, lists, paths, URLs, code, constraints, attachments, section cues)
-- Markdown normalization + scaffold drift guard
+- markdown intent derivation (paragraphs, lists, paths, URLs, code, constraints, attachments, section cues, visible-structure requirement)
+- Markdown normalization + scaffold drift guard + insufficient-markdown guard
 - settings normalization defaults missing `smartStructuring` to `true`
 
 ## Integration tests (mocked)
@@ -26,7 +26,7 @@
 - Markdown stays locked until any successful transform completes for the current text session
 - Markdown routes `Universal`, `Codex`, and `Claude` to distinct provider modes and updates footer mode text accordingly
 - Markdown undo restores the prior rewritten text exactly
-- Markdown uses the Markdown-safe postprocessor and rejects unsupported scaffold drift
+- Markdown uses the Markdown-safe postprocessor, rejects unsupported scaffold drift, and retries/fails safe on prose-only near-no-op output
 - no truncation warning or retry button is shown in the UI
 
 ## Manual test cases
@@ -46,9 +46,10 @@
 14. `pnpm eval:structure` -> multi-item asks become bullets on >=80% of eligible Direct/Professional outputs
 15. `pnpm eval:structure` -> short/simple messages are not over-formatted
 16. `pnpm eval:structure` -> existing bullets remain bullets and protected tokens remain exact
-17. Polish → Markdown (Universal) -> faithful Markdown, no meta-wrapper, no fixed scaffold headings
-18. Polish → Markdown (Codex) -> same task in cleaner Markdown, slightly crisper bullets/checklists, no invented repo scaffolding
-19. Polish → Markdown (Claude) -> same task in cleaner Markdown, slightly clearer requirements/questions formatting, no invented scaffold
+17. Polish → Markdown (Universal) -> visibly structured raw Markdown, no meta-wrapper, no fixed scaffold headings
+18. Polish → Markdown (Codex) -> same task in visibly structured repo-friendly Markdown with grounded headings/bullets, no invented repo scaffolding
+19. Polish → Markdown (Claude) -> same task in visibly structured Markdown with clearer requirements/questions separation, no invented scaffold
 20. Markdown preserves file paths, URLs, code fences, quoted text, and explicit constraints exactly
 21. Markdown rejects unsupported scaffold drift and restores original text
-22. `pnpm eval:agent-prompts` -> referenced tokens remain exact, unsupported meta-scaffold drift fails, presets show at least some bias across corpus
+22. Markdown retries once internally when a qualifying prompt comes back as prose-only near-no-op output, then fails safe if still insufficient
+23. `pnpm eval:agent-prompts` -> referenced tokens remain exact, unsupported meta-scaffold drift fails, non-trivial prompts produce visible Markdown syntax, presets show at least some bias across corpus
