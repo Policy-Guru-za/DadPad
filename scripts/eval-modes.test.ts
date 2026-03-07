@@ -22,7 +22,7 @@ describe("loadRuntimeConfig", () => {
       temperature: 0.2,
     });
     expect(onWarning).toHaveBeenCalledOnce();
-    expect(onWarning.mock.calls[0]?.[0]).toContain("Ignoring unreadable PolishPad config");
+    expect(onWarning.mock.calls[0]?.[0]).toContain("Ignoring unreadable DadPad config");
   });
 
   it("skips disk reads when env provides the full runtime config", () => {

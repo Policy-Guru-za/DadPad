@@ -1,0 +1,487 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1E3FACE2E481BBFA1A9A1DA1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C1A0AC8B901545FC58B89885 /* QuartzCore.framework */; };
+		27F97A0003AC2B8BD6E38A5D /* libapp.a in Resources */ = {isa = PBXBuildFile; fileRef = 83E3D4AD75616D017BBAF793 /* libapp.a */; };
+		3D1F3E193C7AAEEAD99E43E8 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B974F6C64CF44EADCB369B74 /* WebKit.framework */; };
+		3F5D52D4F251D78D1E45AEFB /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BB026FF8187F92C7591D6274 /* MetalKit.framework */; };
+		53ECAEA483DCACBA48B59032 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 263E485DD0BB322D86740CAE /* assets */; };
+		61CF1E0BFAF6973844342A60 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DEBE364B5793216CED759957 /* Metal.framework */; };
+		6BAC6B639B37432835CEE736 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A30B5F7872D619B9B6AD9B2E /* Assets.xcassets */; };
+		7A46ED57D4B5FFFEDD6FB312 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9A638EADD2ADAFFE264DE40A /* libapp.a */; };
+		8AD7688CBDDC999BABB348CA /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FE8013214350E306604625E2 /* Security.framework */; };
+		9116D82104FF32D94B500539 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8DDAE2BC18B17D9A9D4769F /* CoreGraphics.framework */; };
+		AD158D28490C2F33F816D030 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 94F8BD1199289E322ED7B208 /* main.mm */; };
+		D616C2B14EE1E5A3EA4E9FB6 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58265F1B3432F5317E4E6171 /* UIKit.framework */; };
+		FD4538DA7DF5FF4F92A00F44 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E30D614E5F40399721A28EF7 /* LaunchScreen.storyboard */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		18DDFB0BB85AD9E8CC282CCC /* polishpad_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = polishpad_iOS.entitlements; sourceTree = "<group>"; };
+		263E485DD0BB322D86740CAE /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
+		58265F1B3432F5317E4E6171 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		7B6280666FC983D5B19A33CD /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
+		83E3D4AD75616D017BBAF793 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		921879726A6A5044708E8777 /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
+		94F8BD1199289E322ED7B208 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		9A638EADD2ADAFFE264DE40A /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		9D644029FA7BCC863142A90F /* polishpad_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = polishpad_iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A30B5F7872D619B9B6AD9B2E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B9298843F2EDB7CEDD1D051A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		B974F6C64CF44EADCB369B74 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		BB026FF8187F92C7591D6274 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		C1A0AC8B901545FC58B89885 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		D8DDAE2BC18B17D9A9D4769F /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		DEBE364B5793216CED759957 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		E30D614E5F40399721A28EF7 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		E490502865205DDB3E5CE972 /* config.rs */ = {isa = PBXFileReference; path = config.rs; sourceTree = "<group>"; };
+		FE8013214350E306604625E2 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		FF20115E95A170C929C77A0D /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F92C37127B9A4992178C5984 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A46ED57D4B5FFFEDD6FB312 /* libapp.a in Frameworks */,
+				9116D82104FF32D94B500539 /* CoreGraphics.framework in Frameworks */,
+				61CF1E0BFAF6973844342A60 /* Metal.framework in Frameworks */,
+				3F5D52D4F251D78D1E45AEFB /* MetalKit.framework in Frameworks */,
+				1E3FACE2E481BBFA1A9A1DA1 /* QuartzCore.framework in Frameworks */,
+				8AD7688CBDDC999BABB348CA /* Security.framework in Frameworks */,
+				D616C2B14EE1E5A3EA4E9FB6 /* UIKit.framework in Frameworks */,
+				3D1F3E193C7AAEEAD99E43E8 /* WebKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		32D13755B23BA104B2D6C18C /* Externals */ = {
+			isa = PBXGroup;
+			children = (
+				B5A28A9B1435AC174B8F471B /* arm64 */,
+			);
+			path = Externals;
+			sourceTree = "<group>";
+		};
+		435385AD18B07576576736B1 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9D644029FA7BCC863142A90F /* polishpad_iOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4A997971CDAC146ADBA7A1CC = {
+			isa = PBXGroup;
+			children = (
+				263E485DD0BB322D86740CAE /* assets */,
+				A30B5F7872D619B9B6AD9B2E /* Assets.xcassets */,
+				E30D614E5F40399721A28EF7 /* LaunchScreen.storyboard */,
+				32D13755B23BA104B2D6C18C /* Externals */,
+				67DB28F477AAB053A1CBB2A2 /* polishpad_iOS */,
+				C750D55D6D05C3BEF9D424AA /* Sources */,
+				779BC4E4E723448B806266EF /* src */,
+				4F17607C4E17328018AF507C /* Frameworks */,
+				435385AD18B07576576736B1 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4F17607C4E17328018AF507C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D8DDAE2BC18B17D9A9D4769F /* CoreGraphics.framework */,
+				9A638EADD2ADAFFE264DE40A /* libapp.a */,
+				DEBE364B5793216CED759957 /* Metal.framework */,
+				BB026FF8187F92C7591D6274 /* MetalKit.framework */,
+				C1A0AC8B901545FC58B89885 /* QuartzCore.framework */,
+				FE8013214350E306604625E2 /* Security.framework */,
+				58265F1B3432F5317E4E6171 /* UIKit.framework */,
+				B974F6C64CF44EADCB369B74 /* WebKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		67DB28F477AAB053A1CBB2A2 /* polishpad_iOS */ = {
+			isa = PBXGroup;
+			children = (
+				B9298843F2EDB7CEDD1D051A /* Info.plist */,
+				18DDFB0BB85AD9E8CC282CCC /* polishpad_iOS.entitlements */,
+			);
+			path = polishpad_iOS;
+			sourceTree = "<group>";
+		};
+		779BC4E4E723448B806266EF /* src */ = {
+			isa = PBXGroup;
+			children = (
+				E490502865205DDB3E5CE972 /* config.rs */,
+				FF20115E95A170C929C77A0D /* lib.rs */,
+				921879726A6A5044708E8777 /* main.rs */,
+			);
+			name = src;
+			path = ../../src;
+			sourceTree = "<group>";
+		};
+		B5A28A9B1435AC174B8F471B /* arm64 */ = {
+			isa = PBXGroup;
+			children = (
+				DD8FDB0C7EFAAD7D281CC039 /* debug */,
+			);
+			path = arm64;
+			sourceTree = "<group>";
+		};
+		C3350663787AD514603B9725 /* polishpad */ = {
+			isa = PBXGroup;
+			children = (
+				94F8BD1199289E322ED7B208 /* main.mm */,
+				D98653CC75DDEB9F7E6781D2 /* bindings */,
+			);
+			path = polishpad;
+			sourceTree = "<group>";
+		};
+		C750D55D6D05C3BEF9D424AA /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				C3350663787AD514603B9725 /* polishpad */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		D98653CC75DDEB9F7E6781D2 /* bindings */ = {
+			isa = PBXGroup;
+			children = (
+				7B6280666FC983D5B19A33CD /* bindings.h */,
+			);
+			path = bindings;
+			sourceTree = "<group>";
+		};
+		DD8FDB0C7EFAAD7D281CC039 /* debug */ = {
+			isa = PBXGroup;
+			children = (
+				83E3D4AD75616D017BBAF793 /* libapp.a */,
+			);
+			path = debug;
+			sourceTree = "<group>";
+		};
+		"TEMP_2852E0D7-C693-4075-8B0B-19A7492BD215" /* x86_64 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = x86_64;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		43A9219B8D604F79DDE1874E /* polishpad_iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 006EE7A4844FBD0649B6EC60 /* Build configuration list for PBXNativeTarget "polishpad_iOS" */;
+			buildPhases = (
+				3792CFB8F9D604E023C52E89 /* Build Rust Code */,
+				428E3E6199D643A91E4283FB /* Sources */,
+				43F39ADC7F76775D21030DEC /* Resources */,
+				F92C37127B9A4992178C5984 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = polishpad_iOS;
+			packageProductDependencies = (
+			);
+			productName = polishpad_iOS;
+			productReference = 9D644029FA7BCC863142A90F /* polishpad_iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E795C6CE6F70BA632E0F81A0 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+			};
+			buildConfigurationList = 0B57AD93C08FFD6B57232EC3 /* Build configuration list for PBXProject "polishpad" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 4A997971CDAC146ADBA7A1CC;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				43A9219B8D604F79DDE1874E /* polishpad_iOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		43F39ADC7F76775D21030DEC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6BAC6B639B37432835CEE736 /* Assets.xcassets in Resources */,
+				FD4538DA7DF5FF4F92A00F44 /* LaunchScreen.storyboard in Resources */,
+				53ECAEA483DCACBA48B59032 /* assets in Resources */,
+				27F97A0003AC2B8BD6E38A5D /* libapp.a in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		3792CFB8F9D604E023C52E89 /* Build Rust Code */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Rust Code";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a",
+				"$(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "pnpm tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		428E3E6199D643A91E4283FB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AD158D28490C2F33F816D030 /* main.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		2BDC339EAB912A1221C3056D /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = release;
+		};
+		A1D9B5230659DC968E3EEFB9 /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = polishpad_iOS/polishpad_iOS.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = polishpad_iOS/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.ryanlaubscher.polishpad;
+				PRODUCT_NAME = "PolishPad";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = release;
+		};
+		F4F1452179E9CED8C49BF9B7 /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = debug;
+		};
+		FE0A08BBCCCBF4BFE697FB05 /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = polishpad_iOS/polishpad_iOS.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = polishpad_iOS/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.ryanlaubscher.polishpad;
+				PRODUCT_NAME = "PolishPad";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		006EE7A4844FBD0649B6EC60 /* Build configuration list for PBXNativeTarget "polishpad_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE0A08BBCCCBF4BFE697FB05 /* debug */,
+				A1D9B5230659DC968E3EEFB9 /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+		0B57AD93C08FFD6B57232EC3 /* Build configuration list for PBXProject "polishpad" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F4F1452179E9CED8C49BF9B7 /* debug */,
+				2BDC339EAB912A1221C3056D /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E795C6CE6F70BA632E0F81A0 /* Project object */;
+}

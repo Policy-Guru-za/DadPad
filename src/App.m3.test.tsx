@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -57,33 +57,15 @@ const TEST_SETTINGS = {
   smartStructuring: true,
 };
 
-function createSuccessfulTransform(outputText: string, maxOutputTokens = 256) {
+let clipboardWriteMock: ReturnType<typeof vi.fn>;
+let shareMock: ReturnType<typeof vi.fn>;
+
+function createSuccessfulTransform(outputText: string) {
   return {
     outputText,
     truncatedByProvider: false,
-    maxOutputTokens,
+    maxOutputTokens: 256,
   };
-}
-
-async function unlockToneModes(
-  user: ReturnType<typeof userEvent.setup>,
-  editor: HTMLTextAreaElement,
-  polishedText = "Polished text.",
-): Promise<void> {
-  streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-    expect(mode).toBe("polish");
-    onDelta(polishedText);
-    return createSuccessfulTransform(polishedText);
-  });
-
-  await user.click(screen.getByRole("button", { name: "Polish" }));
-
-  await waitFor(() => {
-    expect(editor.value).toBe(polishedText);
-    expect((screen.getByRole("button", { name: "Direct" }) as HTMLButtonElement).disabled).toBe(
-      false,
-    );
-  });
 }
 
 beforeEach(() => {
@@ -92,27 +74,45 @@ beforeEach(() => {
   writeAppSettingsMock.mockReset();
   readAppSettingsMock.mockResolvedValue(TEST_SETTINGS);
   writeAppSettingsMock.mockImplementation(async (settings) => settings);
+
+  vi.stubGlobal("confirm", vi.fn(() => true));
+  clipboardWriteMock = vi.fn().mockResolvedValue(undefined);
+  shareMock = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: clipboardWriteMock },
+  });
+  Object.defineProperty(navigator, "share", {
+    configurable: true,
+    value: shareMock,
+  });
 });
 
 afterEach(() => {
-  vi.useRealTimers();
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
-describe("M8 settings gating", () => {
-  it("renders simplified creator credit and no theme toggle", async () => {
+describe("DadPad app", () => {
+  it("renders the DadPad shell and hides PolishPad-only controls", async () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText(/@laup30/)).toBeTruthy();
-      expect(screen.getByText(/Cape Town/)).toBeTruthy();
-      expect(screen.queryByLabelText("Toggle theme")).toBeNull();
-      expect(screen.queryByText(/Created by/i)).toBeNull();
-      expect(screen.queryByText("Rock Kestrel Ventures")).toBeNull();
+      expect(screen.getByRole("heading", { name: "DadPad" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Polish" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Undo" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Clear" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Copy" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Share" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Casual" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Professional" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Direct" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Markdown" })).toBeNull();
     });
   });
 
-  it("disables transform buttons when API key is missing", async () => {
+  it("opens the minimal setup card when the API key is missing", async () => {
     readAppSettingsMock.mockResolvedValue({
       ...TEST_SETTINGS,
       openaiApiKey: "",
@@ -121,80 +121,15 @@ describe("M8 settings gating", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText("Set API key in Settings.")).toBeTruthy();
+      expect(screen.getByText("Add your OpenAI API key to start.")).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Set up DadPad" })).toBeTruthy();
       expect((screen.getByRole("button", { name: "Polish" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
-      expect((screen.getByRole("button", { name: "Direct" }) as HTMLButtonElement).disabled).toBe(
-        true,
-      );
     });
   });
 
-  it("keeps tone buttons locked until polish succeeds", async () => {
-    render(<App />);
-
-    await waitFor(() => {
-      expect((screen.getByRole("button", { name: "Polish" }) as HTMLButtonElement).disabled).toBe(
-        false,
-      );
-      expect((screen.getByRole("button", { name: "Casual" }) as HTMLButtonElement).disabled).toBe(
-        true,
-      );
-      expect(
-        (screen.getByRole("button", { name: "Professional" }) as HTMLButtonElement).disabled,
-      ).toBe(true);
-      expect((screen.getByRole("button", { name: "Direct" }) as HTMLButtonElement).disabled).toBe(
-        true,
-      );
-      expect(
-        (screen.getByRole("button", { name: "Markdown" }) as HTMLButtonElement).disabled,
-      ).toBe(true);
-      expect(
-        (screen.getByRole("button", { name: "Universal" }) as HTMLButtonElement).disabled,
-      ).toBe(true);
-      expect(screen.getByText("After polish")).toBeTruthy();
-      expect(screen.getByText("For agents")).toBeTruthy();
-      expect(screen.getByLabelText("Tone options")).toBeTruthy();
-      expect(screen.getByLabelText("Markdown presets")).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
-    });
-  });
-
-  it("switches the settings trigger label between settings and close", async () => {
-    render(<App />);
-    const user = userEvent.setup();
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
-    });
-
-    await user.click(screen.getByRole("button", { name: "Settings" }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
-    });
-  });
-
-  it("allows pasting API key into settings without renderer crash", async () => {
-    render(<App />);
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("button", { name: "Settings" }));
-
-    const apiKeyInput = screen.getByLabelText("OpenAI API key") as HTMLInputElement;
-    await user.click(apiKeyInput);
-    await user.clear(apiKeyInput);
-    await user.paste("sk-proj-testkey-1234567890");
-
-    await waitFor(() => {
-      expect(apiKeyInput.value).toBe("sk-proj-testkey-1234567890");
-      expect(screen.getByRole("button", { name: "Save Settings" })).toBeTruthy();
-    });
-  });
-
-  it("shows only the placeholder when no API key has been saved", async () => {
+  it("saves the API key through the DadPad setup flow", async () => {
     readAppSettingsMock.mockResolvedValue({
       ...TEST_SETTINGS,
       openaiApiKey: "",
@@ -203,792 +138,226 @@ describe("M8 settings gating", () => {
     render(<App />);
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "Settings" }));
-
-    const apiKeyInput = screen.getByLabelText("OpenAI API key") as HTMLInputElement;
-
-    await waitFor(() => {
-      expect(apiKeyInput.type).toBe("password");
-      expect(apiKeyInput.value).toBe("");
-      expect(apiKeyInput.placeholder).toBe("sk-...");
-    });
-  });
-
-  it("keeps a saved API key in the native masked password field", async () => {
-    render(<App />);
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("button", { name: "Settings" }));
-
-    const apiKeyInput = screen.getByLabelText("OpenAI API key") as HTMLInputElement;
-
-    await waitFor(() => {
-      expect(apiKeyInput.type).toBe("password");
-      expect(apiKeyInput.value).toBe(TEST_SETTINGS.openaiApiKey);
-    });
-  });
-
-  it("shows saving and saved button states after a successful settings save", async () => {
-    let resolveSave: (() => void) | null = null;
-    writeAppSettingsMock.mockImplementation(
-      async (settings) =>
-        await new Promise<typeof TEST_SETTINGS>((resolve) => {
-          resolveSave = () => resolve(settings);
-        }),
-    );
-
-    render(<App />);
-    await screen.findByRole("button", { name: "Settings" });
-
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save Settings" }));
-
-    await waitFor(() => {
-      const savingButton = screen.getByRole("button", { name: "Saving..." }) as HTMLButtonElement;
-      expect(savingButton.disabled).toBe(true);
-    });
-
-    await act(async () => {
-      resolveSave?.();
-    });
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Saved" })).toBeTruthy();
-    });
-
-    await act(async () => {
-      await new Promise((resolve) => window.setTimeout(resolve, 1850));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Save Settings" })).toBeTruthy();
-    });
-  }, 7000);
-
-  it("resets the saved button state as soon as settings are edited again", async () => {
-    render(<App />);
-    await screen.findByRole("button", { name: "Settings" });
-
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save Settings" }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Saved" })).toBeTruthy();
-    });
-
-    fireEvent.change(screen.getByLabelText("Model"), {
-      target: { value: "gpt-5-nano-2025-08-07-alt" },
-    });
-
-    expect(screen.getByRole("button", { name: "Save Settings" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Saved" })).toBeNull();
-  });
-
-  it("keeps inline settings feedback for save failures only", async () => {
-    writeAppSettingsMock.mockRejectedValueOnce(new Error("save failed"));
-
-    render(<App />);
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("button", { name: "Settings" }));
-    await user.click(screen.getByRole("button", { name: "Save Settings" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Unable to save settings.")).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Save Settings" })).toBeTruthy();
-    });
-  });
-
-  it("passes smart structuring setting through to the provider", async () => {
-    streamTransformWithOpenAIMock.mockResolvedValue({
-      outputText: "Kept as typed",
-      truncatedByProvider: false,
-      maxOutputTokens: 128,
-    });
-
-    render(<App />);
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("button", { name: "Settings" }));
-    await user.click(screen.getByRole("checkbox", { name: "Smart message structuring" }));
-    await user.click(screen.getByRole("button", { name: "Save Settings" }));
+    const apiKeyInput = (await screen.findByLabelText("OpenAI API key")) as HTMLInputElement;
+    await user.type(apiKeyInput, "sk-test-123");
+    await user.click(screen.getByRole("button", { name: "Save key" }));
 
     await waitFor(() => {
       expect(writeAppSettingsMock).toHaveBeenCalledWith({
         ...TEST_SETTINGS,
-        smartStructuring: false,
+        openaiApiKey: "sk-test-123",
       });
+      expect(screen.getByText("DadPad is ready.")).toBeTruthy();
+      expect(screen.queryByRole("heading", { name: "Set up DadPad" })).toBeNull();
+    });
+  });
+
+  it("streams a Polish transform into the single editor", async () => {
+    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
+      expect(mode).toBe("polish");
+      onDelta("Polished");
+      onDelta(" text.");
+      return createSuccessfulTransform("Polished text.");
     });
 
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-    await user.type(editor, "source text");
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+
+    await user.type(editor, "rough draft");
     await user.click(screen.getByRole("button", { name: "Polish" }));
 
     await waitFor(() => {
-      expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
-        expect.objectContaining({ smartStructuring: false }),
-      );
-    });
-  });
-
-  it("re-locks tone buttons when a full-content paste replaces the editor text", async () => {
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-
-    await user.type(editor, "original draft");
-    await unlockToneModes(user, editor, "Polished draft.");
-
-    editor.focus();
-    editor.setSelectionRange(0, editor.value.length);
-    await user.paste("Completely new pasted text");
-
-    await waitFor(() => {
-      expect(editor.value).toBe("Completely new pasted text");
-      expect((screen.getByRole("button", { name: "Direct" }) as HTMLButtonElement).disabled).toBe(
-        true,
-      );
-      expect(
-        (screen.getByRole("button", { name: "Markdown" }) as HTMLButtonElement).disabled,
-      ).toBe(true);
-    });
-  });
-
-  it("keeps markdown unlocked when full-content typing replaces the editor text", async () => {
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-
-    await user.type(editor, "original draft");
-    await unlockToneModes(user, editor, "Polished draft.");
-
-    editor.focus();
-    editor.setSelectionRange(0, editor.value.length);
-    fireEvent.select(editor);
-    fireEvent.input(editor, { target: { value: "Completely new typed text" } });
-
-    await waitFor(() => {
-      expect(editor.value).toBe("Completely new typed text");
-      expect((screen.getByRole("button", { name: "Direct" }) as HTMLButtonElement).disabled).toBe(
-        true,
-      );
-      expect(
-        (screen.getByRole("button", { name: "Markdown" }) as HTMLButtonElement).disabled,
-      ).toBe(false);
-    });
-  });
-
-  it("keeps tone buttons unlocked through manual edits and undo", async () => {
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-
-    await user.type(editor, "original draft");
-    await unlockToneModes(user, editor, "Polished draft.");
-
-    await user.type(editor, " More detail.");
-
-    await waitFor(() => {
-      expect((screen.getByRole("button", { name: "Direct" }) as HTMLButtonElement).disabled).toBe(
-        false,
-      );
-    });
-
-    await user.click(screen.getByRole("button", { name: "Undo" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe("original draft");
-      expect((screen.getByRole("button", { name: "Direct" }) as HTMLButtonElement).disabled).toBe(
+      expect(editor.value).toBe("Polished text.");
+      expect(screen.getByText("Polished.")).toBeTruthy();
+      expect((screen.getByRole("button", { name: "Undo" }) as HTMLButtonElement).disabled).toBe(
         false,
       );
     });
   });
-});
 
-describe("M3 transform resilience", () => {
-  it("cancel restores original text after partial stream and resets action state", async () => {
-    streamTransformWithOpenAIMock.mockImplementation(async ({ signal, onDelta }) => {
-      onDelta("partial stream");
-
-      await new Promise((_, reject) => {
-        if (signal?.aborted) {
-          reject(new DOMException("Aborted", "AbortError"));
-          return;
-        }
-
-        signal?.addEventListener(
-          "abort",
-          () => {
-            reject(new DOMException("Aborted", "AbortError"));
-          },
-          { once: true },
-        );
-      });
-
-      return { outputText: "partial stream" };
-    });
+  it("cancels an in-flight transform and restores the original text", async () => {
+    streamTransformWithOpenAIMock.mockImplementationOnce(
+      ({ signal, onDelta }) =>
+        new Promise((resolve, reject) => {
+          onDelta("Partial");
+          signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true },
+          );
+          window.setTimeout(() => resolve(createSuccessfulTransform("Should not finish")), 5000);
+        }),
+    );
 
     render(<App />);
     const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-    const polishButton = screen.getByRole("button", { name: "Polish" }) as HTMLButtonElement;
-    const cancelButton = screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement;
-    const copyButton = screen.getByRole("button", { name: "Copy" }) as HTMLButtonElement;
-    const undoButton = screen.getByRole("button", { name: "Undo" }) as HTMLButtonElement;
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
-    await user.type(editor, "original text");
-    await user.click(polishButton);
-
-    await waitFor(() => {
-      expect(cancelButton.disabled).toBe(false);
-      expect(copyButton.disabled).toBe(true);
-      expect(editor.readOnly).toBe(true);
-      expect(editor.value).toBe("partial stream");
-    });
-
-    await user.click(cancelButton);
-
-    await waitFor(() => {
-      expect(editor.value).toBe("original text");
-      expect(screen.getByText("Warnings: None")).toBeTruthy();
-      expect(cancelButton.disabled).toBe(true);
-      expect(undoButton.disabled).toBe(true);
-      expect(polishButton.disabled).toBe(false);
-      expect(editor.readOnly).toBe(false);
-    });
-  });
-
-  it("stream error restores original text and surfaces error status", async () => {
-    streamTransformWithOpenAIMock.mockImplementation(async ({ onDelta }) => {
-      onDelta("partial output");
-      throw new MockOpenAIProviderError(
-        "server",
-        "OpenAI stream returned malformed JSON. Original text preserved.",
-      );
-    });
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-    const undoButton = screen.getByRole("button", { name: "Undo" }) as HTMLButtonElement;
-
-    await user.type(editor, "safe original");
+    await user.type(editor, "keep me");
     await user.click(screen.getByRole("button", { name: "Polish" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe("safe original");
-      expect(
-        screen.getByText(
-          "Warnings: OpenAI stream returned malformed JSON. Original text preserved.",
-        ),
-      ).toBeTruthy();
-      expect(undoButton.disabled).toBe(true);
-    });
-  });
-
-  it("commits canonical provider output after streaming preview diverges", async () => {
-    streamTransformWithOpenAIMock.mockImplementation(async ({ onDelta }) => {
-      onDelta("\n");
-      return createSuccessfulTransform("Hello.", 128);
-    });
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-
-    await user.type(editor, "source text");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe("Hello.");
-      expect(screen.getByText(/^Latency: \d+ ms$/)).toBeTruthy();
-      expect(screen.getByText("Warnings: None")).toBeTruthy();
-    });
-  });
-
-  it("normalizes paragraph spacing and bullet spacing when smart structuring is enabled", async () => {
-    streamTransformWithOpenAIMock.mockResolvedValue({
-      outputText: "\nFirst paragraph.\n\n\n- item one\n-   item two\n\n",
-      truncatedByProvider: false,
-      maxOutputTokens: 128,
-    });
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-
-    await user.type(editor, "source text");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe("First paragraph.\n\n- item one\n- item two");
-      expect(screen.getByText("Warnings: None")).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Retry (more room)" })).toBeNull();
-    });
-  });
-
-  it("preserves protected code blocks during smart-structuring normalization", async () => {
-    streamTransformWithOpenAIMock.mockImplementation(async ({ inputText }) => ({
-      outputText: String(inputText),
-      truncatedByProvider: false,
-      maxOutputTokens: 128,
-    }));
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-    const sourceText = `Please use this snippet:\n\`\`\`txt\n1.23 revenue\n2)foo\n\`\`\`\nThanks.`;
-
-    await user.type(editor, sourceText);
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe(sourceText);
-    });
-  });
-
-  it("restores the original text when the provider stops before completing the rewrite", async () => {
-    streamTransformWithOpenAIMock.mockImplementation(async ({ onDelta }) => {
-      onDelta("Partial rewrite");
-      throw new MockOpenAIProviderError(
-        "unknown",
-        "OpenAI stopped before completing the rewrite. Original text preserved.",
-      );
-    });
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-
-    await user.type(editor, "safe original");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe("safe original");
-      expect(
-        screen.getByText(
-          "Warnings: OpenAI stopped before completing the rewrite. Original text preserved.",
-        ),
-      ).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Retry (more room)" })).toBeNull();
-    });
-  });
-});
-
-describe("M4 direct + markdown wiring", () => {
-  it("markdown unlocks after a successful rewrite and routes the selected preset", async () => {
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("polish");
-      const polished =
-        "Please prepare this for agent use. Preserve file paths and commands exactly. What should remain open?";
-      onDelta(polished);
-      return createSuccessfulTransform(polished);
-    });
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("agent-claude");
-      const markdown = [
-        "## Task",
-        "- Prepare this for agent use.",
-        "",
-        "## Constraints",
-        "- Preserve file paths and commands exactly.",
-        "",
-        "## Questions",
-        "- What should remain open?",
-      ].join("\n");
-      onDelta(markdown);
-      return createSuccessfulTransform(markdown);
-    });
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-
-    await user.type(editor, "Longer source text that should be prepared first.");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-
-    await waitFor(() => {
-      expect(
-        (screen.getByRole("button", { name: "Markdown" }) as HTMLButtonElement).disabled,
-      ).toBe(false);
-    });
-
-    await user.click(screen.getByRole("button", { name: "Claude" }));
-    await user.click(screen.getByRole("button", { name: "Markdown" }));
-
-    await waitFor(() => {
-      expect(editor.value).toContain("## Task");
-      expect(editor.value).toContain("## Constraints");
-      expect(editor.value).toContain("## Questions");
-      expect(editor.value).not.toContain("Convert the provided source material");
-      expect(screen.getByText("Mode: Markdown (Claude)")).toBeTruthy();
-      expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
-        expect.objectContaining({ mode: "agent-claude" }),
-      );
-    });
-  });
-
-  it("undo restores the prior rewritten text after markdown conversion", async () => {
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("polish");
-      const polished = "Please update agents.md and preserve the existing workflow.";
-      onDelta(polished);
-      return createSuccessfulTransform(polished);
-    });
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("agent-universal");
-      const markdown = [
-        "## Task",
-        "Please update agents.md.",
-        "",
-        "## Constraints",
-        "- Preserve the existing workflow.",
-      ].join("\n");
-      onDelta(markdown);
-      return createSuccessfulTransform(markdown);
-    });
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-
-    await user.type(editor, "Source text");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-    await waitFor(() => {
-      expect(editor.value).toBe("Please update agents.md and preserve the existing workflow.");
-    });
-
-    await user.click(screen.getByRole("button", { name: "Markdown" }));
-
-    await waitFor(() => {
-      expect(editor.value).toContain("Please update agents.md.");
-    });
-
-    await user.click(screen.getByRole("button", { name: "Undo" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe("Please update agents.md and preserve the existing workflow.");
-      expect(
-        (screen.getByRole("button", { name: "Markdown" }) as HTMLButtonElement).disabled,
-      ).toBe(false);
-    });
-  });
-
-  it("preserves markdown hard breaks and code-block spacing in markdown output", async () => {
-    const expectedMarkdown =
-      "Please ship the fix.\u0020\u0020\nKeep the commands below intact.\u0020\u0020\n\n```ts\nconst x = 1;\n\n\nconst y = 2;\n```";
-
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("polish");
-      onDelta("Polished draft.");
-      return createSuccessfulTransform("Polished draft.");
-    });
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("agent-universal");
-      const markdown = `\n\n${expectedMarkdown}\n\n`;
-      onDelta(markdown);
-      return createSuccessfulTransform(markdown);
-    });
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-
-    await user.type(editor, "Source text");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-    await waitFor(() => {
-      expect(editor.value).toBe("Polished draft.");
-    });
-
-    await user.click(screen.getByRole("button", { name: "Markdown" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe(expectedMarkdown);
-    });
-  });
-
-  it("fails safe when markdown output introduces unsupported prompt scaffolding", async () => {
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("polish");
-      onDelta("Polished draft.");
-      return createSuccessfulTransform("Polished draft.");
-    });
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("agent-codex");
-      const markdown = [
-        "## Objective",
-        "",
-        "Convert the provided source material into a clean coding-agent prompt.",
-      ].join("\n");
-      onDelta(markdown);
-      return createSuccessfulTransform(markdown);
-    });
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-
-    await user.type(editor, "Source text");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-    await waitFor(() => {
-      expect(editor.value).toBe("Polished draft.");
-    });
-
-    await user.click(screen.getByRole("button", { name: "Codex" }));
-    await user.click(screen.getByRole("button", { name: "Markdown" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe("Polished draft.");
-      expect(
-        screen.getByText(
-          "Warnings: Markdown conversion introduced unsupported prompt scaffolding. Original text preserved.",
-        ),
-      ).toBeTruthy();
-    });
-  });
-
-  it("allows markdown headings derived from inline source labels", async () => {
-    const polished = "Objective: Update agents.md\nAcceptance Criteria: Preserve paths";
-    const markdown = "## Objective\nUpdate agents.md\n\n## Acceptance Criteria\nPreserve paths";
-
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("polish");
-      onDelta(polished);
-      return createSuccessfulTransform(polished);
-    });
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("agent-codex");
-      onDelta(markdown);
-      return createSuccessfulTransform(markdown);
-    });
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-
-    await user.type(editor, "Objective: Update agents.md\nAcceptance Criteria: Preserve paths");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-    await waitFor(() => {
-      expect(editor.value).toBe(polished);
-    });
-
-    await user.click(screen.getByRole("button", { name: "Codex" }));
-    await user.click(screen.getByRole("button", { name: "Markdown" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe(markdown);
-      expect(
-        screen.queryByText(
-          "Warnings: Markdown conversion introduced unsupported prompt scaffolding. Original text preserved.",
-        ),
-      ).toBeNull();
-    });
-  });
-
-  it("direct button uses direct mode and commits streamed output on success", async () => {
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("polish");
-      onDelta("Polished base.");
-      return createSuccessfulTransform("Polished base.");
-    });
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      if (mode !== "direct") {
-        throw new Error(`expected direct mode, got ${mode}`);
-      }
-
-      onDelta("Short");
-      onDelta(" output.");
-      return createSuccessfulTransform("Short output.");
-    });
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-
-    await user.type(editor, "Longer source text that should be tightened.");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-    await waitFor(() => {
-      expect((screen.getByRole("button", { name: "Direct" }) as HTMLButtonElement).disabled).toBe(
-        false,
-      );
-    });
-    await user.click(screen.getByRole("button", { name: "Direct" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe("Short output.");
-      expect(screen.getByText(/^Latency: \d+ ms$/)).toBeTruthy();
-      expect(screen.getByText("Mode: Direct")).toBeTruthy();
-      expect(screen.getByText("Warnings: None")).toBeTruthy();
-      expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
-        expect.objectContaining({ mode: "direct" }),
-      );
-    });
-  });
-
-  it("cancel in direct mode restores original text after partial stream", async () => {
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("polish");
-      onDelta("Polished draft.");
-      return createSuccessfulTransform("Polished draft.");
-    });
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ signal, mode, onDelta }) => {
-      if (mode === "direct") {
-        onDelta("partial direct");
-      }
-
-      await new Promise((_, reject) => {
-        if (signal?.aborted) {
-          reject(new DOMException("Aborted", "AbortError"));
-          return;
-        }
-
-        signal?.addEventListener(
-          "abort",
-          () => {
-            reject(new DOMException("Aborted", "AbortError"));
-          },
-          { once: true },
-        );
-      });
-
-      return { outputText: "partial direct" };
-    });
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-
-    await user.type(editor, "direct original");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-    await waitFor(() => {
-      expect((screen.getByRole("button", { name: "Direct" }) as HTMLButtonElement).disabled).toBe(
-        false,
-      );
-    });
-    await user.click(screen.getByRole("button", { name: "Direct" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe("partial direct");
-      expect(
-        (screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled,
-      ).toBe(false);
-    });
-
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     await waitFor(() => {
-      expect(editor.value).toBe("Polished draft.");
-      expect(screen.getByText("Warnings: None")).toBeTruthy();
+      expect(editor.value).toBe("keep me");
+      expect(screen.getByText("Cancelled. Original text restored.")).toBeTruthy();
     });
   });
-});
 
-describe("M7 casual/professional mode wiring", () => {
-  it("casual button uses casual mode and commits streamed output on success", async () => {
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("polish");
-      onDelta("Polished base.");
-      return createSuccessfulTransform("Polished base.");
+  it("undo restores the pre-transform text", async () => {
+    streamTransformWithOpenAIMock.mockResolvedValueOnce(createSuccessfulTransform("Polished text."));
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+
+    await user.type(editor, "rough text");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("Polished text.");
     });
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      if (mode !== "casual") {
-        throw new Error(`expected casual mode, got ${mode}`);
-      }
 
-      onDelta("Hey team, quick update.");
-      return createSuccessfulTransform("Hey team, quick update.");
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("rough text");
+      expect(screen.getByText("Undo restored the original text.")).toBeTruthy();
+    });
+  });
+
+  it("respects clear confirmation and clears when confirmed", async () => {
+    const confirmMock = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirmMock);
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+
+    await user.type(editor, "clear me");
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+
+    await waitFor(() => {
+      expect(confirmMock).toHaveBeenCalledWith("Clear all text and start over?");
+      expect(editor.value).toBe("");
+      expect(screen.getByText("Cleared.")).toBeTruthy();
+    });
+  });
+
+  it("leaves text untouched when clear is cancelled", async () => {
+    const confirmMock = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirmMock);
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+
+    await user.type(editor, "keep me");
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+
+    await waitFor(() => {
+      expect(editor.value).toBe("keep me");
+      expect(screen.getByText("Clear cancelled.")).toBeTruthy();
+    });
+  });
+
+  it("copies the current text", async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+
+    await user.type(editor, "copy me");
+    await user.click(screen.getByRole("button", { name: "Copy" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Copied.")).toBeTruthy();
+    });
+  });
+
+  it("shares the current text through navigator.share", async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+
+    await user.type(editor, "share me");
+    await user.click(screen.getByRole("button", { name: "Share" }));
+
+    await waitFor(() => {
+      expect(shareMock).toHaveBeenCalledWith({ text: "share me" });
+      expect(screen.getByText("Share sheet opened.")).toBeTruthy();
+    });
+  });
+
+  it("shows a clear error when sharing is unavailable", async () => {
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: undefined,
     });
 
     render(<App />);
     const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
-    await user.type(editor, "This is a longer paragraph that should sound more casual.");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
+    await user.type(editor, "share me");
+    await user.click(screen.getByRole("button", { name: "Share" }));
+
     await waitFor(() => {
-      expect((screen.getByRole("button", { name: "Casual" }) as HTMLButtonElement).disabled).toBe(
+      expect(screen.getByText("Sharing is not available on this device.")).toBeTruthy();
+    });
+  });
+
+  it("disables copy, clear, and share while streaming", async () => {
+    let resolveTransform: ((value: ReturnType<typeof createSuccessfulTransform>) => void) | null =
+      null;
+    streamTransformWithOpenAIMock.mockImplementationOnce(
+      async () =>
+        await new Promise((resolve) => {
+          resolveTransform = resolve;
+        }),
+    );
+
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+
+    await user.type(editor, "busy");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: "Copy" }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+      expect((screen.getByRole("button", { name: "Clear" }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+      expect((screen.getByRole("button", { name: "Share" }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+      expect((screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(
         false,
       );
     });
-    await user.click(screen.getByRole("button", { name: "Casual" }));
 
-    await waitFor(() => {
-      expect(editor.value).toBe("Hey team, quick update.");
-      expect(screen.getByText(/^Latency: \d+ ms$/)).toBeTruthy();
-      expect(screen.getByText("Mode: Casual")).toBeTruthy();
-      expect(screen.getByText("Warnings: None")).toBeTruthy();
-      expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
-        expect.objectContaining({ mode: "casual" }),
-      );
+    await act(async () => {
+      resolveTransform?.(createSuccessfulTransform("done"));
     });
   });
 
-  it("professional button uses professional mode and commits streamed output on success", async () => {
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("polish");
-      onDelta("Polished base.");
-      return createSuccessfulTransform("Polished base.");
-    });
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      if (mode !== "professional") {
-        throw new Error(`expected professional mode, got ${mode}`);
-      }
-
-      onDelta("Good morning team. Please review the attached plan.");
-      return createSuccessfulTransform("Good morning team. Please review the attached plan.");
-    });
+  it("surfaces provider errors through the visible status strip", async () => {
+    streamTransformWithOpenAIMock.mockRejectedValueOnce(
+      new MockOpenAIProviderError("auth", "Auth failed"),
+    );
 
     render(<App />);
     const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
-    await user.type(editor, "can you all quickly check this and tell me what you think");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-    await waitFor(() => {
-      expect(
-        (screen.getByRole("button", { name: "Professional" }) as HTMLButtonElement).disabled,
-      ).toBe(false);
-    });
-    await user.click(screen.getByRole("button", { name: "Professional" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe("Good morning team. Please review the attached plan.");
-      expect(screen.getByText(/^Latency: \d+ ms$/)).toBeTruthy();
-      expect(screen.getByText("Mode: Professional")).toBeTruthy();
-      expect(screen.getByText("Warnings: None")).toBeTruthy();
-      expect(streamTransformWithOpenAIMock).toHaveBeenCalledWith(
-        expect.objectContaining({ mode: "professional" }),
-      );
-    });
-  });
-});
-
-describe("M5 placeholder fail-safe", () => {
-  it("restores original text when placeholder tokens are altered by the model output", async () => {
-    streamTransformWithOpenAIMock.mockImplementation(async ({ inputText, onDelta }) => {
-      const tokenMatch = inputText.match(/__PZPTOK\d{3}__/);
-      if (!tokenMatch) {
-        throw new Error("Expected encoded placeholder token in input.");
-      }
-
-      const alteredOutput = inputText.replace(tokenMatch[0], "__PZPTOK999__");
-      onDelta(alteredOutput);
-      return { outputText: alteredOutput };
-    });
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = screen.getByRole("textbox", { name: "Text editor" }) as HTMLTextAreaElement;
-
-    const originalText = "Please review https://example.com/spec and respond.";
-    await user.type(editor, originalText);
+    await user.type(editor, "rough");
     await user.click(screen.getByRole("button", { name: "Polish" }));
 
     await waitFor(() => {
-      expect(editor.value).toBe(originalText);
-      expect(
-        screen.getByText("Warnings: Protected content mismatch. Original text preserved."),
-      ).toBeTruthy();
+      expect(screen.getByText("OpenAI authentication failed. Check your API key.")).toBeTruthy();
+      expect(editor.value).toBe("rough");
     });
   });
 });

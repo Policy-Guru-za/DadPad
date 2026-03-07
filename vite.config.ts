@@ -2,7 +2,8 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 // @ts-expect-error process is a nodejs global
-const host = process.env.TAURI_DEV_HOST;
+const mobileHost = process.env.TAURI_DEV_HOST;
+const devHost = mobileHost || false;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
@@ -16,11 +17,11 @@ export default defineConfig(async () => ({
   server: {
     port: 1420,
     strictPort: true,
-    host: host || false,
-    hmr: host
+    host: devHost,
+    hmr: mobileHost
       ? {
           protocol: "ws",
-          host,
+          host: mobileHost,
           port: 1421,
         }
       : undefined,

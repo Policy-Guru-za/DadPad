@@ -9,8 +9,9 @@ use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
+use tauri::{AppHandle, Manager, Runtime};
 
-const APP_DIRECTORY_NAME: &str = ".polishpad";
+const APP_DIRECTORY_NAME: &str = "DadPad";
 const KEY_FILE_NAME: &str = "encryption.key";
 const CONFIG_FILE_NAME: &str = "config.enc";
 const KEY_LENGTH_BYTES: usize = 32;
@@ -51,7 +52,7 @@ enum ConfigError {
     Io(std::io::Error),
     Serde(serde_json::Error),
     Crypto(&'static str),
-    HomeDirectoryMissing,
+    AppDirectoryUnavailable,
 }
 
 impl Display for ConfigError {
@@ -60,7 +61,9 @@ impl Display for ConfigError {
             Self::Io(error) => write!(formatter, "I/O error: {error}"),
             Self::Serde(error) => write!(formatter, "Serialization error: {error}"),
             Self::Crypto(message) => write!(formatter, "{message}"),
-            Self::HomeDirectoryMissing => write!(formatter, "Could not resolve HOME directory."),
+            Self::AppDirectoryUnavailable => {
+                write!(formatter, "Could not resolve DadPad app storage directory.")
+            }
         }
     }
 }
@@ -100,9 +103,16 @@ fn normalize_config(config: AppConfig) -> AppConfig {
     }
 }
 
-fn resolve_app_directory() -> Result<PathBuf, ConfigError> {
-    let home = std::env::var_os("HOME").ok_or(ConfigError::HomeDirectoryMissing)?;
-    Ok(PathBuf::from(home).join(APP_DIRECTORY_NAME))
+fn app_directory_in_root(root: &Path) -> PathBuf {
+    root.join(APP_DIRECTORY_NAME)
+}
+
+fn resolve_app_directory<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, ConfigError> {
+    let root = app
+        .path()
+        .config_dir()
+        .map_err(|_| ConfigError::AppDirectoryUnavailable)?;
+    Ok(app_directory_in_root(&root))
 }
 
 fn ensure_directory(path: &Path) -> Result<(), ConfigError> {
@@ -262,14 +272,14 @@ fn save_config_in_directory(base_dir: &Path, config: AppConfig) -> Result<(), Co
 }
 
 #[tauri::command]
-pub fn read_config() -> Result<AppConfig, String> {
-    let directory = resolve_app_directory().map_err(|error| error.to_string())?;
+pub fn read_config(app: AppHandle) -> Result<AppConfig, String> {
+    let directory = resolve_app_directory(&app).map_err(|error| error.to_string())?;
     load_config_in_directory(&directory).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn write_config(config: AppConfig) -> Result<(), String> {
-    let directory = resolve_app_directory().map_err(|error| error.to_string())?;
+pub fn write_config(app: AppHandle, config: AppConfig) -> Result<(), String> {
+    let directory = resolve_app_directory(&app).map_err(|error| error.to_string())?;
     save_config_in_directory(&directory, config).map_err(|error| error.to_string())
 }
 
@@ -369,5 +379,11 @@ mod tests {
                 smart_structuring: true,
             }
         );
+    }
+
+    #[test]
+    fn explicit_dadpad_namespace_is_used() {
+        let root = PathBuf::from("/tmp/app-support");
+        assert_eq!(app_directory_in_root(&root), root.join("DadPad"));
     }
 }

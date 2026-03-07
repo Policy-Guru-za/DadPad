@@ -296,7 +296,18 @@ function likelyTranslatedToPolish(text: string): boolean {
 }
 
 function resolveConfigPath(...segments: string[]): string {
-  return path.join(os.homedir(), ".polishpad", ...segments);
+  if (process.platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Application Support", "DadPad", ...segments);
+  }
+
+  if (process.platform === "win32") {
+    const appData =
+      process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+    return path.join(appData, "DadPad", ...segments);
+  }
+
+  const xdgConfigHome = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
+  return path.join(xdgConfigHome, "DadPad", ...segments);
 }
 
 function readConfigFromDisk(): StoredConfig | null {
@@ -326,7 +337,7 @@ function readConfigFromDiskSafely(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     onWarning(
-      `Ignoring unreadable PolishPad config in ${resolveConfigPath("config.enc")}: ${message}`,
+      `Ignoring unreadable DadPad config in ${resolveConfigPath("config.enc")}: ${message}`,
     );
     return null;
   }

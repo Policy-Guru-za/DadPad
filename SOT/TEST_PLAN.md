@@ -1,5 +1,7 @@
 # TEST_PLAN.md
 
+> Legacy PolishPad reference only. For DadPad work, product scope and proof gates come from `SOT/DADPAD_BRIEF.md` plus the active execution spec; this file does not define DadPad product scope.
+
 ## Unit tests
 - placeholder encode/decode/validate
 - output budget heuristic by mode

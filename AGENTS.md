@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Objective
-Ship PolishPad V1 per `SOT/PRD.md` and `SOT/BLUEPRINT.md`.
+Ship DadPad by adapting the copied PolishPad codebase per `SOT/DADPAD_BRIEF.md` and the active DadPad execution spec.
 
 Repo already live.
 - Fresh or empty checkout: bootstrap from `SOT/REPO_SETUP.md`.
@@ -10,24 +10,32 @@ Repo already live.
 ---
 
 ## Source of truth (must read first)
-These docs are authoritative:
+For DadPad work, these docs are authoritative:
+
+1. `SOT/DADPAD_BRIEF.md`
+2. Active `spec/*.md`
+3. `progress.md`
+4. `AGENTS.md` (this file, for workflow/safety/test discipline)
+
+Copied PolishPad docs remain implementation reference only unless a DadPad doc explicitly points back to them:
 
 1. `SOT/PRD.md`
 2. `SOT/BLUEPRINT.md`
-3. `AGENTS.md` (this file)
-4. `SOT/PROMPT_PACK.md`
-5. `SOT/PLACEHOLDERS_AND_VALIDATION.md`
-6. `SOT/REPO_SETUP.md`
-7. `SOT/PROVIDER_INTEGRATION.md`
-8. `SOT/TEST_PLAN.md`
+3. `SOT/PROMPT_PACK.md`
+4. `SOT/PLACEHOLDERS_AND_VALIDATION.md`
+5. `SOT/REPO_SETUP.md`
+6. `SOT/PROVIDER_INTEGRATION.md`
+7. `SOT/TEST_PLAN.md`
 
-If any are missing, restore or recreate them before significant code changes.
+If the DadPad brief, active spec, or progress tracker are missing, restore or recreate them before significant DadPad changes.
 
-`spec/` docs are execution docs. They derive from SOT. They do not override SOT.
+For DadPad work, the active spec operationalizes the DadPad brief and may supersede copied PolishPad SOT details where it explicitly says so.
 
 ---
 
-## Hard scope fence (V1)
+## Legacy PolishPad Scope Fence (reference only)
+The following copied PolishPad V1 scope is kept as implementation reference. It does not define DadPad product scope.
+
 ### Do NOT implement
 - Dictation / audio input (no microphone capture).
 - Menubar app, global hotkeys, always-on-top HUD, caret-following window.
@@ -84,6 +92,12 @@ Claude must NOT be used for (ever):
 
 Do not paste API keys to any model or tool.
 
+### Xcode via MCP
+- Host Xcode MCP is configured for this machine.
+- For Xcode/iOS work, prefer the live `xcode` MCP server when the current session actually exposes it.
+- Verify live session access before relying on MCP. Do not assume CLI registration alone means the session can use it.
+- If MCP startup fails, cancels, or the `xcode` server is unavailable in-session, fall back to `xcodebuild`, `simctl`, or the Xcode UI directly.
+
 ---
 
 ## Operating mode
@@ -98,7 +112,7 @@ Workflow: Discovery -> Spec -> Planning -> Build -> Polish -> Handoff.
 - Confirm SOT doc set exists and is internally consistent.
 - Confirm current repo state; do not assume an empty repo.
 - List prerequisites (Node/Rust/Tauri) and setup gaps.
-- Map work to `SOT/BLUEPRINT.md`.
+- Map DadPad work to `SOT/DADPAD_BRIEF.md` and the active DadPad spec. Consult `SOT/BLUEPRINT.md` only as copied implementation reference where still useful.
 
 ### 2) Spec setup
 - For non-trivial work, choose or create the next numbered `spec/NN_<topic>.md`.
@@ -108,7 +122,7 @@ Workflow: Discovery -> Spec -> Planning -> Build -> Polish -> Handoff.
 ### 3) Planning
 - Restate what will be built in V1 (and what will not).
 - Lock assumptions, risks, and dependencies in the active spec.
-- Confirm default provider/model settings against SOT docs.
+- Confirm default provider/model settings against DadPad authority docs first, then copied PolishPad reference docs only where needed.
 
 ### 4) Building
 - Implement one bounded stage at a time.
@@ -183,7 +197,7 @@ If a gate fails:
 ---
 
 ## Dogfood / self-test
-- Before sharing results or asking for human review, run the changed flow locally in `pnpm tauri dev` or the built app bundle.
+- Before sharing results or asking for human review, run the changed flow locally in `pnpm tauri dev`, the built app bundle, or the current static iOS simulator route as appropriate.
 - Use Playwright when it helps. Otherwise manual end-to-end verification is acceptable.
 - If credentials, provider access, or external systems block live verification, use the closest safe fallback and state the gap explicitly.
 - Gate A and Gate B summaries must include commands run, dogfood result, and remaining risk.
@@ -191,6 +205,8 @@ If a gate fails:
 ---
 
 ## Explicit check-in gates (must stop and request approval)
+For DadPad work, product-specific gate ownership comes from `SOT/DADPAD_BRIEF.md` plus the active DadPad spec. The legacy Gate A / Gate B details below remain workflow reference only where they do not conflict.
+
 ### Gate A — First working transform loop
 After:
 - Tauri app scaffolding exists
@@ -216,7 +232,7 @@ Stop and confirm:
 
 ## Engineering conventions
 - Frontend: TypeScript + minimal dependencies.
-- Backend Rust: keep thin; follow `SOT/BLUEPRINT.md` (avoid big Rust architecture in V1).
+- Backend Rust: keep thin; follow the DadPad brief and the current reuse-heavy architecture. Use `SOT/BLUEPRINT.md` only as copied implementation reference where still applicable.
 - No logging of user content by default. If debug logging exists, it must be opt-in.
 - Keep modules small; avoid “god files”.
 - Prefer exact current repo commands; do not invent scripts that do not exist.
@@ -242,7 +258,7 @@ Stop and confirm:
 If the repo is ever re-created from empty, the initial scaffold must include:
 - Tauri + TypeScript app
 - `src/` frontend and `src-tauri/` backend structure
-- All docs in “Source of truth” present under `SOT/`
+- DadPad authority docs present under `SOT/`, including `SOT/DADPAD_BRIEF.md`
 - Basic lint/format/test setup (lightweight; do not over-engineer)
 - A clear `README.md` (one page max) with run/build commands
 
@@ -250,11 +266,12 @@ If the repo is ever re-created from empty, the initial scaffold must include:
 
 ## Definition of done (V1)
 V1 is done when:
-- All milestones in `SOT/BLUEPRINT.md` are complete.
+- DadPad product scope in `SOT/DADPAD_BRIEF.md` is reflected in docs and code.
 - Relevant specs are marked done in `spec/00_overview.md`.
 - `progress.md` reflects a green final state.
-- Manual test cases in `SOT/TEST_PLAN.md` pass.
-- Token protection never overwrites editor on mismatch.
-- Truncation warning + “Retry (more room)” works.
-- Copy is disabled while streaming.
+- Relevant DadPad test/build gates are green.
+- DadPad uses fresh DadPad-scoped encrypted storage.
+- DadPad UI exposes the locked controls for `Polish`, `Undo`, `Cancel`, `Clear`, `Copy`, and `Share`.
+- DadPad can run on the current authoritative iPad simulator route; physical iPad smoke if feasible.
+- Share is proven via `navigator.share` or an explicit native fallback.
 - App runs and builds from a fresh checkout using `SOT/REPO_SETUP.md`.

@@ -1,783 +1,284 @@
-/* ============================================================
-   PolishPad — Wabi-Sabi Minimal (Variant 5)
-   Pixel-matched to variant-5-japanese.html reference
-   ============================================================ */
-
 :root {
-  /* ---- Colour tokens ---- */
-  --sumi: #1c1b18;
-  --charcoal: #363530;
-  --warm-gray: #7a7870;
-  --ash: #a8a49c;
-  --washi: #eae6de;
-  --paper: #f4f1eb;
-  --snow: #faf8f4;
-  --vermillion: #c5453a;
-  --vermillion-soft: rgba(197, 69, 58, 0.08);
-  --vermillion-border: rgba(197, 69, 58, 0.2);
-  --indigo: #3d5a80;
-  --indigo-soft: rgba(61, 90, 128, 0.08);
-  --success: #5a7a5e;
+  --ink: #17324d;
+  --ink-soft: #46627d;
+  --paper: #f4efe4;
+  --paper-strong: #fffaf2;
+  --line: #d6cbb7;
+  --accent: #c96b3c;
+  --accent-strong: #a74c1f;
+  --danger: #b74a3b;
+  --success: #2f6b57;
+  --status-idle: #f1e8d5;
+  --status-error: #f8dfd7;
+  --status-success: #dfeee7;
 }
 
-*, *::before, *::after {
-  margin: 0;
-  padding: 0;
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
 body {
-  font-family: 'Karla', sans-serif;
-  background: var(--paper);
-  color: var(--sumi);
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 36px 20px;
-  font-size: 15px;
-  line-height: 1.5;
-  font-weight: 400;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
+  margin: 0;
+  background:
+    radial-gradient(circle at top right, rgba(201, 107, 60, 0.16), transparent 28%),
+    linear-gradient(180deg, #fbf6ec 0%, var(--paper) 100%);
+  color: var(--ink);
+  font-family: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
 }
 
 #root {
-  width: 100%;
   display: flex;
   justify-content: center;
 }
 
-/* ============================================================
-   Container / App Shell
-   ============================================================ */
-
 .app-shell {
-  width: 100%;
-  max-width: 720px;
-  position: relative;
-  animation: breathe 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  width: min(980px, 100%);
+  padding: 28px 20px 36px;
 }
 
-/* ============================================================
-   Enso circle — SVG brushstroke watermark
-   ============================================================ */
-
-.enso {
-  position: absolute;
-  top: -80px;
-  right: -40px;
-  width: 200px;
-  height: 200px;
-  opacity: 0.04;
-  pointer-events: none;
-}
-
-/* ============================================================
-   Header — brand + action buttons
-   ============================================================ */
-
-.header {
+.hero {
   display: flex;
-  align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 48px;
-}
-
-.brand-area {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.brand-jp {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 11px;
-  font-weight: 300;
-  color: var(--ash);
-  letter-spacing: 4px;
-}
-
-.brand-title {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 32px;
-  font-weight: 400;
-  color: var(--sumi);
-  letter-spacing: 1px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 4px;
-  align-items: flex-end;
-}
-
-/* ============================================================
-   Action buttons (Cancel, Undo, Copy, Settings)
-   ============================================================ */
-
-.action-btn {
-  font-family: 'Karla', sans-serif;
-  font-size: 12px;
-  font-weight: 400;
-  padding: 8px 16px;
-  border: none;
-  background: transparent;
-  color: var(--warm-gray);
-  cursor: pointer;
-  transition: color 0.2s ease;
-  letter-spacing: 0.3px;
-  appearance: none;
-}
-
-.action-btn:hover:not(:disabled) {
-  color: var(--sumi);
-}
-
-.action-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.action-btn.primary {
-  background: var(--sumi);
-  color: var(--paper);
-  border-radius: 2px;
-  font-weight: 500;
-}
-
-.action-btn.primary:hover:not(:disabled) {
-  background: var(--charcoal);
-  color: var(--snow);
-}
-
-.action-btn.primary:disabled {
-  opacity: 0.3;
-}
-
-.action-btn.primary.copied {
-  background: var(--success);
-  color: var(--snow);
-}
-
-.action-btn.settings-trigger {
-  border: 1px solid var(--washi);
-  border-radius: 2px;
-  color: var(--ash);
-}
-
-.action-btn.settings-trigger:hover:not(:disabled) {
-  border-color: var(--ash);
-  color: var(--warm-gray);
-}
-
-.action-btn.settings-trigger:disabled {
-  border-color: rgba(122, 120, 112, 0.2);
-  opacity: 0.3;
-}
-
-/* ============================================================
-   Ink line divider — sumi line with vermillion accent
-   ============================================================ */
-
-.ink-line {
-  width: 100%;
-  height: 1px;
-  background: var(--sumi);
-  margin-bottom: 36px;
-  position: relative;
-  opacity: 0.12;
-}
-
-.ink-line::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: -1px;
-  width: 48px;
-  height: 3px;
-  background: var(--vermillion);
-  opacity: 0.6;
-}
-
-/* ============================================================
-   Controls — Polish button + tone selector
-   ============================================================ */
-
-.controls {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
   gap: 24px;
-  margin-bottom: 36px;
+  align-items: flex-start;
+  margin-bottom: 18px;
 }
 
-/* Polish button */
-.polish-btn {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 16px;
-  font-weight: 400;
-  padding: 10px 32px;
-  background: transparent;
-  color: var(--sumi);
-  border: 1.5px solid var(--sumi);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  letter-spacing: 1px;
-  position: relative;
-  overflow: hidden;
-  appearance: none;
-}
-
-.polish-btn::before {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 0;
-  height: 100%;
-  background: var(--sumi);
-  transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-  z-index: 0;
-}
-
-.polish-btn span {
-  position: relative;
-  z-index: 1;
-  transition: color 0.35s ease;
-}
-
-.polish-btn:hover:not(:disabled)::before,
-.polish-btn.active::before {
-  width: 100%;
-}
-
-.polish-btn:hover:not(:disabled) span,
-.polish-btn.active span {
-  color: var(--paper);
-}
-
-.polish-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.polish-btn:disabled::before {
-  width: 0;
-}
-
-.polish-btn.streaming::after {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-left: 8px;
-  border-radius: 50%;
-  background: var(--vermillion);
-  vertical-align: middle;
-  animation: pulse 1.2s ease-in-out infinite;
-}
-
-/* Tone area */
-.tone-area {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.agent-area {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.tone-group.locked {
-  opacity: 0.45;
-}
-
-.agent-preset-group.locked {
-  opacity: 0.45;
-}
-
-.tone-label {
-  font-size: 10px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--ash);
-  font-weight: 400;
-}
-
-.tone-group {
-  display: flex;
-  gap: 2px;
-}
-
-.agent-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.agent-prompt-btn {
-  font-family: 'Karla', sans-serif;
-  font-size: 12px;
-  font-weight: 400;
-  padding: 7px 14px;
-  background: transparent;
-  border: 1px solid var(--sumi);
-  color: var(--sumi);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  appearance: none;
-}
-
-.agent-prompt-btn span {
-  position: relative;
-}
-
-.agent-prompt-btn:hover:not(:disabled),
-.agent-prompt-btn.active {
-  background: var(--sumi);
-  color: var(--paper);
-}
-
-.agent-prompt-btn:disabled {
-  cursor: default;
-  opacity: 0.45;
-}
-
-.agent-prompt-btn.streaming::after {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-left: 8px;
-  border-radius: 50%;
-  background: var(--vermillion);
-  vertical-align: middle;
-  animation: pulse 1.2s ease-in-out infinite;
-}
-
-.agent-preset-group {
-  display: flex;
-  gap: 2px;
-}
-
-.agent-preset-btn {
-  font-family: 'Karla', sans-serif;
-  font-size: 11px;
-  font-weight: 300;
-  padding: 6px 10px;
-  background: transparent;
-  border: 1px solid var(--washi);
-  color: var(--ash);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  appearance: none;
-}
-
-.agent-preset-btn:first-child { border-radius: 2px 0 0 2px; }
-.agent-preset-btn:last-child { border-radius: 0 2px 2px 0; }
-
-.agent-preset-btn:hover:not(:disabled) {
-  border-color: var(--vermillion-border);
-  color: var(--vermillion);
-  background: var(--vermillion-soft);
-}
-
-.agent-preset-btn.active {
-  border-color: var(--sumi);
-  color: var(--paper);
-  background: var(--sumi);
-  font-weight: 400;
-}
-
-.agent-preset-btn:disabled {
-  cursor: default;
-}
-
-.tone-btn {
-  font-family: 'Karla', sans-serif;
-  font-size: 12px;
-  font-weight: 300;
-  padding: 6px 14px;
-  background: transparent;
-  border: 1px solid var(--washi);
-  color: var(--ash);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  appearance: none;
-}
-
-.tone-btn:first-child { border-radius: 2px 0 0 2px; }
-.tone-btn:last-child { border-radius: 0 2px 2px 0; }
-
-.tone-btn:hover:not(:disabled) {
-  border-color: var(--vermillion-border);
-  color: var(--vermillion);
-  background: var(--vermillion-soft);
-}
-
-.tone-btn.active {
-  background: var(--sumi);
-  color: var(--paper);
-  border-color: var(--sumi);
-  font-weight: 400;
-}
-
-.tone-btn:disabled {
-  cursor: default;
-}
-
-.tone-btn.streaming::after {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-left: 6px;
-  border-radius: 50%;
-  background: var(--vermillion);
-  vertical-align: middle;
-  animation: pulse 1.2s ease-in-out infinite;
-}
-
-/* ============================================================
-   Settings panel
-   ============================================================ */
-
-.settings-warning {
-  margin: 0 0 20px;
-  color: var(--vermillion);
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.settings-panel {
-  background: var(--snow);
-  border: 1px solid var(--washi);
-  border-radius: 0;
-  padding: 20px;
-  margin: 0 0 20px;
-}
-
-.settings-form {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px 20px;
-  margin-bottom: 20px;
-}
-
-.settings-field {
-  font-family: 'Karla', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--warm-gray);
-  letter-spacing: 0.3px;
-}
-
-.settings-input {
-  font-family: 'Karla', sans-serif;
-  font-size: 0.85rem;
-  padding: 8px 12px;
-  background: var(--paper);
-  border: 1px solid var(--washi);
-  border-radius: 0;
-  color: var(--sumi);
-  transition: border-color 0.2s ease;
-}
-
-.settings-input:focus {
-  border-color: var(--sumi);
-  outline: none;
-  box-shadow: none;
-}
-
-.settings-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
-  color: var(--sumi);
-  cursor: pointer;
-}
-
-.settings-toggle-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.settings-help {
-  font-size: 0.72rem;
-  font-weight: 300;
-  color: var(--ash);
-  padding-left: 24px;
-  line-height: 1.4;
+.hero-copy h1 {
   margin: 0;
+  font-family: "Avenir Next Condensed", "Avenir Next", "Gill Sans", sans-serif;
+  font-size: clamp(2.3rem, 4vw, 3.4rem);
+  line-height: 0.95;
+  letter-spacing: 0.02em;
 }
 
-.settings-actions {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--washi);
-  margin-top: 12px;
-}
-
-.save-settings-button {
-  appearance: none;
-  background: var(--sumi);
-  color: var(--paper);
-  font-weight: 500;
-  border: none;
-  border-radius: 2px;
-  padding: 8px 20px;
-  cursor: pointer;
-  transition: background 0.2s ease, opacity 0.2s ease;
-}
-
-.save-settings-button:hover:not(:disabled) {
-  background: var(--charcoal);
-}
-
-.save-settings-button.saved {
-  background: var(--success);
-  color: var(--snow);
-}
-
-.save-settings-button:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.settings-message {
-  font-size: 0.78rem;
-  color: var(--vermillion);
-  font-weight: 400;
-  align-self: center;
-}
-
-/* ============================================================
-   Editor section
-   ============================================================ */
-
-.editor-section {
-  margin-bottom: 32px;
-  position: relative;
-}
-
-.editor-label {
-  font-size: 10px;
-  letter-spacing: 3px;
+.eyebrow {
+  margin: 0 0 10px;
+  color: var(--accent-strong);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ash);
-  font-weight: 400;
-  margin-bottom: 12px;
-  display: block;
 }
 
-.editor-frame {
-  background: var(--snow);
-  border: 1px solid var(--washi);
-  position: relative;
-  transition: all 0.3s ease;
+.hero-text {
+  max-width: 42rem;
+  margin: 14px 0 0;
+  font-size: 1.2rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
 }
 
-.editor-frame:focus-within {
-  border-color: rgba(28, 27, 24, 0.15);
-  box-shadow: 0 8px 40px rgba(28, 27, 24, 0.04);
+.hero-text span {
+  color: var(--accent-strong);
+  font-weight: 700;
 }
 
-/* Vertical writing direction hint — 文 kanji */
-.editor-frame::before {
-  content: '文';
-  position: absolute;
-  left: -32px;
-  top: 20px;
-  font-size: 14px;
-  color: var(--washi);
-  writing-mode: vertical-rl;
-  font-family: serif;
-  letter-spacing: 12px;
-  pointer-events: none;
+.setup-toggle {
+  min-height: 54px;
+  padding: 0 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 250, 242, 0.8);
+  color: var(--ink);
+}
+
+.status-strip,
+.setup-card,
+.setup-warning,
+.editor-panel {
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: rgba(255, 250, 242, 0.92);
+  box-shadow: 0 20px 45px rgba(23, 50, 77, 0.06);
+}
+
+.status-strip {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  font-size: 1rem;
+}
+
+.status-strip.idle {
+  background: var(--status-idle);
+}
+
+.status-strip.error {
+  background: var(--status-error);
+}
+
+.status-strip.success {
+  background: var(--status-success);
+}
+
+.status-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.setup-card {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 16px;
+  padding: 22px;
+}
+
+.setup-copy h2 {
+  margin: 0 0 8px;
+  font-size: 1.5rem;
+}
+
+.setup-copy p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.setup-form {
+  display: grid;
+  gap: 12px;
+}
+
+.setup-label,
+.editor-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.setup-input,
+.editor {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--paper-strong);
+  color: var(--ink);
+}
+
+.setup-input {
+  min-height: 58px;
+  padding: 0 18px;
+  font-size: 1.1rem;
+}
+
+.setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.setup-save,
+.primary-action,
+.secondary-action {
+  min-height: 58px;
+  padding: 0 22px;
+  border-radius: 18px;
+  border: 1px solid transparent;
+  transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+.setup-save,
+.primary-action {
+  background: var(--accent);
+  color: #fff8f1;
+  font-weight: 700;
+}
+
+.setup-save:hover:not(:disabled),
+.primary-action:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+.setup-message {
+  color: var(--ink-soft);
+  font-size: 0.96rem;
+}
+
+.setup-warning {
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  background: rgba(248, 223, 215, 0.88);
+  font-size: 1rem;
+}
+
+.editor-panel {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
 }
 
 .editor {
-  width: 100%;
-  min-height: 360px;
-  padding: 32px 36px;
-  font-family: 'Karla', sans-serif;
-  font-size: 15px;
-  font-weight: 300;
-  line-height: 1.55;
-  color: var(--sumi);
-  background: transparent;
-  border: none;
-  outline: none;
+  min-height: 56vh;
+  padding: 24px;
+  font-size: clamp(1.22rem, 1.8vw, 1.5rem);
+  line-height: 1.65;
   resize: vertical;
 }
 
 .editor::placeholder {
-  color: var(--ash);
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  font-weight: 300;
-  font-size: 16px;
+  color: #7a8ca0;
 }
 
 .editor[readonly] {
-  opacity: 0.7;
-  cursor: default;
-  color: var(--warm-gray);
+  opacity: 0.9;
 }
 
-/* ============================================================
-   Bottom divider line
-   ============================================================ */
-
-.bottom-line {
-  width: 100%;
-  height: 1px;
-  background: var(--washi);
-  margin-bottom: 16px;
+.action-bar {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
 }
 
-/* ============================================================
-   Footer — stats (left) + credit (right)
-   ============================================================ */
-
-.footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.secondary-action {
+  background: rgba(255, 250, 242, 0.92);
+  border-color: var(--line);
+  color: var(--ink);
 }
 
-.stats {
-  display: flex;
-  gap: 24px;
-  font-size: 11px;
-  color: var(--ash);
-  font-weight: 300;
+.secondary-action:hover:not(:disabled) {
+  background: #f0e6d8;
 }
 
-.stat-val {
-  font-weight: 500;
-  color: var(--warm-gray);
-  font-variant-numeric: tabular-nums;
+.secondary-danger {
+  color: var(--danger);
 }
 
-.footer-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+button:disabled {
+  opacity: 0.45;
 }
 
-.attribution {
-  font-size: 10px;
-  color: var(--ash);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  letter-spacing: 0.5px;
-}
-
-/* Hanko stamp */
-.hanko {
-  width: 24px;
-  height: 24px;
-  border: 1.5px solid var(--vermillion);
-  border-radius: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  color: var(--vermillion);
-  opacity: 0.5;
-  font-family: serif;
-  transform: rotate(-3deg);
-}
-
-/* ============================================================
-   Utility
-   ============================================================ */
-
-.copy-feedback {
-  color: var(--success);
-  font-weight: 500;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-}
-
-/* ============================================================
-   Animations
-   ============================================================ */
-
-@keyframes breathe {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.4;
-    transform: scale(0.8);
-  }
-}
-
-/* ============================================================
-   Responsive
-   ============================================================ */
-
-@media (max-width: 720px) {
-  body {
-    padding: 30px 16px;
-  }
-
-  .header {
+@media (max-width: 860px) {
+  .hero {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-    margin-bottom: 32px;
   }
 
-  .controls {
-    flex-wrap: wrap;
-  }
-
-  .agent-area,
-  .agent-controls {
-    flex-wrap: wrap;
+  .action-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .editor {
-    min-height: 300px;
-    padding: 24px 20px;
-    line-height: 1.55;
-  }
-
-  .footer {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .settings-form {
-    grid-template-columns: 1fr;
+    min-height: 48vh;
   }
 }

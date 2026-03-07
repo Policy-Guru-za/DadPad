@@ -1,5 +1,7 @@
 # Implementation Blueprint — PolishPad V1
 
+> Legacy PolishPad reference only. For DadPad work, product scope and proof gates come from `SOT/DADPAD_BRIEF.md` plus the active execution spec; this file does not define DadPad product scope.
+
 **Framework:** Tauri (Rust shell + TypeScript/React frontend)
 **Architecture:** Frontend calls LLM APIs directly. Rust handles windowing only.
 **Default provider:** OpenAI (shipped default model: `gpt-5-nano-2025-08-07`)
