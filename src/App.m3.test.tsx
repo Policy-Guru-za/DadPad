@@ -59,6 +59,7 @@ const TEST_SETTINGS = {
 
 let clipboardWriteMock: ReturnType<typeof vi.fn>;
 let shareMock: ReturnType<typeof vi.fn>;
+let scrollToMock: ReturnType<typeof vi.fn>;
 let visualViewportListeners: Map<string, Set<() => void>>;
 let visualViewportMock:
   | {
@@ -77,16 +78,89 @@ function createSuccessfulTransform(outputText: string) {
   };
 }
 
+function getStatusChip(): HTMLDivElement {
+  const chip = document.querySelector(".status-chip");
+  if (!(chip instanceof HTMLDivElement)) {
+    throw new Error("Expected visible readiness chip.");
+  }
+
+  return chip;
+}
+
+function getStatusChipDot(): HTMLSpanElement {
+  const dot = document.querySelector(".status-chip-dot");
+  if (!(dot instanceof HTMLSpanElement)) {
+    throw new Error("Expected readiness chip dot.");
+  }
+
+  return dot;
+}
+
+function getHeroLogo(): HTMLImageElement {
+  const logo = document.querySelector(".hero-logo");
+  if (!(logo instanceof HTMLImageElement)) {
+    throw new Error("Expected hero logo.");
+  }
+
+  return logo;
+}
+
+function getLiveStatusRegion(): HTMLDivElement {
+  const region = screen.getByRole("status");
+  if (!(region instanceof HTMLDivElement)) {
+    throw new Error("Expected hidden live status region.");
+  }
+
+  return region;
+}
+
+function getActionSpacer(): HTMLDivElement {
+  const spacer = document.querySelector(".action-spacer");
+  if (!(spacer instanceof HTMLDivElement)) {
+    throw new Error("Expected action spacer.");
+  }
+
+  return spacer;
+}
+
+function getActionDock(): HTMLElement {
+  const dock = document.querySelector(".action-dock");
+  if (!(dock instanceof HTMLElement)) {
+    throw new Error("Expected action dock.");
+  }
+
+  return dock;
+}
+
+function getAppMain(): HTMLDivElement {
+  const main = document.querySelector(".app-main");
+  if (!(main instanceof HTMLDivElement)) {
+    throw new Error("Expected app main scroll region.");
+  }
+
+  return main;
+}
+
+function getActionBarLabels(): string[] {
+  const actionBar = document.querySelector(".action-bar");
+  if (!(actionBar instanceof HTMLElement)) {
+    throw new Error("Expected action bar.");
+  }
+
+  return Array.from(actionBar.querySelectorAll("button")).map((child) =>
+    child.textContent?.replace(/\s+/g, " ").trim() ?? "",
+  );
+}
+
 beforeEach(() => {
   streamTransformWithOpenAIMock.mockReset();
   readAppSettingsMock.mockReset();
   writeAppSettingsMock.mockReset();
   readAppSettingsMock.mockResolvedValue(TEST_SETTINGS);
   writeAppSettingsMock.mockImplementation(async (settings) => settings);
-
-  vi.stubGlobal("confirm", vi.fn(() => true));
   clipboardWriteMock = vi.fn().mockResolvedValue(undefined);
   shareMock = vi.fn().mockResolvedValue(undefined);
+  scrollToMock = vi.fn();
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
     value: { writeText: clipboardWriteMock },
@@ -94,6 +168,10 @@ beforeEach(() => {
   Object.defineProperty(navigator, "share", {
     configurable: true,
     value: shareMock,
+  });
+  Object.defineProperty(window, "scrollTo", {
+    configurable: true,
+    value: scrollToMock,
   });
   visualViewportListeners = new Map();
   visualViewportMock = undefined;
@@ -110,21 +188,53 @@ afterEach(() => {
 });
 
 describe("DadPad app", () => {
-  it("renders the DadPad shell and hides PolishPad-only controls", async () => {
+  it("renders the Warm Sand DadPad shell with the remapped bottom action grid", async () => {
     render(<App />);
 
     await waitFor(() => {
+      const heroHeader = document.querySelector(".hero-header");
       expect(screen.getByRole("heading", { name: "DadPad" })).toBeTruthy();
+      expect(getHeroLogo().getAttribute("src")).toContain("dadpad-logo");
+      expect(getHeroLogo().getAttribute("alt")).toBe("");
+      expect(getHeroLogo().closest(".hero-header")).toBe(heroHeader);
+      const strapline = screen.getByText(
+        "The ultimate helper to ensure that RCML is finally understood in written form.",
+      );
+      expect(strapline.closest("em")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Polish" })).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Undo" })).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "Clear" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "Copy" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "Share" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "API key" })).toBeNull();
+      expect(screen.queryByText("iPad-first writing help")).toBeNull();
+      expect(document.querySelector(".status-strip")).toBeNull();
+      expect(document.querySelector(".status-tile")).toBeNull();
+      expect(getStatusChip().closest(".hero-header")).toBe(heroHeader);
+      expect(getStatusChip().closest(".app-main")).toBeNull();
+      expect(getStatusChip().getAttribute("data-tone")).toBe("ready");
+      expect(getStatusChip().textContent).toContain("Ready");
+      expect(getStatusChipDot().classList.contains("ready-dot")).toBe(true);
+      expect(getStatusChipDot().classList.contains("error-dot")).toBe(false);
+      expect(getActionBarLabels()).toEqual(["Polish", "Clear", "Copy", "Share", "Settings"]);
+      expect(getActionSpacer()).toBeTruthy();
+      expect(getActionDock()).toBeTruthy();
+      expect(getAppMain()).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Casual" })).toBeNull();
       expect(screen.queryByRole("button", { name: "Professional" })).toBeNull();
       expect(screen.queryByRole("button", { name: "Direct" })).toBeNull();
       expect(screen.queryByRole("button", { name: "Markdown" })).toBeNull();
+    });
+  });
+
+  it("marks the live shell as the Warm Sand production theme", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      const main = screen.getByRole("main");
+      expect(main.getAttribute("data-theme")).toBe("warm-sand");
     });
   });
 
@@ -166,6 +276,11 @@ describe("DadPad app", () => {
       expect(main.classList.contains("keyboard-open")).toBe(true);
       expect(main.style.getPropertyValue("--viewport-height")).toBe("700px");
       expect(main.style.getPropertyValue("--keyboard-inset")).toBe("324px");
+      expect(
+        screen.getByText("The ultimate helper to ensure that RCML is finally understood in written form."),
+      ).toBeTruthy();
+      expect(getActionDock()).toBeTruthy();
+      expect(getAppMain()).toBeTruthy();
     });
   });
 
@@ -178,8 +293,12 @@ describe("DadPad app", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText("Add your OpenAI API key to start.")).toBeTruthy();
+      expect(screen.getByLabelText("API key required")).toBeTruthy();
       expect(screen.getByRole("heading", { name: "Set up DadPad" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Close settings" })).toBeTruthy();
+      expect(getStatusChip().getAttribute("data-tone")).toBe("error");
+      expect(getStatusChip().textContent).toContain("Add your OpenAI API key to start.");
+      expect(getStatusChipDot().classList.contains("error-dot")).toBe(true);
       expect((screen.getByRole("button", { name: "Polish" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
@@ -204,8 +323,10 @@ describe("DadPad app", () => {
         ...TEST_SETTINGS,
         openaiApiKey: "sk-test-123",
       });
-      expect(screen.getByText("DadPad is ready.")).toBeTruthy();
+      expect(getStatusChip().textContent).toContain("Ready");
+      expect(getLiveStatusRegion().textContent).toContain("DadPad is ready.");
       expect(screen.queryByRole("heading", { name: "Set up DadPad" })).toBeNull();
+      expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
     });
   });
 
@@ -226,112 +347,57 @@ describe("DadPad app", () => {
 
     await waitFor(() => {
       expect(editor.value).toBe("Polished text.");
-      expect(screen.getByText("Polished.")).toBeTruthy();
-      expect((screen.getByRole("button", { name: "Undo" }) as HTMLButtonElement).disabled).toBe(
-        false,
-      );
+      expect(getStatusChip().textContent).toContain("Ready");
+      expect(getLiveStatusRegion().textContent).toContain("Polished.");
+      expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
     });
   });
 
-  it("cancels an in-flight transform and restores the original text", async () => {
-    streamTransformWithOpenAIMock.mockImplementationOnce(
-      ({ signal, onDelta }) =>
-        new Promise((resolve, reject) => {
-          onDelta("Partial");
-          signal.addEventListener(
-            "abort",
-            () => reject(new DOMException("Aborted", "AbortError")),
-            { once: true },
-          );
-          window.setTimeout(() => resolve(createSuccessfulTransform("Should not finish")), 5000);
-        }),
-    );
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
-
-    await user.type(editor, "keep me");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe("keep me");
-      expect(screen.getByText("Cancelled. Original text restored.")).toBeTruthy();
-    });
-  });
-
-  it("undo restores the pre-transform text", async () => {
-    streamTransformWithOpenAIMock.mockResolvedValueOnce(createSuccessfulTransform("Polished text."));
-
-    render(<App />);
-    const user = userEvent.setup();
-    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
-
-    await user.type(editor, "rough text");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe("Polished text.");
-    });
-
-    await user.click(screen.getByRole("button", { name: "Undo" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe("rough text");
-      expect(screen.getByText("Undo restored the original text.")).toBeTruthy();
-    });
-  });
-
-  it("respects clear confirmation and clears when confirmed", async () => {
-    const confirmMock = vi.fn(() => true);
-    vi.stubGlobal("confirm", confirmMock);
-
+  it("opens the clear sheet without changing the main status and resets on confirm", async () => {
     render(<App />);
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
     await user.type(editor, "clear me");
+    expect(getStatusChip().textContent).toContain("Ready");
+
     await user.click(screen.getByRole("button", { name: "Clear" }));
 
+    expect(screen.getByRole("alertdialog", { name: "Clear all text?" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Keep text" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Clear now" })).toBeTruthy();
+    expect(getStatusChip().textContent).toContain("Ready");
+
+    await user.click(screen.getByRole("button", { name: "Clear now" }));
+
     const clearedEditor = screen.getByLabelText("Your text") as HTMLTextAreaElement;
-    expect(confirmMock).toHaveBeenCalledWith("Clear all text and start over?");
     expect(clearedEditor.value).toBe("");
-    expect(screen.getByText("Cleared.")).toBeTruthy();
-
-    await act(async () => {
-      await new Promise((resolve) => window.setTimeout(resolve, 1050));
-    });
-
-    expect(screen.getByText("Ready.")).toBeTruthy();
-    expect(screen.queryByText("Cleared.")).toBeNull();
+    expect(getStatusChip().textContent).toContain("Ready");
+    expect(screen.queryByRole("alertdialog", { name: "Clear all text?" })).toBeNull();
   });
 
-  it("leaves text untouched when clear is cancelled", async () => {
-    const confirmMock = vi.fn(() => false);
-    vi.stubGlobal("confirm", confirmMock);
-
+  it("leaves text and status untouched when clear is cancelled", async () => {
     render(<App />);
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
     await user.type(editor, "keep me");
     await user.click(screen.getByRole("button", { name: "Clear" }));
+    await user.click(screen.getByRole("button", { name: "Keep text" }));
 
     await waitFor(() => {
       expect(editor.value).toBe("keep me");
-      expect(screen.getByText("Clear cancelled.")).toBeTruthy();
+      expect(getStatusChip().textContent).toContain("Ready");
+      expect(screen.queryByRole("alertdialog", { name: "Clear all text?" })).toBeNull();
     });
   });
 
-  it("returns to the missing-key resting status after clear when setup is still required", async () => {
+  it("returns to the missing-key resting status immediately after clear when setup is still required", async () => {
     readAppSettingsMock.mockResolvedValue({
       ...TEST_SETTINGS,
       openaiApiKey: "",
     });
-
-    const confirmMock = vi.fn(() => true);
-    vi.stubGlobal("confirm", confirmMock);
 
     render(<App />);
     const user = userEvent.setup();
@@ -339,93 +405,134 @@ describe("DadPad app", () => {
 
     await user.type(editor, "draft without key");
     await user.click(screen.getByRole("button", { name: "Clear" }));
+    await user.click(screen.getByRole("button", { name: "Clear now" }));
 
-    expect(confirmMock).toHaveBeenCalledWith("Clear all text and start over?");
-    expect(screen.getByText("Cleared.")).toBeTruthy();
-
-    await act(async () => {
-      await new Promise((resolve) => window.setTimeout(resolve, 1050));
-    });
-
-    expect(screen.getByText("Add your OpenAI API key to start.")).toBeTruthy();
-    expect(screen.queryByText("Cleared.")).toBeNull();
+    expect(getStatusChip().getAttribute("data-tone")).toBe("error");
+    expect(getStatusChip().textContent).toContain("Add your OpenAI API key to start.");
+    expect(screen.queryByRole("alertdialog", { name: "Clear all text?" })).toBeNull();
   });
 
-  it("remounts and resets the editor DOM state on confirmed clear", async () => {
-    const confirmMock = vi.fn(() => true);
-    vi.stubGlobal("confirm", confirmMock);
-
+  it("remounts and resets the editor DOM state on confirmed clear without refocusing it", async () => {
     render(<App />);
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+    const appMain = getAppMain();
 
     await user.type(editor, "Line 1\nLine 2\nLine 3\nLine 4\nLine 5");
     editor.focus();
     editor.setSelectionRange(8, 8);
     editor.scrollTop = 120;
     editor.scrollLeft = 18;
+    appMain.scrollTop = 160;
+    appMain.scrollLeft = 22;
 
     await user.click(screen.getByRole("button", { name: "Clear" }));
+    await user.click(screen.getByRole("button", { name: "Clear now" }));
 
     await waitFor(() => {
       const resetEditor = screen.getByLabelText("Your text") as HTMLTextAreaElement;
-      expect(confirmMock).toHaveBeenCalledWith("Clear all text and start over?");
       expect(resetEditor).not.toBe(editor);
       expect(resetEditor.value).toBe("");
-      expect(document.activeElement).toBe(resetEditor);
+      expect(document.activeElement).not.toBe(resetEditor);
       expect(resetEditor.selectionStart).toBe(0);
       expect(resetEditor.selectionEnd).toBe(0);
       expect(resetEditor.scrollTop).toBe(0);
       expect(resetEditor.scrollLeft).toBe(0);
+      expect(appMain.scrollTop).toBe(0);
+      expect(appMain.scrollLeft).toBe(0);
+      expect(scrollToMock).toHaveBeenCalled();
     });
   });
 
-  it("does not let the delayed clear reset overwrite a newer status", async () => {
-    let resolveTransform:
-      | ((result: ReturnType<typeof createSuccessfulTransform>) => void)
-      | undefined;
-
-    streamTransformWithOpenAIMock.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveTransform = resolve;
-        }),
-    );
-
-    const confirmMock = vi.fn(() => true);
-    vi.stubGlobal("confirm", confirmMock);
-
+  it("restores editor DOM state when clear is cancelled", async () => {
     render(<App />);
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
-    await user.type(editor, "clear then polish");
+    await user.type(editor, "Line 1\nLine 2\nLine 3\nLine 4\nLine 5");
+    editor.focus();
+    editor.setSelectionRange(8, 12);
+    editor.scrollTop = 120;
+    editor.scrollLeft = 18;
+
     await user.click(screen.getByRole("button", { name: "Clear" }));
-
-    const resetEditor = screen.getByLabelText("Your text") as HTMLTextAreaElement;
-    await user.type(resetEditor, "second pass");
-    await user.click(screen.getByRole("button", { name: "Polish" }));
-
-    expect(confirmMock).toHaveBeenCalledWith("Clear all text and start over?");
-    expect(screen.getByRole("status").textContent).toContain("Polishing…");
-
-    await act(async () => {
-      await new Promise((resolve) => window.setTimeout(resolve, 1050));
-    });
-
-    expect(screen.getByRole("status").textContent).toContain("Polishing…");
-    expect(screen.queryByText("Ready.")).toBeNull();
-
-    act(() => {
-      resolveTransform?.(createSuccessfulTransform("Second pass polished."));
-    });
+    await user.click(screen.getByRole("button", { name: "Keep text" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Polished.")).toBeTruthy();
-      expect((screen.getByLabelText("Your text") as HTMLTextAreaElement).value).toBe(
-        "Second pass polished.",
-      );
+      expect(document.activeElement).toBe(editor);
+      expect(editor.selectionStart).toBe(8);
+      expect(editor.selectionEnd).toBe(12);
+      expect(editor.scrollTop).toBe(120);
+      expect(editor.scrollLeft).toBe(18);
     });
+  });
+
+  it("locks the main actions while clear confirmation is open", async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+
+    await user.type(editor, "lock these actions");
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+
+    expect((screen.getByRole("button", { name: "Polish" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect((screen.getByRole("button", { name: "Clear" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect((screen.getByRole("button", { name: "Copy" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect((screen.getByRole("button", { name: "Share" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(
+      (screen.getByRole("button", { name: "Settings" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect((screen.getByRole("button", { name: "Keep text" }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+    expect((screen.getByRole("button", { name: "Clear now" }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
+
+  it("keeps Polish unchanged while harmonizing the secondary buttons and Settings treatment", async () => {
+    render(<App />);
+
+    const polish = (await screen.findByRole("button", { name: "Polish" })) as HTMLButtonElement;
+    const clear = screen.getByRole("button", { name: "Clear" }) as HTMLButtonElement;
+    const copy = screen.getByRole("button", { name: "Copy" }) as HTMLButtonElement;
+    const share = screen.getByRole("button", { name: "Share" }) as HTMLButtonElement;
+    const settings = screen.getByRole("button", { name: "Settings" }) as HTMLButtonElement;
+
+    expect(polish.classList.contains("primary-action")).toBe(true);
+    expect(polish.classList.contains("secondary-action")).toBe(false);
+    expect(clear.classList.contains("secondary-action")).toBe(true);
+    expect(copy.classList.contains("secondary-action")).toBe(true);
+    expect(share.classList.contains("secondary-action")).toBe(true);
+    expect(clear.classList.contains("secondary-danger")).toBe(false);
+    expect(settings.classList.contains("system-action")).toBe(true);
+    expect(settings.classList.contains("secondary-action")).toBe(false);
+  });
+
+  it("splits the shell into a fixed hero, scrollable main region, and docked footer actions", async () => {
+    render(<App />);
+
+    const title = await screen.findByRole("heading", { name: "DadPad" });
+    const strapline = screen.getByText(
+      "The ultimate helper to ensure that RCML is finally understood in written form.",
+    );
+    const appMain = getAppMain();
+    const actionDock = getActionDock();
+    const actionBar = document.querySelector(".action-bar");
+
+    expect(title.closest(".hero")).toBeTruthy();
+    expect(strapline.closest(".hero")).toBeTruthy();
+    expect(strapline.closest(".app-main")).toBeNull();
+    expect(screen.getByLabelText("Your text").closest(".app-main")).toBe(appMain);
+    expect(actionBar?.parentElement).toBe(actionDock);
   });
 
   it("copies the current text", async () => {
@@ -437,7 +544,8 @@ describe("DadPad app", () => {
     await user.click(screen.getByRole("button", { name: "Copy" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Copied.")).toBeTruthy();
+      expect(getStatusChip().textContent).toContain("Ready");
+      expect(getLiveStatusRegion().textContent).toContain("Copied.");
     });
   });
 
@@ -451,7 +559,8 @@ describe("DadPad app", () => {
 
     await waitFor(() => {
       expect(shareMock).toHaveBeenCalledWith({ text: "share me" });
-      expect(screen.getByText("Share sheet opened.")).toBeTruthy();
+      expect(getStatusChip().textContent).toContain("Ready");
+      expect(getLiveStatusRegion().textContent).toContain("Share sheet opened.");
     });
   });
 
@@ -469,11 +578,12 @@ describe("DadPad app", () => {
     await user.click(screen.getByRole("button", { name: "Share" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Sharing is not available on this device.")).toBeTruthy();
+      expect(getStatusChip().getAttribute("data-tone")).toBe("error");
+      expect(getStatusChip().textContent).toContain("Sharing is not available on this device.");
     });
   });
 
-  it("disables copy, clear, and share while streaming", async () => {
+  it("disables copy, clear, and share while streaming without showing cancel", async () => {
     let resolveTransform: ((value: ReturnType<typeof createSuccessfulTransform>) => void) | null =
       null;
     streamTransformWithOpenAIMock.mockImplementationOnce(
@@ -500,9 +610,9 @@ describe("DadPad app", () => {
       expect((screen.getByRole("button", { name: "Share" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
-      expect((screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(
-        false,
-      );
+      expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+      expect(getStatusChip().textContent).toContain("Ready");
+      expect(getLiveStatusRegion().textContent).toContain("Polishing…");
     });
 
     await act(async () => {
@@ -510,7 +620,7 @@ describe("DadPad app", () => {
     });
   });
 
-  it("surfaces provider errors through the visible status strip", async () => {
+  it("surfaces provider errors through the readiness chip", async () => {
     streamTransformWithOpenAIMock.mockRejectedValueOnce(
       new MockOpenAIProviderError("auth", "Auth failed"),
     );
@@ -523,8 +633,35 @@ describe("DadPad app", () => {
     await user.click(screen.getByRole("button", { name: "Polish" }));
 
     await waitFor(() => {
-      expect(screen.getByText("OpenAI authentication failed. Check your API key.")).toBeTruthy();
+      expect(getStatusChip().getAttribute("data-tone")).toBe("error");
+      expect(getStatusChip().textContent).toContain(
+        "OpenAI authentication failed. Check your API key.",
+      );
       expect(editor.value).toBe("rough");
+    });
+  });
+
+  it("moves settings into the bottom row and toggles its label", async () => {
+    render(<App />);
+    const user = userEvent.setup();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
+      expect(screen.queryByRole("heading", { name: "Set up DadPad" })).toBeNull();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Close settings" })).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Set up DadPad" })).toBeTruthy();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Close settings" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
+      expect(screen.queryByRole("heading", { name: "Set up DadPad" })).toBeNull();
     });
   });
 });

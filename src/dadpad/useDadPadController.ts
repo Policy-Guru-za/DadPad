@@ -26,9 +26,15 @@ type StatusState = {
   tone: StatusTone;
 };
 
+export type EditorResetMode = "dismissKeyboard" | "focusEditor";
+
+export type EditorResetState = {
+  version: number;
+  mode: EditorResetMode;
+};
+
 const READY_MESSAGE = "Ready.";
 const MISSING_API_KEY_MESSAGE = "Add your OpenAI API key to start.";
-const CLEAR_STATUS_DURATION_MS = 1000;
 
 function getRestingStatus(openaiApiKey: string): StatusState {
   return openaiApiKey.trim().length > 0
@@ -89,7 +95,11 @@ export function useDadPadController() {
   const [text, setText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
-  const [editorResetVersion, setEditorResetVersion] = useState(0);
+  const [editorReset, setEditorReset] = useState<EditorResetState>({
+    version: 0,
+    mode: "focusEditor",
+  });
+  const [isConfirmingClear, setIsConfirmingClear] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [settingsDraft, setSettingsDraft] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -103,30 +113,28 @@ export function useDadPadController() {
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const undoCheckpointRef = useRef<string | null>(null);
-  const statusResetTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
   const apiKeyMissing = settings.openaiApiKey.trim().length === 0;
   const polishDisabled =
-    isStreaming || !isSettingsLoaded || apiKeyMissing || text.trim().length === 0;
-
-  const clearPendingStatusReset = (): void => {
-    if (statusResetTimeoutRef.current !== null) {
-      window.clearTimeout(statusResetTimeoutRef.current);
-      statusResetTimeoutRef.current = null;
-    }
-  };
+    isStreaming ||
+    isConfirmingClear ||
+    !isSettingsLoaded ||
+    apiKeyMissing ||
+    text.trim().length === 0;
 
   const applyStatus = (nextStatus: StatusState): void => {
-    clearPendingStatusReset();
     setStatus(nextStatus);
   };
 
-  const scheduleRestingStatusReset = (): void => {
-    clearPendingStatusReset();
-    statusResetTimeoutRef.current = window.setTimeout(() => {
-      statusResetTimeoutRef.current = null;
-      setStatus(getRestingStatus(settings.openaiApiKey));
-    }, CLEAR_STATUS_DURATION_MS);
+  const resetToReadyState = (mode: EditorResetMode = "focusEditor"): void => {
+    setText("");
+    undoCheckpointRef.current = null;
+    setCanUndo(false);
+    setEditorReset((current) => ({
+      version: current.version + 1,
+      mode,
+    }));
+    setStatus(getRestingStatus(settings.openaiApiKey));
   };
 
   useEffect(() => {
@@ -164,16 +172,19 @@ export function useDadPadController() {
 
     return () => {
       cancelled = true;
-      clearPendingStatusReset();
     };
   }, []);
 
   const handleTextChange = (nextText: string): void => {
+    if (isConfirmingClear) {
+      return;
+    }
+
     setText(nextText);
   };
 
   const handleTransform = async (): Promise<void> => {
-    if (isStreaming) {
+    if (isStreaming || isConfirmingClear) {
       return;
     }
 
@@ -267,7 +278,7 @@ export function useDadPadController() {
   };
 
   const handleUndo = (): void => {
-    if (isStreaming || !canUndo || undoCheckpointRef.current === null) {
+    if (isStreaming || isConfirmingClear || !canUndo || undoCheckpointRef.current === null) {
       return;
     }
 
@@ -278,24 +289,35 @@ export function useDadPadController() {
   };
 
   const handleClear = (): void => {
-    if (isStreaming || text.length === 0) {
+    if (isStreaming || isConfirmingClear || text.length === 0) {
       return;
     }
 
-    if (!window.confirm("Clear all text and start over?")) {
-      applyStatus({ message: "Clear cancelled.", tone: "idle" });
+    setIsConfirmingClear(true);
+  };
+
+  const handleClearCancel = (): void => {
+    if (!isConfirmingClear) {
       return;
     }
 
-    setText("");
-    undoCheckpointRef.current = null;
-    setCanUndo(false);
-    setEditorResetVersion((current) => current + 1);
-    setStatus({ message: "Cleared.", tone: "success" });
-    scheduleRestingStatusReset();
+    setIsConfirmingClear(false);
+  };
+
+  const handleClearConfirm = (): void => {
+    if (!isConfirmingClear) {
+      return;
+    }
+
+    setIsConfirmingClear(false);
+    resetToReadyState("dismissKeyboard");
   };
 
   const handleCopy = async (): Promise<void> => {
+    if (isConfirmingClear) {
+      return;
+    }
+
     try {
       await writeClipboard(text);
       applyStatus({ message: "Copied.", tone: "success" });
@@ -308,6 +330,10 @@ export function useDadPadController() {
   };
 
   const handleShare = async (): Promise<void> => {
+    if (isConfirmingClear) {
+      return;
+    }
+
     try {
       await shareText(text);
       applyStatus({ message: "Share sheet opened.", tone: "success" });
@@ -367,7 +393,8 @@ export function useDadPadController() {
     text,
     isStreaming,
     canUndo,
-    editorResetVersion,
+    editorReset,
+    isConfirmingClear,
     isSettingsOpen,
     isSettingsLoaded,
     apiKeyMissing,
@@ -382,6 +409,8 @@ export function useDadPadController() {
     handleCancel,
     handleUndo,
     handleClear,
+    handleClearCancel,
+    handleClearConfirm,
     handleCopy,
     handleShare,
     handleSettingsSave,
