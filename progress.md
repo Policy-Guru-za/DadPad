@@ -1,10 +1,10 @@
 # Progress
 
 ## Current Spec
-- `14_portrait-only-orientation-lock`
+- `15_internet-availability-gate`
 
 ## Current Stage
-- Stage 4 — Gates green; rebuilt on iPad, awaiting user rotation verification
+- Stage 4 — Gates green; rebuilt on iPad, awaiting user offline/wake verification
 
 ## Status
 - Spec `07_clear-ui-reset-overlay` is complete; the user verified the physical-iPad clear flow and confirmed the implementation is correct.
@@ -14,11 +14,20 @@
 - Spec `11_keyboard-dock-and-surface-cleanup` is complete for the general shell/dock cleanup.
 - Spec `12_clear-reset-and-logo-lockup` is complete.
 - Spec `13_chip-layout-and-ios-icon-refresh` is complete.
-- New active spec: `14_portrait-only-orientation-lock`.
-- This pass removes landscape and upside-down support from the native iOS orientation declarations so DadPad stays in standard upright portrait only.
-- `pnpm test` and `pnpm build` are green, the source and built iOS plists now advertise portrait only, and the updated app has been rebuilt/installed/launched on the connected iPad.
+- Spec `14_portrait-only-orientation-lock` is complete; the native iOS sources and built app now advertise only standard upright portrait.
+- New active spec: `15_internet-availability-gate`.
+- This pass adds a startup/wake internet gate that probes OpenAI reachability, blocks interaction while connectivity is unresolved, and overlays the full app when internet access is unavailable.
+- The view-owned connectivity hook, full-app offline overlay, automatic recovery path, and regression coverage are now implemented.
+- `pnpm test` and `pnpm build` are green, browser smoke confirmed offline and recovery states, and the refreshed app has been rebuilt/installed/launched on the connected iPad.
 
 ## Last Green Commands
+- `pnpm test`
+- `pnpm build`
+- `pnpm preview --host 127.0.0.1 --port 4173` + Playwright smoke with a stubbed OpenAI probe confirming the offline overlay appears with the exact locked copy, blocks `Polish` + `Settings`, clears automatically after a successful reconnect probe, and logs zero console errors
+- `pnpm tauri ios build --debug --open`
+- Xcode MCP `BuildProject` on `windowtab1` (`buildResult: The project built successfully.`)
+- `xcrun devicectl device install app --device 13A95266-ADC7-527A-9F91-4B46F268AE25 ~/Library/Developer/Xcode/DerivedData/dadpad-edodrgvdjgwyriepyaxktomsajmq/Build/Products/debug-iphoneos/DadPad.app`
+- `xcrun devicectl device process launch --device 13A95266-ADC7-527A-9F91-4B46F268AE25 --terminate-existing com.ryanlaubscher.dadpad`
 - `pnpm test`
 - `pnpm build`
 - `rg -n "UISupportedInterfaceOrientations|Landscape|PortraitUpsideDown" src-tauri/gen/apple/project.yml`
@@ -47,10 +56,10 @@
 
 ## Blockers
 - No hard blocker.
-- Pending proof: user rotation verification on the physical iPad that the app now stays upright portrait only.
+- Pending proof: user validation on the physical iPad that cold launch, dock wake, offline loss, and reconnect all show and clear the overlay elegantly.
 
 ## Next Step
-- User rotates the iPad left and right, both normally and with the keyboard open, and confirms DadPad remains locked in upright portrait.
+- User disables and restores internet on the iPad, including after recalling DadPad from the dock, and confirms the overlay appears and clears correctly.
 
 ## Dogfood Evidence
 - User manually tested the physical-iPad clear flow after spec `07` and confirmed the implementation is correct.
@@ -70,3 +79,6 @@
 - New spec `14` static verification confirmed both `src-tauri/gen/apple/project.yml` and `src-tauri/gen/apple/dadpad_iOS/Info.plist` now list only `UIInterfaceOrientationPortrait`.
 - New spec `14` build verification confirmed the built `DadPad.app/Info.plist` also lists only `UIInterfaceOrientationPortrait` for both orientation keys.
 - The connected iPad build path is green for spec `14`: Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.
+- New spec `15` regression coverage now proves startup offline, failed startup probe, delayed reconnect success, visibility/focus rechecks, blocked interaction, preserved draft state, and automatic offline retry recovery.
+- New spec `15` browser smoke against the production bundle confirmed the full grey offline overlay with the exact locked copy, blocked actions while offline, automatic recovery after reconnect, and zero console errors.
+- The connected iPad build path is green for spec `15`: `pnpm tauri ios build --debug --open` passed, Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.

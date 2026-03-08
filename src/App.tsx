@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import "./App.css";
 import dadPadLogo from "./assets/dadpad-logo.png";
 import { useDadPadController } from "./dadpad/useDadPadController";
+import { useInternetGate } from "./dadpad/useInternetGate";
 import { useViewportShell } from "./dadpad/useViewportShell";
 
 type EditorSnapshot = {
@@ -56,6 +57,7 @@ function App() {
     handleSettingsSave,
     updateOpenAiApiKey,
   } = useDadPadController();
+  const { connectivityState, isInteractionBlocked: isConnectivityBlocked } = useInternetGate();
   const { isKeyboardOpen, shellStyle } = useViewportShell();
   const appMainRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
@@ -63,7 +65,10 @@ function App() {
   const previousIsConfirmingClearRef = useRef(false);
   const editorSnapshotRef = useRef<EditorSnapshot | null>(null);
 
-  const actionDisabled = text.length === 0 || isStreaming || isConfirmingClear;
+  const isInteractionBlocked = isStreaming || isConfirmingClear || isConnectivityBlocked;
+  const actionDisabled = text.length === 0 || isInteractionBlocked;
+  const settingsBlocked = isConfirmingClear || isConnectivityBlocked;
+  const showOfflineOverlay = connectivityState === "offline";
   const visibleStatusMessage = isSettingsLoaded ? status.message : "Loading DadPad…";
   const visibleStatusTone = isSettingsLoaded ? status.tone : "idle";
   const settingsButtonLabel = isSettingsOpen ? "Close settings" : "Settings";
@@ -174,8 +179,9 @@ function App() {
         isConfirmingClear ? " clear-sheet-open" : ""
       }`}
       data-theme="warm-sand"
+      data-connectivity={connectivityState}
       style={shellStyle}
-      aria-busy={isStreaming}
+      aria-busy={isStreaming || connectivityState === "checking"}
     >
       <section className="hero">
         <div className="hero-header">
@@ -233,12 +239,13 @@ function App() {
                 onChange={(event) => updateOpenAiApiKey(event.currentTarget.value)}
                 placeholder="sk-..."
                 autoComplete="off"
+                disabled={isConnectivityBlocked}
               />
               <div className="setup-actions">
                 <button
                   type="submit"
                   className="setup-save"
-                  disabled={settingsSaveStatus === "saving"}
+                  disabled={settingsSaveStatus === "saving" || isConnectivityBlocked}
                 >
                   {settingsSaveStatus === "saving" ? "Saving…" : "Save key"}
                 </button>
@@ -267,7 +274,7 @@ function App() {
             onChange={(event) => handleTextChange(event.currentTarget.value)}
             placeholder="Paste or write text here."
             spellCheck
-            readOnly={isStreaming}
+            readOnly={isStreaming || isConnectivityBlocked}
           />
         </section>
       </div>
@@ -278,7 +285,7 @@ function App() {
             type="button"
             className="primary-action action-polish"
             onClick={() => void handleTransform()}
-            disabled={polishDisabled}
+            disabled={polishDisabled || isConnectivityBlocked}
           >
             {isStreaming ? "Polishing…" : "Polish"}
           </button>
@@ -311,7 +318,7 @@ function App() {
             type="button"
             className="system-action action-settings"
             onClick={() => setIsSettingsOpen((open) => !open)}
-            disabled={isConfirmingClear}
+            disabled={settingsBlocked}
             aria-pressed={isSettingsOpen}
           >
             {settingsButtonLabel}
@@ -342,6 +349,7 @@ function App() {
                 type="button"
                 className="secondary-action"
                 onClick={handleClearCancel}
+                disabled={isConnectivityBlocked}
               >
                 Keep text
               </button>
@@ -349,10 +357,27 @@ function App() {
                 type="button"
                 className="secondary-action secondary-danger confirm-clear"
                 onClick={handleClearConfirm}
+                disabled={isConnectivityBlocked}
               >
                 Clear now
               </button>
             </div>
+          </section>
+        </div>
+      ) : null}
+
+      {showOfflineOverlay ? (
+        <div className="internet-gate-layer" role="presentation">
+          <div className="internet-gate-backdrop" aria-hidden="true" />
+          <section
+            className="internet-gate"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="internet-gate-message"
+          >
+            <p id="internet-gate-message">
+              You are not connected to the internet. This app requires internet access.
+            </p>
           </section>
         </div>
       ) : null}

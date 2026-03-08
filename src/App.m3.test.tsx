@@ -57,9 +57,15 @@ const TEST_SETTINGS = {
   smartStructuring: true,
 };
 
+const OFFLINE_MESSAGE =
+  "You are not connected to the internet. This app requires internet access.";
+
 let clipboardWriteMock: ReturnType<typeof vi.fn>;
 let shareMock: ReturnType<typeof vi.fn>;
 let scrollToMock: ReturnType<typeof vi.fn>;
+let fetchMock: ReturnType<typeof vi.fn>;
+let navigatorOnlineState: boolean;
+let documentVisibilityState: DocumentVisibilityState;
 let visualViewportListeners: Map<string, Set<() => void>>;
 let visualViewportMock:
   | {
@@ -152,6 +158,37 @@ function getActionBarLabels(): string[] {
   );
 }
 
+function getAppShell(): HTMLElement {
+  return screen.getByRole("main");
+}
+
+function setNavigatorOnline(nextValue: boolean): void {
+  navigatorOnlineState = nextValue;
+}
+
+function setDocumentVisibility(nextValue: DocumentVisibilityState): void {
+  documentVisibilityState = nextValue;
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+
+  return { promise, resolve, reject };
+}
+
+async function renderApp(): Promise<void> {
+  render(<App />);
+
+  await waitFor(() => {
+    expect(getAppShell().getAttribute("data-connectivity")).toBe("online");
+  });
+}
+
 beforeEach(() => {
   streamTransformWithOpenAIMock.mockReset();
   readAppSettingsMock.mockReset();
@@ -173,6 +210,18 @@ beforeEach(() => {
     configurable: true,
     value: scrollToMock,
   });
+  fetchMock = vi.fn().mockResolvedValue({});
+  vi.stubGlobal("fetch", fetchMock);
+  navigatorOnlineState = true;
+  Object.defineProperty(window.navigator, "onLine", {
+    configurable: true,
+    get: () => navigatorOnlineState,
+  });
+  documentVisibilityState = "visible";
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    get: () => documentVisibilityState,
+  });
   visualViewportListeners = new Map();
   visualViewportMock = undefined;
   Object.defineProperty(window, "visualViewport", {
@@ -188,54 +237,243 @@ afterEach(() => {
 });
 
 describe("DadPad app", () => {
-  it("renders the Warm Sand DadPad shell with the remapped bottom action grid", async () => {
-    render(<App />);
+  it("shows no offline overlay after a successful startup connectivity probe", async () => {
+    await renderApp();
 
-    await waitFor(() => {
-      const heroHeader = document.querySelector(".hero-header");
-      expect(screen.getByRole("heading", { name: "DadPad" })).toBeTruthy();
-      expect(getHeroLogo().getAttribute("src")).toContain("dadpad-logo");
-      expect(getHeroLogo().getAttribute("alt")).toBe("");
-      expect(getHeroLogo().closest(".hero-header")).toBe(heroHeader);
-      const strapline = screen.getByText(
-        "The ultimate helper to ensure that RCML is finally understood in written form.",
-      );
-      expect(strapline.closest("em")).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Polish" })).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Clear" })).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Copy" })).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Share" })).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
-      expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
-      expect(screen.queryByRole("button", { name: "API key" })).toBeNull();
-      expect(screen.queryByText("iPad-first writing help")).toBeNull();
-      expect(document.querySelector(".status-strip")).toBeNull();
-      expect(document.querySelector(".status-tile")).toBeNull();
-      expect(getStatusChip().closest(".hero-header")).toBe(heroHeader);
-      expect(getStatusChip().closest(".app-main")).toBeNull();
-      expect(getStatusChip().getAttribute("data-tone")).toBe("ready");
-      expect(getStatusChip().textContent).toContain("Ready");
-      expect(getStatusChipDot().classList.contains("ready-dot")).toBe(true);
-      expect(getStatusChipDot().classList.contains("error-dot")).toBe(false);
-      expect(getActionBarLabels()).toEqual(["Polish", "Clear", "Copy", "Share", "Settings"]);
-      expect(getActionSpacer()).toBeTruthy();
-      expect(getActionDock()).toBeTruthy();
-      expect(getAppMain()).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Casual" })).toBeNull();
-      expect(screen.queryByRole("button", { name: "Professional" })).toBeNull();
-      expect(screen.queryByRole("button", { name: "Direct" })).toBeNull();
-      expect(screen.queryByRole("button", { name: "Markdown" })).toBeNull();
+    expect(screen.queryByText(OFFLINE_MESSAGE)).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith("https://api.openai.com", {
+      method: "HEAD",
+      mode: "no-cors",
+      cache: "no-store",
+      signal: expect.any(AbortSignal),
     });
   });
 
-  it("marks the live shell as the Warm Sand production theme", async () => {
+  it("shows the offline overlay immediately when navigator reports no internet at startup", async () => {
+    setNavigatorOnline(false);
+    fetchMock.mockRejectedValueOnce(new Error("offline"));
     render(<App />);
 
     await waitFor(() => {
-      const main = screen.getByRole("main");
-      expect(main.getAttribute("data-theme")).toBe("warm-sand");
+      expect(screen.getByText(OFFLINE_MESSAGE)).toBeTruthy();
+      expect(getAppShell().getAttribute("data-connectivity")).toBe("offline");
     });
+  });
+
+  it("shows the offline overlay when the startup reachability probe fails", async () => {
+    fetchMock.mockRejectedValueOnce(new Error("offline"));
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText(OFFLINE_MESSAGE)).toBeTruthy();
+      expect(getAppShell().getAttribute("data-connectivity")).toBe("offline");
+    });
+  });
+
+  it("keeps the offline overlay visible until the follow-up online probe succeeds", async () => {
+    setNavigatorOnline(false);
+    fetchMock.mockRejectedValueOnce(new Error("offline"));
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText(OFFLINE_MESSAGE)).toBeTruthy();
+    });
+
+    const probe = createDeferred<{}>();
+    fetchMock.mockReturnValueOnce(probe.promise);
+    setNavigatorOnline(true);
+    window.dispatchEvent(new Event("online"));
+
+    expect(screen.getByText(OFFLINE_MESSAGE)).toBeTruthy();
+
+    await act(async () => {
+      probe.resolve({});
+      await probe.promise;
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText(OFFLINE_MESSAGE)).toBeNull();
+      expect(getAppShell().getAttribute("data-connectivity")).toBe("online");
+    });
+  });
+
+  it("rechecks connectivity on visibility return and focus", async () => {
+    await renderApp();
+
+    fetchMock.mockClear();
+    setDocumentVisibility("hidden");
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    setDocumentVisibility("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    fetchMock.mockClear();
+    window.dispatchEvent(new Event("focus"));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("automatically removes the offline overlay on retry once internet access returns", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockRejectedValue(new Error("offline"));
+
+    render(<App />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(OFFLINE_MESSAGE)).toBeTruthy();
+
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue({});
+    setNavigatorOnline(true);
+
+    await act(async () => {
+      vi.advanceTimersByTime(2000);
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText(OFFLINE_MESSAGE)).toBeNull();
+    expect(getAppShell().getAttribute("data-connectivity")).toBe("online");
+  });
+
+  it("recovers on retry even if navigator.onLine still lags behind the reconnect", async () => {
+    vi.useFakeTimers();
+    setNavigatorOnline(false);
+    fetchMock.mockRejectedValue(new Error("offline"));
+
+    render(<App />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(OFFLINE_MESSAGE)).toBeTruthy();
+
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue({});
+
+    await act(async () => {
+      vi.advanceTimersByTime(2000);
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText(OFFLINE_MESSAGE)).toBeNull();
+    expect(getAppShell().getAttribute("data-connectivity")).toBe("online");
+    expect(fetchMock).toHaveBeenCalledWith("https://api.openai.com", {
+      method: "HEAD",
+      mode: "no-cors",
+      cache: "no-store",
+      signal: expect.any(AbortSignal),
+    });
+  });
+
+  it("preserves the live draft when the offline overlay disappears after reconnect", async () => {
+    await renderApp();
+    const user = userEvent.setup();
+    const editor = screen.getByLabelText("Your text") as HTMLTextAreaElement;
+
+    await user.type(editor, "preserve this draft");
+    setNavigatorOnline(false);
+    window.dispatchEvent(new Event("offline"));
+
+    await waitFor(() => {
+      expect(screen.getByText(OFFLINE_MESSAGE)).toBeTruthy();
+      expect(editor.value).toBe("preserve this draft");
+    });
+
+    fetchMock.mockResolvedValueOnce({});
+    setNavigatorOnline(true);
+    window.dispatchEvent(new Event("online"));
+
+    await waitFor(() => {
+      expect(screen.queryByText(OFFLINE_MESSAGE)).toBeNull();
+      expect(editor.value).toBe("preserve this draft");
+    });
+  });
+
+  it("blocks the editor, actions, and settings while the offline overlay is visible", async () => {
+    await renderApp();
+    const user = userEvent.setup();
+    const editor = screen.getByLabelText("Your text") as HTMLTextAreaElement;
+
+    await user.type(editor, "offline lock");
+    setNavigatorOnline(false);
+    window.dispatchEvent(new Event("offline"));
+
+    await waitFor(() => {
+      expect(screen.getByText(OFFLINE_MESSAGE)).toBeTruthy();
+      expect(editor.readOnly).toBe(true);
+      expect((screen.getByRole("button", { name: "Polish" }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+      expect((screen.getByRole("button", { name: "Clear" }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+      expect((screen.getByRole("button", { name: "Copy" }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+      expect((screen.getByRole("button", { name: "Share" }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+      expect(
+        (screen.getByRole("button", { name: "Settings" }) as HTMLButtonElement).disabled,
+      ).toBe(true);
+    });
+  });
+
+  it("renders the Warm Sand DadPad shell with the remapped bottom action grid", async () => {
+    await renderApp();
+
+    const heroHeader = document.querySelector(".hero-header");
+    expect(screen.getByRole("heading", { name: "DadPad" })).toBeTruthy();
+    expect(getHeroLogo().getAttribute("src")).toContain("dadpad-logo");
+    expect(getHeroLogo().getAttribute("alt")).toBe("");
+    expect(getHeroLogo().closest(".hero-header")).toBe(heroHeader);
+    const strapline = screen.getByText(
+      "The ultimate helper to ensure that RCML is finally understood in written form.",
+    );
+    expect(strapline.closest("em")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Polish" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Clear" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Share" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "API key" })).toBeNull();
+    expect(screen.queryByText("iPad-first writing help")).toBeNull();
+    expect(document.querySelector(".status-strip")).toBeNull();
+    expect(document.querySelector(".status-tile")).toBeNull();
+    expect(getStatusChip().closest(".hero-header")).toBe(heroHeader);
+    expect(getStatusChip().closest(".app-main")).toBeNull();
+    expect(getStatusChip().getAttribute("data-tone")).toBe("ready");
+    expect(getStatusChip().textContent).toContain("Ready");
+    expect(getStatusChipDot().classList.contains("ready-dot")).toBe(true);
+    expect(getStatusChipDot().classList.contains("error-dot")).toBe(false);
+    expect(getActionBarLabels()).toEqual(["Polish", "Clear", "Copy", "Share", "Settings"]);
+    expect(getActionSpacer()).toBeTruthy();
+    expect(getActionDock()).toBeTruthy();
+    expect(getAppMain()).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Casual" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Professional" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Direct" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Markdown" })).toBeNull();
+  });
+
+  it("marks the live shell as the Warm Sand production theme", async () => {
+    await renderApp();
+
+    const main = screen.getByRole("main");
+    expect(main.getAttribute("data-theme")).toBe("warm-sand");
   });
 
   it("shrinks the shell when visualViewport reports the software keyboard", async () => {
@@ -262,7 +500,7 @@ describe("DadPad app", () => {
       value: visualViewportMock,
     });
 
-    render(<App />);
+    await renderApp();
 
     const main = await screen.findByRole("main");
     await waitFor(() => {
@@ -290,7 +528,7 @@ describe("DadPad app", () => {
       openaiApiKey: "",
     });
 
-    render(<App />);
+    await renderApp();
 
     await waitFor(() => {
       expect(screen.getByLabelText("API key required")).toBeTruthy();
@@ -311,7 +549,7 @@ describe("DadPad app", () => {
       openaiApiKey: "",
     });
 
-    render(<App />);
+    await renderApp();
     const user = userEvent.setup();
 
     const apiKeyInput = (await screen.findByLabelText("OpenAI API key")) as HTMLInputElement;
@@ -338,7 +576,7 @@ describe("DadPad app", () => {
       return createSuccessfulTransform("Polished text.");
     });
 
-    render(<App />);
+    await renderApp();
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
@@ -355,7 +593,7 @@ describe("DadPad app", () => {
   });
 
   it("opens the clear sheet without changing the main status and resets on confirm", async () => {
-    render(<App />);
+    await renderApp();
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
@@ -378,7 +616,7 @@ describe("DadPad app", () => {
   });
 
   it("leaves text and status untouched when clear is cancelled", async () => {
-    render(<App />);
+    await renderApp();
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
@@ -399,7 +637,7 @@ describe("DadPad app", () => {
       openaiApiKey: "",
     });
 
-    render(<App />);
+    await renderApp();
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
@@ -413,7 +651,7 @@ describe("DadPad app", () => {
   });
 
   it("remounts and resets the editor DOM state on confirmed clear without refocusing it", async () => {
-    render(<App />);
+    await renderApp();
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
     const appMain = getAppMain();
@@ -445,7 +683,7 @@ describe("DadPad app", () => {
   });
 
   it("restores editor DOM state when clear is cancelled", async () => {
-    render(<App />);
+    await renderApp();
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
@@ -468,7 +706,7 @@ describe("DadPad app", () => {
   });
 
   it("locks the main actions while clear confirmation is open", async () => {
-    render(<App />);
+    await renderApp();
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
@@ -499,7 +737,7 @@ describe("DadPad app", () => {
   });
 
   it("keeps Polish unchanged while harmonizing the secondary buttons and Settings treatment", async () => {
-    render(<App />);
+    await renderApp();
 
     const polish = (await screen.findByRole("button", { name: "Polish" })) as HTMLButtonElement;
     const clear = screen.getByRole("button", { name: "Clear" }) as HTMLButtonElement;
@@ -518,7 +756,7 @@ describe("DadPad app", () => {
   });
 
   it("splits the shell into a fixed hero, scrollable main region, and docked footer actions", async () => {
-    render(<App />);
+    await renderApp();
 
     const title = await screen.findByRole("heading", { name: "DadPad" });
     const strapline = screen.getByText(
@@ -536,7 +774,7 @@ describe("DadPad app", () => {
   });
 
   it("copies the current text", async () => {
-    render(<App />);
+    await renderApp();
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
@@ -550,7 +788,7 @@ describe("DadPad app", () => {
   });
 
   it("shares the current text through navigator.share", async () => {
-    render(<App />);
+    await renderApp();
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
@@ -570,7 +808,7 @@ describe("DadPad app", () => {
       value: undefined,
     });
 
-    render(<App />);
+    await renderApp();
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
@@ -593,7 +831,7 @@ describe("DadPad app", () => {
         }),
     );
 
-    render(<App />);
+    await renderApp();
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
@@ -625,7 +863,7 @@ describe("DadPad app", () => {
       new MockOpenAIProviderError("auth", "Auth failed"),
     );
 
-    render(<App />);
+    await renderApp();
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
@@ -642,7 +880,7 @@ describe("DadPad app", () => {
   });
 
   it("moves settings into the bottom row and toggles its label", async () => {
-    render(<App />);
+    await renderApp();
     const user = userEvent.setup();
 
     await waitFor(() => {
