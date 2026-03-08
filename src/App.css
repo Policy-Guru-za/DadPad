@@ -357,7 +357,7 @@ textarea:focus-visible {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-areas:
     "polish clear settings"
-    "share copy spacer";
+    "share copy gmail";
   gap: 12px;
 }
 
@@ -381,17 +381,12 @@ textarea:focus-visible {
   grid-area: share;
 }
 
-.action-spacer {
-  grid-area: spacer;
-}
-
-.action-spacer[aria-hidden="true"] {
-  min-height: 62px;
-  pointer-events: none;
-}
-
 .action-settings {
   grid-area: settings;
+}
+
+.action-gmail {
+  grid-area: gmail;
 }
 
 .app-shell.clear-sheet-open {
@@ -485,6 +480,19 @@ textarea:focus-visible {
   box-shadow: 0 8px 20px rgba(61, 49, 36, 0.06);
 }
 
+.gmail-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.gmail-icon {
+  display: block;
+  width: clamp(2rem, 3.2vw, 2.35rem);
+  height: auto;
+}
+
 .secondary-action:hover:not(:disabled) {
   background: #efe0c7;
 }
@@ -534,6 +542,10 @@ button:disabled {
   border-color: rgba(221, 207, 184, 0.96);
   color: rgba(61, 49, 36, 0.56);
   box-shadow: none;
+}
+
+.gmail-action:disabled .gmail-icon {
+  opacity: 0.5;
 }
 
 .system-action:disabled {
@@ -591,11 +603,7 @@ button:disabled {
     grid-template-areas:
       "polish clear"
       "settings share"
-      "copy copy";
-  }
-
-  .action-spacer {
-    display: none;
+      "copy gmail";
   }
 
   .confirm-actions {
@@ -611,6 +619,7 @@ button:disabled {
       "clear"
       "settings"
       "share"
-      "copy";
+      "copy"
+      "gmail";
   }
 }

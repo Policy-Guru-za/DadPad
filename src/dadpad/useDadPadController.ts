@@ -16,6 +16,10 @@ import {
   readAppSettings,
   writeAppSettings,
 } from "../settings/config";
+import {
+  composeWithGmail,
+  EmailComposeUnavailableError,
+} from "../utils/email";
 import { shareText, ShareUnavailableError } from "../utils/share";
 
 type SettingsSaveStatus = "idle" | "saving" | "saved" | "error";
@@ -352,6 +356,27 @@ export function useDadPadController() {
     }
   };
 
+  const handleGmail = async (): Promise<void> => {
+    if (isConfirmingClear) {
+      return;
+    }
+
+    try {
+      const method = await composeWithGmail(text);
+      applyStatus({
+        message: method === "gmail" ? "Gmail compose opened." : "Email compose opened.",
+        tone: "success",
+      });
+    } catch (error) {
+      if (error instanceof EmailComposeUnavailableError) {
+        applyStatus({ message: error.message, tone: "error" });
+        return;
+      }
+
+      applyStatus({ message: "Email compose failed.", tone: "error" });
+    }
+  };
+
   const handleSettingsSave = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (settingsSaveStatus === "saving") {
@@ -413,6 +438,7 @@ export function useDadPadController() {
     handleClearConfirm,
     handleCopy,
     handleShare,
+    handleGmail,
     handleSettingsSave,
     updateOpenAiApiKey,
   };

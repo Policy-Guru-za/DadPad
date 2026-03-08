@@ -53,8 +53,9 @@ Turn the copied PolishPad codebase into DadPad: a clean, minimal, iPad-first tex
 
 ## Sharing
 - `Share` is first-class and visible.
-- First choice: `navigator.share({ text })` through one frontend utility.
-- If simulator proof is inconclusive, require physical iPad proof or immediately switch to a thin native `share_text` bridge before the DadPad UI is locked.
+- Generic `Share` should remain available for Notes and other share targets through one frontend utility.
+- DadPad may add a separate email-specific action when generic share targets flatten email paragraph breaks.
+- If simulator proof is inconclusive, require physical iPad proof or immediately switch to a thin native bridge before the DadPad UI is locked.
 
 ## Proof Gates
 ### DadPad Gate A
@@ -76,5 +77,5 @@ Turn the copied PolishPad codebase into DadPad: a clean, minimal, iPad-first tex
 - DadPad uses fresh app-scoped encrypted storage.
 - DadPad ships a simplified touch-first UI with the locked visible controls.
 - DadPad can run on iPad simulator; physical iPad smoke test if feasible.
-- DadPad share path is proven via `navigator.share` or an explicit native bridge.
+- DadPad generic share path is proven via `navigator.share`, and any email-specific path is proven separately if added.
 - Tests/builds for the transitioned app are green.

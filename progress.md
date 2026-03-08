@@ -1,10 +1,10 @@
 # Progress
 
 ## Current Spec
-- `18_voice-preserving-polish`
+- `19_gmail-first-email-action`
 
 ## Current Stage
-- Stage 4 — Prompt/docs/tests complete; local gates green; live eval blocked by missing DadPad API-key config
+- Stage 2 — Gmail-first email helper, dock button, and regression coverage in progress
 
 ## Status
 - Spec `07_clear-ui-reset-overlay` is complete; the user verified the physical-iPad clear flow and confirmed the implementation is correct.
@@ -18,12 +18,11 @@
 - Spec `15_internet-availability-gate` is complete; the startup/wake connectivity gate, full-app offline overlay, and automatic recovery path are implemented and green.
 - Spec `16_single-surface-editor` is complete; the user approved the single-surface writing area.
 - Spec `17_action-dock-remap` is complete; the action dock now reads `Polish / Clear / Settings` then `Share / Copy / spacer`, and the user approved the live iPad result.
-- New active spec: `18_voice-preserving-polish`.
-- This pass recalibrates DadPad `Polish` away from neutral-professional smoothing and toward “same person, just cleaner.”
-- The shipped prompt, copied prompt docs, and mode-eval harness are being updated together so wording cleanup, grammar cleanup, paragraph cleanup, and restrained bullet usage are enforced as one contract.
-- `pnpm test` and `pnpm build` are green after the prompt recalibration.
-- Manual prompt dogfood against the Peter-email sample confirmed the shipped `Polish` instructions now prefer paragraphs, preserve voice, and explicitly forbid corporate/assistant-like drift.
-- Live eval is blocked before the first API call because DadPad has `~/Library/Application Support/DadPad/encryption.key` but no readable `config.enc`, so the eval loader cannot source an OpenAI API key.
+- Spec `18_voice-preserving-polish` is complete; prompt/docs/tests landed, and only the optional live eval remains blocked by missing local OpenAI config.
+- New active spec: `19_gmail-first-email-action`.
+- This pass keeps generic `Share` for Notes/other targets and adds a separate Gmail icon button that preserves paragraphs through Gmail-first email compose.
+- Root diagnosis: DadPad hands generic share targets plain text unchanged; Gmail flattens paragraphs when it imports generic Web Share text.
+- Pending proof: green local gates plus physical iPad smoke that `Share` still reaches Notes and the Gmail button preserves paragraph breaks in compose.
 
 ## Last Green Commands
 - `pnpm test`
@@ -77,12 +76,11 @@
 - `python3 -m http.server 4300 --bind 127.0.0.1` from `design/` + Playwright smoke of all five `theme-previews/*.html` files at `1440px` and `1024px`
 
 ## Blockers
-- Live eval blocker: `pnpm eval:modes` stops immediately with `No OpenAI API key found. Set OPENAI_API_KEY or save one in the app settings first.`
-- Local DadPad config check shows `~/Library/Application Support/DadPad/encryption.key` exists but `config.enc` is absent, so there is no saved API key for `scripts/eval-modes.ts` or `scripts/eval-structure.ts` to load.
+- No hard blocker.
+- Existing non-critical carryover: live prompt eval still needs an OpenAI API key in DadPad settings or `OPENAI_API_KEY`; unrelated to the Gmail button work.
 
 ## Next Step
-- If an OpenAI API key is restored in DadPad settings or exported in `OPENAI_API_KEY`, run `pnpm eval:modes` and `pnpm eval:structure` to close the live naturalness gate.
-- Otherwise, hand off the completed prompt/docs/test patch with the live-eval blocker called out explicitly.
+- Finish the Gmail icon button + Gmail-first compose helper, run `pnpm test` and `pnpm build`, then rebuild/install/launch on the connected iPad for real Share/Gmail smoke.
 
 ## Dogfood Evidence
 - User manually tested the physical-iPad clear flow after spec `07` and confirmed the implementation is correct.
@@ -112,3 +110,4 @@
 - New spec `17` browser smoke against the production bundle confirmed iPad-width positions `Polish / Clear / Settings` then `Share / Copy`, with `Copy` directly beneath `Clear`, plus a stable narrow-width order of `Polish / Clear / Settings / Share / Copy`.
 - The connected iPad build path is green for spec `17`: `pnpm tauri ios build --debug --open` passed, Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.
 - New spec `18` prompt dogfood against the Peter-email sample confirmed the shipped `Polish` prompt now says “Make this sound like the same person, just clearer and cleaner,” forbids assistant-like phrasing, preserves everyday wording, and sets `Preferred shape for this input: paragraphs` instead of `hybrid`.
+- New spec `19` diagnosis confirmed DadPad still shares plain text unchanged via `navigator.share({ text })`; Gmail paragraph flattening occurs in Gmail's target handling, not in DadPad's editor or share payload.

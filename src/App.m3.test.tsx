@@ -18,6 +18,7 @@ const hoisted = vi.hoisted(() => {
     streamTransformWithOpenAIMock: vi.fn(),
     readAppSettingsMock: vi.fn(),
     writeAppSettingsMock: vi.fn(),
+    openUrlMock: vi.fn(),
     MockOpenAIProviderError,
   };
 });
@@ -26,6 +27,7 @@ const {
   streamTransformWithOpenAIMock,
   readAppSettingsMock,
   writeAppSettingsMock,
+  openUrlMock,
   MockOpenAIProviderError,
 } = hoisted;
 
@@ -46,6 +48,10 @@ vi.mock("./settings/config", () => ({
   },
   readAppSettings: hoisted.readAppSettingsMock,
   writeAppSettings: hoisted.writeAppSettingsMock,
+}));
+
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openUrl: hoisted.openUrlMock,
 }));
 
 const TEST_SETTINGS = {
@@ -120,15 +126,6 @@ function getLiveStatusRegion(): HTMLDivElement {
   return region;
 }
 
-function getActionSpacer(): HTMLDivElement {
-  const spacer = document.querySelector(".action-spacer");
-  if (!(spacer instanceof HTMLDivElement)) {
-    throw new Error("Expected action spacer.");
-  }
-
-  return spacer;
-}
-
 function getActionDock(): HTMLElement {
   const dock = document.querySelector(".action-dock");
   if (!(dock instanceof HTMLElement)) {
@@ -154,7 +151,9 @@ function getActionBarLabels(): string[] {
   }
 
   return Array.from(actionBar.querySelectorAll("button")).map((child) =>
-    child.textContent?.replace(/\s+/g, " ").trim() ?? "",
+    child.getAttribute("aria-label") ??
+      child.textContent?.replace(/\s+/g, " ").trim() ??
+      "",
   );
 }
 
@@ -211,6 +210,7 @@ beforeEach(() => {
   streamTransformWithOpenAIMock.mockReset();
   readAppSettingsMock.mockReset();
   writeAppSettingsMock.mockReset();
+  openUrlMock.mockReset();
   readAppSettingsMock.mockResolvedValue(TEST_SETTINGS);
   writeAppSettingsMock.mockImplementation(async (settings) => settings);
   clipboardWriteMock = vi.fn().mockResolvedValue(undefined);
@@ -465,6 +465,7 @@ describe("DadPad app", () => {
     expect(screen.getByRole("button", { name: "Clear" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Copy" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Share" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Gmail" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
@@ -478,8 +479,14 @@ describe("DadPad app", () => {
     expect(getStatusChip().textContent).toContain("Ready");
     expect(getStatusChipDot().classList.contains("ready-dot")).toBe(true);
     expect(getStatusChipDot().classList.contains("error-dot")).toBe(false);
-    expect(getActionBarLabels()).toEqual(["Polish", "Clear", "Settings", "Share", "Copy"]);
-    expect(getActionSpacer()).toBeTruthy();
+    expect(getActionBarLabels()).toEqual([
+      "Polish",
+      "Clear",
+      "Settings",
+      "Share",
+      "Copy",
+      "Gmail",
+    ]);
     expect(getActionDock()).toBeTruthy();
     expect(getAppMain()).toBeTruthy();
     expect(getEditorPanel()).toBeTruthy();
@@ -838,6 +845,64 @@ describe("DadPad app", () => {
     });
   });
 
+  it("opens Gmail compose first and preserves paragraph breaks", async () => {
+    openUrlMock.mockResolvedValueOnce(undefined);
+
+    await renderApp();
+    const user = userEvent.setup();
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+
+    await user.type(editor, "First paragraph{enter}{enter}Second paragraph");
+    await user.click(screen.getByRole("button", { name: "Gmail" }));
+
+    await waitFor(() => {
+      expect(openUrlMock).toHaveBeenCalledTimes(1);
+      expect(String(openUrlMock.mock.calls[0]?.[0])).toContain("googlegmail:///co?");
+      expect(String(openUrlMock.mock.calls[0]?.[0])).toContain(
+        "body=First%20paragraph%0D%0A%0D%0ASecond%20paragraph",
+      );
+      expect(getStatusChip().textContent).toContain("Ready");
+      expect(getLiveStatusRegion().textContent).toContain("Gmail compose opened.");
+    });
+  });
+
+  it("falls back to mailto when Gmail compose cannot open", async () => {
+    openUrlMock
+      .mockRejectedValueOnce(new Error("gmail missing"))
+      .mockResolvedValueOnce(undefined);
+
+    await renderApp();
+    const user = userEvent.setup();
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+
+    await user.type(editor, "email me");
+    await user.click(screen.getByRole("button", { name: "Gmail" }));
+
+    await waitFor(() => {
+      expect(openUrlMock).toHaveBeenCalledTimes(2);
+      expect(String(openUrlMock.mock.calls[1]?.[0])).toBe("mailto:?body=email%20me");
+      expect(getLiveStatusRegion().textContent).toContain("Email compose opened.");
+    });
+  });
+
+  it("shows a clear error when Gmail and mailto are unavailable", async () => {
+    openUrlMock.mockRejectedValue(new Error("no compose"));
+
+    await renderApp();
+    const user = userEvent.setup();
+    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
+
+    await user.type(editor, "email me");
+    await user.click(screen.getByRole("button", { name: "Gmail" }));
+
+    await waitFor(() => {
+      expect(getStatusChip().getAttribute("data-tone")).toBe("error");
+      expect(getStatusChip().textContent).toContain(
+        "Email compose is not available on this device.",
+      );
+    });
+  });
+
   it("shows a clear error when sharing is unavailable", async () => {
     Object.defineProperty(navigator, "share", {
       configurable: true,
@@ -857,7 +922,7 @@ describe("DadPad app", () => {
     });
   });
 
-  it("disables copy, clear, and share while streaming without showing cancel", async () => {
+  it("disables copy, clear, share, and Gmail while streaming without showing cancel", async () => {
     let resolveTransform: ((value: ReturnType<typeof createSuccessfulTransform>) => void) | null =
       null;
     streamTransformWithOpenAIMock.mockImplementationOnce(
@@ -882,6 +947,9 @@ describe("DadPad app", () => {
         true,
       );
       expect((screen.getByRole("button", { name: "Share" }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+      expect((screen.getByRole("button", { name: "Gmail" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
       expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();

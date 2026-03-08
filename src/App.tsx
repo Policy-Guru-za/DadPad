@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import "./App.css";
 import dadPadLogo from "./assets/dadpad-logo.png";
+import gmailIcon from "./assets/gmail-icon.svg";
 import { useDadPadController } from "./dadpad/useDadPadController";
 import { useInternetGate } from "./dadpad/useInternetGate";
 import { useViewportShell } from "./dadpad/useViewportShell";
@@ -54,6 +55,7 @@ function App() {
     handleClearConfirm,
     handleCopy,
     handleShare,
+    handleGmail,
     handleSettingsSave,
     updateOpenAiApiKey,
   } = useDadPadController();
@@ -322,7 +324,22 @@ function App() {
           >
             Copy
           </button>
-          <div className="action-spacer" aria-hidden="true" />
+          <button
+            type="button"
+            className="secondary-action gmail-action action-gmail"
+            onClick={() => void handleGmail()}
+            disabled={actionDisabled}
+            aria-label="Gmail"
+            title="Gmail"
+          >
+            <img
+              className="gmail-icon"
+              src={gmailIcon}
+              alt=""
+              aria-hidden="true"
+              draggable="false"
+            />
+          </button>
         </section>
       </section>
 
