@@ -158,6 +158,24 @@ function getActionBarLabels(): string[] {
   );
 }
 
+function getEditorPanel(): HTMLElement {
+  const panel = document.querySelector(".editor-panel");
+  if (!(panel instanceof HTMLElement)) {
+    throw new Error("Expected editor panel.");
+  }
+
+  return panel;
+}
+
+function getEditorLabel(): HTMLLabelElement {
+  const label = document.querySelector(".editor-label");
+  if (!(label instanceof HTMLLabelElement)) {
+    throw new Error("Expected editor label.");
+  }
+
+  return label;
+}
+
 function getAppShell(): HTMLElement {
   return screen.getByRole("main");
 }
@@ -434,6 +452,7 @@ describe("DadPad app", () => {
     await renderApp();
 
     const heroHeader = document.querySelector(".hero-header");
+    const editor = screen.getByLabelText("Your text") as HTMLTextAreaElement;
     expect(screen.getByRole("heading", { name: "DadPad" })).toBeTruthy();
     expect(getHeroLogo().getAttribute("src")).toContain("dadpad-logo");
     expect(getHeroLogo().getAttribute("alt")).toBe("");
@@ -463,6 +482,9 @@ describe("DadPad app", () => {
     expect(getActionSpacer()).toBeTruthy();
     expect(getActionDock()).toBeTruthy();
     expect(getAppMain()).toBeTruthy();
+    expect(getEditorPanel()).toBeTruthy();
+    expect(getEditorLabel().classList.contains("sr-only")).toBe(true);
+    expect(editor.placeholder).toBe("Paste or write text here.");
     expect(screen.queryByRole("button", { name: "Casual" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Professional" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Direct" })).toBeNull();
@@ -771,6 +793,20 @@ describe("DadPad app", () => {
     expect(strapline.closest(".app-main")).toBeNull();
     expect(screen.getByLabelText("Your text").closest(".app-main")).toBe(appMain);
     expect(actionBar?.parentElement).toBe(actionDock);
+  });
+
+  it("keeps only one visible editor surface while preserving the hidden label", async () => {
+    await renderApp();
+
+    const editor = screen.getByLabelText("Your text") as HTMLTextAreaElement;
+    const editorLabel = getEditorLabel();
+    const editorPanel = getEditorPanel();
+
+    expect(editorLabel.classList.contains("sr-only")).toBe(true);
+    expect(editor.getAttribute("placeholder")).toBe("Paste or write text here.");
+    expect(editor.parentElement).toBe(editorPanel);
+    expect(editorPanel.querySelectorAll("textarea")).toHaveLength(1);
+    expect(editorPanel.querySelectorAll("label")).toHaveLength(1);
   });
 
   it("copies the current text", async () => {

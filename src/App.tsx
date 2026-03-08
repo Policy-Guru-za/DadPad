@@ -262,7 +262,7 @@ function App() {
         ) : null}
 
         <section className="editor-panel">
-          <label className="editor-label" htmlFor="dadpad-editor">
+          <label className="editor-label sr-only" htmlFor="dadpad-editor">
             Your text
           </label>
           <textarea

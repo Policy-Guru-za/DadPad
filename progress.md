@@ -1,10 +1,10 @@
 # Progress
 
 ## Current Spec
-- `15_internet-availability-gate`
+- `16_single-surface-editor`
 
 ## Current Stage
-- Stage 4 — Gates green; rebuilt on iPad, awaiting user offline/wake verification
+- Stage 4 — Gates green; rebuilt on iPad, awaiting user visual verification of the single-surface editor
 
 ## Status
 - Spec `07_clear-ui-reset-overlay` is complete; the user verified the physical-iPad clear flow and confirmed the implementation is correct.
@@ -15,12 +15,20 @@
 - Spec `12_clear-reset-and-logo-lockup` is complete.
 - Spec `13_chip-layout-and-ios-icon-refresh` is complete.
 - Spec `14_portrait-only-orientation-lock` is complete; the native iOS sources and built app now advertise only standard upright portrait.
-- New active spec: `15_internet-availability-gate`.
-- This pass adds a startup/wake internet gate that probes OpenAI reachability, blocks interaction while connectivity is unresolved, and overlays the full app when internet access is unavailable.
-- The view-owned connectivity hook, full-app offline overlay, automatic recovery path, and regression coverage are now implemented.
-- `pnpm test` and `pnpm build` are green, browser smoke confirmed offline and recovery states, and the refreshed app has been rebuilt/installed/launched on the connected iPad.
+- Spec `15_internet-availability-gate` is complete; the startup/wake connectivity gate, full-app offline overlay, and automatic recovery path are implemented and green.
+- New active spec: `16_single-surface-editor`.
+- This pass removes the double-framed writing surface so the textarea becomes the only visible card, while preserving the hidden `Your text` label for accessibility and tests.
+- The markup/style simplification, regression coverage, browser smoke, and refreshed iPad build/install are now complete.
+- `pnpm test` and `pnpm build` are green, browser smoke confirmed the transparent wrapper plus styled textarea, and the updated app has been rebuilt/installed/launched on the connected iPad.
 
 ## Last Green Commands
+- `pnpm test`
+- `pnpm build`
+- `pnpm preview --host 127.0.0.1 --port 4173` + Playwright smoke confirming `.editor-panel` computed to transparent / borderless / no shadow, `.editor` remained the only visible card with border + shadow, the hidden label kept `editor-label sr-only`, keyboard-open still held, clear still reset, offline overlay still appeared, and console errors stayed at zero
+- `pnpm tauri ios build --debug --open`
+- Xcode MCP `BuildProject` on `windowtab1` (`buildResult: The project built successfully.`)
+- `xcrun devicectl device install app --device 13A95266-ADC7-527A-9F91-4B46F268AE25 ~/Library/Developer/Xcode/DerivedData/dadpad-edodrgvdjgwyriepyaxktomsajmq/Build/Products/debug-iphoneos/DadPad.app`
+- `xcrun devicectl device process launch --device 13A95266-ADC7-527A-9F91-4B46F268AE25 --terminate-existing com.ryanlaubscher.dadpad`
 - `pnpm test`
 - `pnpm build`
 - `pnpm preview --host 127.0.0.1 --port 4173` + Playwright smoke with a stubbed OpenAI probe confirming the offline overlay appears with the exact locked copy, blocks `Polish` + `Settings`, clears automatically after a successful reconnect probe, and logs zero console errors
@@ -56,10 +64,10 @@
 
 ## Blockers
 - No hard blocker.
-- Pending proof: user validation on the physical iPad that cold launch, dock wake, offline loss, and reconnect all show and clear the overlay elegantly.
+- Pending proof: user validation on the physical iPad that the single-surface editor feels cleaner and visually correct in the live shell.
 
 ## Next Step
-- User disables and restores internet on the iPad, including after recalling DadPad from the dock, and confirms the overlay appears and clears correctly.
+- User visually checks the updated iPad build and confirms the single-surface editor reads as cleaner and more elegant than the prior double-framed version.
 
 ## Dogfood Evidence
 - User manually tested the physical-iPad clear flow after spec `07` and confirmed the implementation is correct.
@@ -82,3 +90,6 @@
 - New spec `15` regression coverage now proves startup offline, failed startup probe, delayed reconnect success, visibility/focus rechecks, blocked interaction, preserved draft state, and automatic offline retry recovery.
 - New spec `15` browser smoke against the production bundle confirmed the full grey offline overlay with the exact locked copy, blocked actions while offline, automatic recovery after reconnect, and zero console errors.
 - The connected iPad build path is green for spec `15`: `pnpm tauri ios build --debug --open` passed, Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.
+- New spec `16` regression coverage now proves the editor remains labeled as `Your text`, the label is hidden-only, the placeholder stays intact, and the writing area structure remains stable through clear/offline/keyboard flows.
+- New spec `16` browser smoke against the production bundle confirmed `.editor-panel` is transparent, borderless, and shadowless while `.editor` remains the sole visible card with the Warm Sand border/shadow treatment.
+- The connected iPad build path is green for spec `16`: `pnpm tauri ios build --debug --open` passed, Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.
