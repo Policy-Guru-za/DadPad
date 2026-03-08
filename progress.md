@@ -4,7 +4,7 @@
 - `19_gmail-first-email-action`
 
 ## Current Stage
-- Stage 2 — Gmail-first email helper, dock button, and regression coverage in progress
+- Stage 3 — Green gates and physical iPad rebuild complete
 
 ## Status
 - Spec `07_clear-ui-reset-overlay` is complete; the user verified the physical-iPad clear flow and confirmed the implementation is correct.
@@ -19,14 +19,19 @@
 - Spec `16_single-surface-editor` is complete; the user approved the single-surface writing area.
 - Spec `17_action-dock-remap` is complete; the action dock now reads `Polish / Clear / Settings` then `Share / Copy / spacer`, and the user approved the live iPad result.
 - Spec `18_voice-preserving-polish` is complete; prompt/docs/tests landed, and only the optional live eval remains blocked by missing local OpenAI config.
-- New active spec: `19_gmail-first-email-action`.
-- This pass keeps generic `Share` for Notes/other targets and adds a separate Gmail icon button that preserves paragraphs through Gmail-first email compose.
-- Root diagnosis: DadPad hands generic share targets plain text unchanged; Gmail flattens paragraphs when it imports generic Web Share text.
-- Pending proof: green local gates plus physical iPad smoke that `Share` still reaches Notes and the Gmail button preserves paragraph breaks in compose.
+- Spec `19_gmail-first-email-action` is complete.
+- DadPad now keeps generic `Share` for Notes/other targets and adds a separate Gmail icon button that preserves paragraphs through Gmail-first email compose.
+- Root diagnosis confirmed: DadPad hands generic share targets plain text unchanged; Gmail flattens paragraphs when it imports generic Web Share text.
+- New outcome: Gmail button attempts Gmail compose first, falls back to `mailto:`, and keeps paragraph breaks/blank lines in the encoded email body.
+- Physical-device build path is green again on the connected iPad.
 
 ## Last Green Commands
 - `pnpm test`
 - `pnpm build`
+- `pnpm tauri ios build --debug --open`
+- Xcode MCP `BuildProject` on `windowtab1` (`buildResult: The project built successfully.`)
+- `xcrun devicectl device install app --device 13A95266-ADC7-527A-9F91-4B46F268AE25 /Users/ryanlaubscher/Library/Developer/Xcode/DerivedData/dadpad-edodrgvdjgwyriepyaxktomsajmq/Build/Products/debug-iphoneos/DadPad.app`
+- `xcrun devicectl device process launch --device 13A95266-ADC7-527A-9F91-4B46F268AE25 --terminate-existing com.ryanlaubscher.dadpad`
 - `pnpm exec tsx <<'TS' ... buildInstructions('polish', deriveStructureIntent(peterEmail, 'polish')) ... TS` confirming `Mode: REFINE`, voice-preserving anti-drift rules, and `Preferred shape for this input: paragraphs`
 - `pnpm test`
 - `pnpm build`
@@ -78,9 +83,10 @@
 ## Blockers
 - No hard blocker.
 - Existing non-critical carryover: live prompt eval still needs an OpenAI API key in DadPad settings or `OPENAI_API_KEY`; unrelated to the Gmail button work.
+- Remaining product check: only the human visual/behavioral smoke in Gmail and Notes on the physical iPad.
 
 ## Next Step
-- Finish the Gmail icon button + Gmail-first compose helper, run `pnpm test` and `pnpm build`, then rebuild/install/launch on the connected iPad for real Share/Gmail smoke.
+- User smoke: verify `Share` still reaches Notes/other generic targets and the Gmail icon button opens Gmail/default mail compose with preserved paragraph breaks.
 
 ## Dogfood Evidence
 - User manually tested the physical-iPad clear flow after spec `07` and confirmed the implementation is correct.
@@ -111,3 +117,5 @@
 - The connected iPad build path is green for spec `17`: `pnpm tauri ios build --debug --open` passed, Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.
 - New spec `18` prompt dogfood against the Peter-email sample confirmed the shipped `Polish` prompt now says “Make this sound like the same person, just clearer and cleaner,” forbids assistant-like phrasing, preserves everyday wording, and sets `Preferred shape for this input: paragraphs` instead of `hybrid`.
 - New spec `19` diagnosis confirmed DadPad still shares plain text unchanged via `navigator.share({ text })`; Gmail paragraph flattening occurs in Gmail's target handling, not in DadPad's editor or share payload.
+- New spec `19` regression coverage now proves the dock renders `Share / Copy / Gmail`, the Gmail button is discoverable by accessible name, generic `Share` still uses `navigator.share`, Gmail compose is attempted before `mailto:`, paragraph breaks are CRLF-preserved in the encoded email body, and clear errors surface if no email compose path is available.
+- New spec `19` build/install path is green: `pnpm test` passed, `pnpm build` passed, Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.
