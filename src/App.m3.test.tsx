@@ -478,7 +478,7 @@ describe("DadPad app", () => {
     expect(getStatusChip().textContent).toContain("Ready");
     expect(getStatusChipDot().classList.contains("ready-dot")).toBe(true);
     expect(getStatusChipDot().classList.contains("error-dot")).toBe(false);
-    expect(getActionBarLabels()).toEqual(["Polish", "Clear", "Copy", "Share", "Settings"]);
+    expect(getActionBarLabels()).toEqual(["Polish", "Clear", "Settings", "Share", "Copy"]);
     expect(getActionSpacer()).toBeTruthy();
     expect(getActionDock()).toBeTruthy();
     expect(getAppMain()).toBeTruthy();
@@ -915,7 +915,7 @@ describe("DadPad app", () => {
     });
   });
 
-  it("moves settings into the bottom row and toggles its label", async () => {
+  it("moves settings into the top row and toggles its label", async () => {
     await renderApp();
     const user = userEvent.setup();
 

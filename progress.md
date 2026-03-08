@@ -1,10 +1,10 @@
 # Progress
 
 ## Current Spec
-- `16_single-surface-editor`
+- `17_action-dock-remap`
 
 ## Current Stage
-- Stage 4 — Gates green; rebuilt on iPad, awaiting user visual verification of the single-surface editor
+- Stage 4 — Gates green; browser smoke passed; rebuilt on iPad, awaiting user visual verification of the remapped action dock
 
 ## Status
 - Spec `07_clear-ui-reset-overlay` is complete; the user verified the physical-iPad clear flow and confirmed the implementation is correct.
@@ -16,12 +16,20 @@
 - Spec `13_chip-layout-and-ios-icon-refresh` is complete.
 - Spec `14_portrait-only-orientation-lock` is complete; the native iOS sources and built app now advertise only standard upright portrait.
 - Spec `15_internet-availability-gate` is complete; the startup/wake connectivity gate, full-app offline overlay, and automatic recovery path are implemented and green.
-- New active spec: `16_single-surface-editor`.
-- This pass removes the double-framed writing surface so the textarea becomes the only visible card, while preserving the hidden `Your text` label for accessibility and tests.
-- The markup/style simplification, regression coverage, browser smoke, and refreshed iPad build/install are now complete.
-- `pnpm test` and `pnpm build` are green, browser smoke confirmed the transparent wrapper plus styled textarea, and the updated app has been rebuilt/installed/launched on the connected iPad.
+- Spec `16_single-surface-editor` is complete; the user approved the single-surface writing area.
+- New active spec: `17_action-dock-remap`.
+- This pass keeps the current five controls plus spacer, but remaps the visible order to `Polish / Clear / Settings` then `Share / Copy / spacer`.
+- The action-bar markup reorder, grid-template remap, fallback-order cleanup, regression coverage, browser smoke, and refreshed iPad build/install are now complete.
+- `pnpm test` and `pnpm build` are green, browser smoke proved the new row positions at iPad and narrow widths, and the updated app has been rebuilt/installed/launched on the connected iPad.
 
 ## Last Green Commands
+- `pnpm test`
+- `pnpm build`
+- `pnpm preview --host 127.0.0.1 --port 4173` + Playwright smoke confirming iPad-width order `Polish / Clear / Settings` then `Share / Copy`, with `Copy` directly beneath `Clear`, and narrow-width order `Polish / Clear / Settings / Share / Copy`
+- `pnpm tauri ios build --debug --open`
+- Xcode MCP `BuildProject` on `windowtab1` (`buildResult: The project built successfully.`)
+- `xcrun devicectl device install app --device 13A95266-ADC7-527A-9F91-4B46F268AE25 ~/Library/Developer/Xcode/DerivedData/dadpad-edodrgvdjgwyriepyaxktomsajmq/Build/Products/debug-iphoneos/DadPad.app`
+- `xcrun devicectl device process launch --device 13A95266-ADC7-527A-9F91-4B46F268AE25 --terminate-existing com.ryanlaubscher.dadpad`
 - `pnpm test`
 - `pnpm build`
 - `pnpm preview --host 127.0.0.1 --port 4173` + Playwright smoke confirming `.editor-panel` computed to transparent / borderless / no shadow, `.editor` remained the only visible card with border + shadow, the hidden label kept `editor-label sr-only`, keyboard-open still held, clear still reset, offline overlay still appeared, and console errors stayed at zero
@@ -64,10 +72,10 @@
 
 ## Blockers
 - No hard blocker.
-- Pending proof: user validation on the physical iPad that the single-surface editor feels cleaner and visually correct in the live shell.
+- Pending proof: user validation on the physical iPad that the remapped action dock feels right in the live shell.
 
 ## Next Step
-- User visually checks the updated iPad build and confirms the single-surface editor reads as cleaner and more elegant than the prior double-framed version.
+- User visually checks the updated iPad build and confirms the new button positions feel correct in portrait with the keyboard both closed and open.
 
 ## Dogfood Evidence
 - User manually tested the physical-iPad clear flow after spec `07` and confirmed the implementation is correct.
@@ -93,3 +101,6 @@
 - New spec `16` regression coverage now proves the editor remains labeled as `Your text`, the label is hidden-only, the placeholder stays intact, and the writing area structure remains stable through clear/offline/keyboard flows.
 - New spec `16` browser smoke against the production bundle confirmed `.editor-panel` is transparent, borderless, and shadowless while `.editor` remains the sole visible card with the Warm Sand border/shadow treatment.
 - The connected iPad build path is green for spec `16`: `pnpm tauri ios build --debug --open` passed, Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.
+- New spec `17` regression coverage now proves the DOM/visible action order is `Polish`, `Clear`, `Settings`, `Share`, `Copy` while preserving the same button roles and handlers.
+- New spec `17` browser smoke against the production bundle confirmed iPad-width positions `Polish / Clear / Settings` then `Share / Copy`, with `Copy` directly beneath `Clear`, plus a stable narrow-width order of `Polish / Clear / Settings / Share / Copy`.
+- The connected iPad build path is green for spec `17`: `pnpm tauri ios build --debug --open` passed, Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.

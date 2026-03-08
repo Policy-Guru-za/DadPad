@@ -299,11 +299,12 @@ function App() {
           </button>
           <button
             type="button"
-            className="secondary-action action-copy"
-            onClick={() => void handleCopy()}
-            disabled={actionDisabled}
+            className="system-action action-settings"
+            onClick={() => setIsSettingsOpen((open) => !open)}
+            disabled={settingsBlocked}
+            aria-pressed={isSettingsOpen}
           >
-            Copy
+            {settingsButtonLabel}
           </button>
           <button
             type="button"
@@ -313,16 +314,15 @@ function App() {
           >
             Share
           </button>
-          <div className="action-spacer" aria-hidden="true" />
           <button
             type="button"
-            className="system-action action-settings"
-            onClick={() => setIsSettingsOpen((open) => !open)}
-            disabled={settingsBlocked}
-            aria-pressed={isSettingsOpen}
+            className="secondary-action action-copy"
+            onClick={() => void handleCopy()}
+            disabled={actionDisabled}
           >
-            {settingsButtonLabel}
+            Copy
           </button>
+          <div className="action-spacer" aria-hidden="true" />
         </section>
       </section>
 
