@@ -169,7 +169,7 @@ Four modes with shared constraints and mode-specific behaviour.
 
 **Mode-specific behaviour:**
 
-- **Polish:** Gmail-style restructure. Clear, elegant, well-structured for general professional communication. Approximate length preserved; may slightly tighten or modestly expand for elegance and clarity.
+- **Polish:** Same-person cleanup. Clearer wording, corrected grammar, and cleaner paragraphing while preserving the writer's natural tone. Approximate length preserved; may slightly tighten or modestly expand only when clarity or natural flow needs it. Bullets only when the content is naturally list-shaped or already list-like.
 - **Casual:** Conversational, friendly, relaxed tone with contractions. Clean and readable, not slangy. Approximate length preserved; light tightening allowed.
 - **Professional:** Neutral workplace email tone. Clear, calm, well-structured. Not stiff, not verbose. Approximate length preserved; light tightening allowed.
 - **Direct:** Concise and action-oriented. Short sentences. Filler and softening language removed. Bullets allowed when they improve clarity. Meaningful shortening permitted, but essential information preserved.

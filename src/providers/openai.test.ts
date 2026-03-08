@@ -51,10 +51,19 @@ describe("streamTransformWithOpenAI", () => {
 
   it("injects strong mode-specific tone rules and prohibitions", () => {
     expect(buildInstructions("polish")).toContain(
-      "Keep the tone neutral and polished, not especially chatty, corporate, or terse.",
+      "Make this sound like the same person, just clearer and cleaner.",
     );
     expect(buildInstructions("polish")).toContain(
-      'Tone reference: "Could you send that over when you have a chance? Thanks."',
+      "Do not make it sound corporate, elegant, templated, assistant-like, or overly polished.",
+    );
+    expect(buildInstructions("polish")).toContain(
+      'Do not add elevated transitions or framing such as "Regarding", "Separately", "In my view", or similar phrasing unless the input already uses that register.',
+    );
+    expect(buildInstructions("polish")).not.toContain(
+      "general professional communication",
+    );
+    expect(buildInstructions("polish")).not.toContain(
+      "Keep the tone neutral and polished, not especially chatty, corporate, or terse.",
     );
     expect(buildInstructions("casual")).toContain(
       "Prefer everyday wording, contractions, and natural phrasing over corporate or formal wording.",
@@ -157,7 +166,12 @@ describe("streamTransformWithOpenAI", () => {
     );
     const directInstructions = buildInstructions("direct", deriveStructureIntent(sample, "direct"));
 
-    expect(polishInstructions).toContain("Use bullets only when multiple concrete asks or deliverables clearly make the message easier to scan.");
+    expect(polishInstructions).toContain(
+      "Keep prose as prose unless the content is naturally list-shaped or already list-like.",
+    );
+    expect(polishInstructions).toContain(
+      "Use bullets only for multiple concrete asks, options, steps, dates, issues, or comparisons when they genuinely improve scanning.",
+    );
     expect(casualInstructions).toContain(
       "Use bullets rarely; keep the output feeling like a natural message, not a memo.",
     );
@@ -166,6 +180,25 @@ describe("streamTransformWithOpenAI", () => {
     );
     expect(directInstructions).toContain(
       "When there are 2 or more asks, steps, or deliverables, prefer bullets over dense prose.",
+    );
+  });
+
+  it("calibrates polish toward voice preservation, paragraph cleanup, and restrained bullets", () => {
+    const sample =
+      "Hi Peter i was meaning to send this yesterday but then totaly forgot and now everything is a bit all over the place. The meeting we had last week was useful I think but there was still a lot of stuff that wasnt really clear to me.";
+    const instructions = buildInstructions("polish", deriveStructureIntent(sample, "polish"));
+
+    expect(instructions).toContain(
+      "Preserve the writer's natural level of formality, directness, warmth, and personality.",
+    );
+    expect(instructions).toContain(
+      "Fix wording, grammar, punctuation, repetition, and obvious awkwardness while keeping the message recognizably in the writer's own voice.",
+    );
+    expect(instructions).toContain(
+      "Split dense walls of text into sensible paragraphs automatically.",
+    );
+    expect(instructions).toContain(
+      'Calibration reference (avoid): "Could you confirm the actual latest version? I have about three different copies, and they all seem somewhat different."',
     );
   });
 

@@ -1,10 +1,10 @@
 # Progress
 
 ## Current Spec
-- `17_action-dock-remap`
+- `18_voice-preserving-polish`
 
 ## Current Stage
-- Stage 4 — Gates green; browser smoke passed; rebuilt on iPad, awaiting user visual verification of the remapped action dock
+- Stage 4 — Prompt/docs/tests complete; local gates green; live eval blocked by missing DadPad API-key config
 
 ## Status
 - Spec `07_clear-ui-reset-overlay` is complete; the user verified the physical-iPad clear flow and confirmed the implementation is correct.
@@ -17,12 +17,18 @@
 - Spec `14_portrait-only-orientation-lock` is complete; the native iOS sources and built app now advertise only standard upright portrait.
 - Spec `15_internet-availability-gate` is complete; the startup/wake connectivity gate, full-app offline overlay, and automatic recovery path are implemented and green.
 - Spec `16_single-surface-editor` is complete; the user approved the single-surface writing area.
-- New active spec: `17_action-dock-remap`.
-- This pass keeps the current five controls plus spacer, but remaps the visible order to `Polish / Clear / Settings` then `Share / Copy / spacer`.
-- The action-bar markup reorder, grid-template remap, fallback-order cleanup, regression coverage, browser smoke, and refreshed iPad build/install are now complete.
-- `pnpm test` and `pnpm build` are green, browser smoke proved the new row positions at iPad and narrow widths, and the updated app has been rebuilt/installed/launched on the connected iPad.
+- Spec `17_action-dock-remap` is complete; the action dock now reads `Polish / Clear / Settings` then `Share / Copy / spacer`, and the user approved the live iPad result.
+- New active spec: `18_voice-preserving-polish`.
+- This pass recalibrates DadPad `Polish` away from neutral-professional smoothing and toward “same person, just cleaner.”
+- The shipped prompt, copied prompt docs, and mode-eval harness are being updated together so wording cleanup, grammar cleanup, paragraph cleanup, and restrained bullet usage are enforced as one contract.
+- `pnpm test` and `pnpm build` are green after the prompt recalibration.
+- Manual prompt dogfood against the Peter-email sample confirmed the shipped `Polish` instructions now prefer paragraphs, preserve voice, and explicitly forbid corporate/assistant-like drift.
+- Live eval is blocked before the first API call because DadPad has `~/Library/Application Support/DadPad/encryption.key` but no readable `config.enc`, so the eval loader cannot source an OpenAI API key.
 
 ## Last Green Commands
+- `pnpm test`
+- `pnpm build`
+- `pnpm exec tsx <<'TS' ... buildInstructions('polish', deriveStructureIntent(peterEmail, 'polish')) ... TS` confirming `Mode: REFINE`, voice-preserving anti-drift rules, and `Preferred shape for this input: paragraphs`
 - `pnpm test`
 - `pnpm build`
 - `pnpm preview --host 127.0.0.1 --port 4173` + Playwright smoke confirming iPad-width order `Polish / Clear / Settings` then `Share / Copy`, with `Copy` directly beneath `Clear`, and narrow-width order `Polish / Clear / Settings / Share / Copy`
@@ -71,11 +77,12 @@
 - `python3 -m http.server 4300 --bind 127.0.0.1` from `design/` + Playwright smoke of all five `theme-previews/*.html` files at `1440px` and `1024px`
 
 ## Blockers
-- No hard blocker.
-- Pending proof: user validation on the physical iPad that the remapped action dock feels right in the live shell.
+- Live eval blocker: `pnpm eval:modes` stops immediately with `No OpenAI API key found. Set OPENAI_API_KEY or save one in the app settings first.`
+- Local DadPad config check shows `~/Library/Application Support/DadPad/encryption.key` exists but `config.enc` is absent, so there is no saved API key for `scripts/eval-modes.ts` or `scripts/eval-structure.ts` to load.
 
 ## Next Step
-- User visually checks the updated iPad build and confirms the new button positions feel correct in portrait with the keyboard both closed and open.
+- If an OpenAI API key is restored in DadPad settings or exported in `OPENAI_API_KEY`, run `pnpm eval:modes` and `pnpm eval:structure` to close the live naturalness gate.
+- Otherwise, hand off the completed prompt/docs/test patch with the live-eval blocker called out explicitly.
 
 ## Dogfood Evidence
 - User manually tested the physical-iPad clear flow after spec `07` and confirmed the implementation is correct.
@@ -104,3 +111,4 @@
 - New spec `17` regression coverage now proves the DOM/visible action order is `Polish`, `Clear`, `Settings`, `Share`, `Copy` while preserving the same button roles and handlers.
 - New spec `17` browser smoke against the production bundle confirmed iPad-width positions `Polish / Clear / Settings` then `Share / Copy`, with `Copy` directly beneath `Clear`, plus a stable narrow-width order of `Polish / Clear / Settings / Share / Copy`.
 - The connected iPad build path is green for spec `17`: `pnpm tauri ios build --debug --open` passed, Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.
+- New spec `18` prompt dogfood against the Peter-email sample confirmed the shipped `Polish` prompt now says “Make this sound like the same person, just clearer and cleaner,” forbids assistant-like phrasing, preserves everyday wording, and sets `Preferred shape for this input: paragraphs` instead of `hybrid`.

@@ -17,6 +17,10 @@ type EvalSample = {
   directEligible: boolean;
   scaffoldAbsent: boolean;
   englishInput: boolean;
+  polishMaxFormalityDelta?: number;
+  polishShouldStayProse?: boolean;
+  polishShouldAddStructure?: boolean;
+  polishBlockedPhrases?: string[];
 };
 
 type EvalOutput = Record<OpenAITransformMode, string>;
@@ -43,6 +47,27 @@ type LoadRuntimeConfigOptions = {
 
 const EVAL_SAMPLES: EvalSample[] = [
   {
+    id: "peter-email",
+    label: "Voice-preserving casual email",
+    input:
+      "Hi Peter i was meaning to send this yesterday but then totaly forgot and now everything is a bit all over the place. The meeting we had last week was useful I think but there was still a lot of stuff that wasnt really clear to me, especialy around who is suppose to be doing what and by when. Also the numbers in that document dont really add up in my opinion and I dont know if thats because im reading it wrong or if somebody changed something after the fact. anyway can you just let me know what the actual latest version is because i have about 3 different ones and all of them seem kind of different.\n\nAlso with regards to the holiday thing, I dont know what the plan is anymore because Susan said one thing on monday and then Dave said something completley different on wednesday and now im not even sure if were still going ahead with it or not. If we are then somebody needs to book it soon otherwise the prices is going to go up again which is what happened last time and it was honestly a mess. I dont mind helping with sorting it out but I need proper information first because right now it feels like everybody is just saying things and nobody is actually deciding anything.\n\nOn a seperate note I tried that new app you sent me and to be honest its not really working properly on my side. It keeps freezing when I click the button and then when it finally does something the output looks weird and half the words is missing or repeated. maybe its because my internet was bad I dont know, but either way its frustrating and I wouldnt send it to anybody else yet until its more stable. let me know when youve fixed the main bugs and then ill test it again.",
+    workplace: true,
+    directEligible: true,
+    scaffoldAbsent: false,
+    englishInput: true,
+    polishMaxFormalityDelta: 1,
+    polishShouldStayProse: true,
+    polishShouldAddStructure: true,
+    polishBlockedPhrases: [
+      "regarding the holiday plan",
+      "im unclear about the current plan",
+      "in my view",
+      "several items",
+      "separately",
+      "on my end",
+    ],
+  },
+  {
     id: "rough-dictation",
     label: "Rough dictation",
     input:
@@ -53,6 +78,29 @@ const EVAL_SAMPLES: EvalSample[] = [
     englishInput: true,
   },
   {
+    id: "already-clean-informal",
+    label: "Already clean informal note",
+    input:
+      "Hey, I saw your note. Monday works for me, so let's just keep it as is unless something changes.",
+    workplace: false,
+    directEligible: false,
+    scaffoldAbsent: false,
+    englishInput: true,
+    polishMaxFormalityDelta: 1,
+    polishShouldStayProse: true,
+  },
+  {
+    id: "short-blunt-request",
+    label: "Short blunt request",
+    input: "Need the latest numbers today so I can finish this.",
+    workplace: true,
+    directEligible: false,
+    scaffoldAbsent: true,
+    englishInput: true,
+    polishMaxFormalityDelta: 1,
+    polishShouldStayProse: true,
+  },
+  {
     id: "short-request",
     label: "Short request",
     input: "can you send me the file when you have a chance thanks",
@@ -60,6 +108,29 @@ const EVAL_SAMPLES: EvalSample[] = [
     directEligible: false,
     scaffoldAbsent: true,
     englishInput: true,
+  },
+  {
+    id: "list-shaped-plan",
+    label: "Naturally list-shaped note",
+    input:
+      "Before Friday I need three things: the final budget, confirmation from ops on staffing, and a yes or no on whether we are moving the launch review.",
+    workplace: true,
+    directEligible: true,
+    scaffoldAbsent: true,
+    englishInput: true,
+  },
+  {
+    id: "wall-of-text",
+    label: "Paragraph-heavy wall of text",
+    input:
+      "I know we said we would make a call on this by today but I still feel like a few parts are not lined up yet and I do not want us to rush into sending something that creates more confusion. The copy is close, the numbers are still moving, and I am not fully sure which version we are actually treating as final. If somebody has made that call already then please just tell me which one it is so I can stop working off the wrong draft and get this moving again.",
+    workplace: true,
+    directEligible: true,
+    scaffoldAbsent: true,
+    englishInput: true,
+    polishMaxFormalityDelta: 1,
+    polishShouldStayProse: true,
+    polishShouldAddStructure: true,
   },
   {
     id: "schedule-move",
@@ -163,6 +234,8 @@ const EVAL_SAMPLES: EvalSample[] = [
 ];
 
 const MODES: OpenAITransformMode[] = ["polish", "casual", "professional", "direct"];
+const BULLET_LINE_REGEX = /^\s*(?:[-*•]|\d+[.)])\s+\S/m;
+const BLANK_LINE_REGEX = /\n\s*\n/;
 const GREETING_REGEX = /^(hi|hello|dear)\b/i;
 const SIGN_OFF_REGEX =
   /\b(best|best regards|kind regards|regards|sincerely|thank you),?\s*(?:\[[^\]]+\]|\n|$)/i;
@@ -293,6 +366,14 @@ function likelyTranslatedToPolish(text: string): boolean {
     }
   }
   return matches >= 2;
+}
+
+function hasBulletLines(text: string): boolean {
+  return BULLET_LINE_REGEX.test(text);
+}
+
+function hasParagraphBreak(text: string): boolean {
+  return BLANK_LINE_REGEX.test(text);
 }
 
 function resolveConfigPath(...segments: string[]): string {
@@ -432,6 +513,10 @@ async function run(): Promise<void> {
   const professionalScaffoldingFailures: string[] = [];
   const casualFormalityFailures: string[] = [];
   const languageFailures: string[] = [];
+  const polishFormalityFailures: string[] = [];
+  const polishBulletFailures: string[] = [];
+  const polishStructureFailures: string[] = [];
+  const polishBlockedPhraseFailures: string[] = [];
 
   for (const { sample, outputs } of results) {
     const normalizedOutputs = MODES.map((mode) => ({
@@ -474,6 +559,38 @@ async function run(): Promise<void> {
     if (sample.englishInput && likelyTranslatedToPolish(outputs.polish)) {
       languageFailures.push(sample.id);
     }
+
+    if (sample.polishMaxFormalityDelta !== undefined) {
+      const inputFormality = formalityScore(sample.input);
+      const outputFormality = formalityScore(outputs.polish);
+      if (outputFormality > inputFormality + sample.polishMaxFormalityDelta) {
+        polishFormalityFailures.push(
+          `${sample.id} (${inputFormality} -> ${outputFormality})`,
+        );
+      }
+    }
+
+    if (sample.polishShouldStayProse && hasBulletLines(outputs.polish)) {
+      polishBulletFailures.push(sample.id);
+    }
+
+    if (
+      sample.polishShouldAddStructure &&
+      !hasParagraphBreak(outputs.polish) &&
+      !hasBulletLines(outputs.polish)
+    ) {
+      polishStructureFailures.push(sample.id);
+    }
+
+    if (sample.polishBlockedPhrases) {
+      const normalizedPolish = normalizeText(outputs.polish);
+      const hits = sample.polishBlockedPhrases.filter((phrase) =>
+        normalizedPolish.includes(normalizeText(phrase)),
+      );
+      if (hits.length > 0) {
+        polishBlockedPhraseFailures.push(`${sample.id}: ${hits.join(", ")}`);
+      }
+    }
   }
 
   const directShorterRate =
@@ -511,12 +628,44 @@ async function run(): Promise<void> {
     console.log(`  translation failures: ${languageFailures.join(", ")}`);
   }
 
+  console.log(
+    `- polish keeps bounded formality drift on voice-preservation samples: ${polishFormalityFailures.length === 0 ? "PASS" : "FAIL"}`,
+  );
+  if (polishFormalityFailures.length > 0) {
+    console.log(`  formality drift failures: ${polishFormalityFailures.join(", ")}`);
+  }
+
+  console.log(
+    `- polish avoids unnecessary bullets on prose samples: ${polishBulletFailures.length === 0 ? "PASS" : "FAIL"}`,
+  );
+  if (polishBulletFailures.length > 0) {
+    console.log(`  bullet failures: ${polishBulletFailures.join(", ")}`);
+  }
+
+  console.log(
+    `- polish adds paragraph/list structure where needed: ${polishStructureFailures.length === 0 ? "PASS" : "FAIL"}`,
+  );
+  if (polishStructureFailures.length > 0) {
+    console.log(`  structure failures: ${polishStructureFailures.join(", ")}`);
+  }
+
+  console.log(
+    `- polish avoids assistant-like blocked phrases on reference samples: ${polishBlockedPhraseFailures.length === 0 ? "PASS" : "FAIL"}`,
+  );
+  if (polishBlockedPhraseFailures.length > 0) {
+    console.log(`  blocked phrase failures: ${polishBlockedPhraseFailures.join(", ")}`);
+  }
+
   if (
     identicalFailures.length > 0 ||
     directShorterRate < 0.8 ||
     professionalScaffoldingFailures.length > 0 ||
     casualFormalityFailures.length > 0 ||
-    languageFailures.length > 0
+    languageFailures.length > 0 ||
+    polishFormalityFailures.length > 0 ||
+    polishBulletFailures.length > 0 ||
+    polishStructureFailures.length > 0 ||
+    polishBlockedPhraseFailures.length > 0
   ) {
     process.exitCode = 1;
   }

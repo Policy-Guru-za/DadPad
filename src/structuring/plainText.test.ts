@@ -37,6 +37,26 @@ describe("smart structuring helpers", () => {
     expect(intent.isolateRequest).toBe(true);
   });
 
+  it("keeps multi-ask polish prose in paragraphs unless it is explicitly list-shaped", () => {
+    const intent = deriveStructureIntent(
+      "Can you send me the latest budget, let me know which version is current, and tell me if we are still meeting tomorrow? I have three different drafts and I do not know which one is right.",
+      "polish",
+    );
+
+    expect(intent.targetShape).toBe("paragraphs");
+    expect(intent.isolateRequest).toBe(true);
+  });
+
+  it("allows hybrid structure for explicitly list-shaped polish content", () => {
+    const intent = deriveStructureIntent(
+      "Before Friday I need three things: the final budget, confirmation from ops on staffing, and a yes or no on whether we are moving the launch review.",
+      "polish",
+    );
+
+    expect(intent.targetShape).toBe("hybrid");
+    expect(intent.isolateRequest).toBe(true);
+  });
+
   it("preserves readable existing bullets", () => {
     const intent = deriveStructureIntent(
       "- Review the latest draft\n- Confirm Monday works\n- Share the final numbers",

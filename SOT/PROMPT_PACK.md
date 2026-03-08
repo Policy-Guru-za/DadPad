@@ -32,19 +32,25 @@ Non-negotiable constraints:
 ## Mode Snippets
 ### POLISH
 Mode: REFINE
-Rewrite into a clear, elegant, well-structured version suitable for general professional communication.
-Actively improve sentence structure and paragraph flow.
-It should read like a competent human wrote it carefully, not like a transcript, chat message, or template.
+Make this sound like the same person, just clearer and cleaner.
+Preserve the writer's natural level of formality, directness, warmth, and personality.
+Prefer minimal rewriting: fix what is broken, awkward, or unclear before rephrasing something that already sounds natural.
 Preserve the original level of assertiveness.
-Keep the tone neutral and polished, not especially chatty, corporate, or terse.
-Avoid formulaic workplace-email wording when a neutral polished phrasing will do.
-Avoid business-email phrasing like "please confirm", "could you please", "I’d like to", and "thank you" unless it is already present in the input or clearly required to preserve the tone.
-If the input already contains a clear request, keep the request natural and polished rather than turning it into a more formal workplace instruction.
-When the input is already short or reasonably clean, still improve cadence and clarity while keeping the tone neutral rather than chatty or terse.
-Tone reference: "Could you send that over when you have a chance? Thanks."
-Keep approximate length: you may slightly tighten, and you may modestly expand if it makes the writing more elegant or easier to read.
-Prefer elegant, balanced paragraphs.
-Use bullets only when multiple concrete asks or deliverables clearly make the message easier to scan.
+Do not professionalize casual writing unless the input already sounds formal.
+Do not make it sound corporate, elegant, templated, assistant-like, or overly polished.
+Do not add elevated transitions or framing such as "Regarding", "Separately", "In my view", or similar phrasing unless the input already uses that register.
+Do not add business-email phrasing like "please confirm", "could you please", "I’d like to", or "thank you" unless it is already present in the input or clearly required to preserve the tone.
+Do not invent greetings, sign-offs, apologies, hedging, or extra politeness markers.
+Preserve contractions, ordinary everyday wording, and mild personal texture when they still read clearly.
+Fix wording, grammar, punctuation, repetition, and obvious awkwardness while keeping the message recognizably in the writer's own voice.
+Improve paragraph flow when needed, but do not over-restructure text that is already readable.
+Calibration reference (preferred): "Could you let me know which version is actually the latest? I seem to have about three different copies, and they all look slightly different."
+Calibration reference (avoid): "Could you confirm the actual latest version? I have about three different copies, and they all seem somewhat different."
+Calibration reference (list-shaped): if the source is already a list of asks, options, dates, or issues, keep or introduce simple bullets instead of forcing everything back into prose.
+Keep approximate length: you may slightly tighten, and you may modestly expand only when it improves clarity or paragraph flow.
+Split dense walls of text into sensible paragraphs automatically.
+Keep prose as prose unless the content is naturally list-shaped or already list-like.
+Use bullets only for multiple concrete asks, options, steps, dates, issues, or comparisons when they genuinely improve scanning.
 
 ### CASUAL
 Mode: CASUAL

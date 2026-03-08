@@ -24,6 +24,8 @@ const CLOSING_REGEX =
   /\b(?:thank you|thanks|appreciate it|appreciated|look forward|hope this|let me know if you have any questions)\b/i;
 const MULTI_ITEM_REQUEST_REGEX =
   /\b(?:send|share|provide|review|confirm|approve|reply|respond|update|outline|schedule|move|let me know|tell me)\b.*(?:,\s*|\band\b|\bor\b).*\b(?:send|share|provide|review|confirm|approve|reply|respond|update|outline|schedule|move|let me know|tell me)\b/i;
+const EXPLICIT_LIST_SHAPE_REGEX =
+  /\b(?:one|two|three|four|five|six|\d+)\s+(?:things|items|steps|options|issues|dates|reasons)\b|:\s*(?:the|a|an|\w+)/i;
 
 function normalizeLineEndings(value: string): string {
   return value.replace(/\r\n/g, "\n");
@@ -118,13 +120,22 @@ function inferTargetShape(
   const hasIntentionalParagraphs = BLANK_LINE_REGEX.test(value);
   const denseSingleBlock = !hasIntentionalParagraphs && value.length >= 180 && sentenceCount >= 2;
   const hasMultipleRequests = MULTI_ITEM_REQUEST_REGEX.test(value);
+  const hasExplicitListShape = EXPLICIT_LIST_SHAPE_REGEX.test(value);
 
   if (preserveExistingLists) {
     return hasIntentionalParagraphs ? "hybrid" : "bullets";
   }
 
+  if (hasExplicitListShape) {
+    return mode === "direct" || mode === "professional" ? "bullets" : "hybrid";
+  }
+
   if (hasMultipleRequests) {
     if (denseSingleBlock && value.length >= 260) {
+      return "paragraphs";
+    }
+
+    if (mode === "polish" || mode === "casual") {
       return "paragraphs";
     }
 
