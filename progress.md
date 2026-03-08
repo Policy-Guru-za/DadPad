@@ -1,10 +1,10 @@
 # Progress
 
 ## Current Spec
-- `13_chip-layout-and-ios-icon-refresh`
+- `14_portrait-only-orientation-lock`
 
 ## Current Stage
-- Stage 4 — Gates green; rebuilt on iPad, awaiting user visual verification
+- Stage 4 — Gates green; rebuilt on iPad, awaiting user rotation verification
 
 ## Status
 - Spec `07_clear-ui-reset-overlay` is complete; the user verified the physical-iPad clear flow and confirmed the implementation is correct.
@@ -13,13 +13,17 @@
 - Spec `10_status-chip-button-harmonization` is complete.
 - Spec `11_keyboard-dock-and-surface-cleanup` is complete for the general shell/dock cleanup.
 - Spec `12_clear-reset-and-logo-lockup` is complete.
-- New active spec: `13_chip-layout-and-ios-icon-refresh`.
-- This pass restores the readiness chip to a compact inline hero chip on iPad portrait widths and refreshes the bundled iPad home-screen icon using the provided DadPad glyph on a soft ivory tile.
-- `pnpm test` and `pnpm build` are green, iPad portrait browser smoke is green for both ready and error chip states, the new soft-ivory app-icon master is generated, and the updated app has been rebuilt/installed/launched on the connected iPad.
+- Spec `13_chip-layout-and-ios-icon-refresh` is complete.
+- New active spec: `14_portrait-only-orientation-lock`.
+- This pass removes landscape and upside-down support from the native iOS orientation declarations so DadPad stays in standard upright portrait only.
+- `pnpm test` and `pnpm build` are green, the source and built iOS plists now advertise portrait only, and the updated app has been rebuilt/installed/launched on the connected iPad.
 
 ## Last Green Commands
 - `pnpm test`
 - `pnpm build`
+- `rg -n "UISupportedInterfaceOrientations|Landscape|PortraitUpsideDown" src-tauri/gen/apple/project.yml`
+- `/usr/libexec/PlistBuddy -c 'Print :UISupportedInterfaceOrientations' src-tauri/gen/apple/dadpad_iOS/Info.plist`
+- `/usr/libexec/PlistBuddy -c 'Print :UISupportedInterfaceOrientations~ipad' src-tauri/gen/apple/dadpad_iOS/Info.plist`
 - Swift icon compositor wrote `src-tauri/icons/dadpad-icon-master.png` as a `1024x1024` opaque PNG from `/tmp/DadPad-icon.png`
 - `pnpm tauri icon src-tauri/icons/dadpad-icon-master.png -o src-tauri/icons`
 - Swift AppIcon sync rewrote `src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/*.png` from the opaque master icon
@@ -35,19 +39,18 @@
 - `pnpm preview --host 127.0.0.1 --port 4173` + Playwright ready-state Tauri stub confirming `Ready`, `status-chip-dot ready-dot`, `rgb(70, 239, 112)`, and a luminous halo box-shadow
 - `pnpm tauri ios build --debug --open`
 - Xcode MCP `BuildProject` on `windowtab1` (`buildResult: The project built successfully.`)
+- `/usr/libexec/PlistBuddy -c 'Print :UISupportedInterfaceOrientations' ~/Library/Developer/Xcode/DerivedData/dadpad-edodrgvdjgwyriepyaxktomsajmq/Build/Products/debug-iphoneos/DadPad.app/Info.plist`
+- `/usr/libexec/PlistBuddy -c 'Print :UISupportedInterfaceOrientations~ipad' ~/Library/Developer/Xcode/DerivedData/dadpad-edodrgvdjgwyriepyaxktomsajmq/Build/Products/debug-iphoneos/DadPad.app/Info.plist`
 - `xcrun devicectl device install app --device 13A95266-ADC7-527A-9F91-4B46F268AE25 ~/Library/Developer/Xcode/DerivedData/dadpad-edodrgvdjgwyriepyaxktomsajmq/Build/Products/debug-iphoneos/DadPad.app`
 - `xcrun devicectl device process launch --device 13A95266-ADC7-527A-9F91-4B46F268AE25 --terminate-existing com.ryanlaubscher.dadpad`
 - `python3 -m http.server 4300 --bind 127.0.0.1` from `design/` + Playwright smoke of all five `theme-previews/*.html` files at `1440px` and `1024px`
 
 ## Blockers
 - No hard blocker.
-- Pending proof: user visual verification on the physical iPad that the hero chip now stays inline beside the logo and that the new home-screen icon looks correct.
+- Pending proof: user rotation verification on the physical iPad that the app now stays upright portrait only.
 
 ## Next Step
-- User verifies on the physical iPad that:
-  - the readiness chip stays a small inline chip beside the logo in portrait, rather than a full-width banner
-  - the error state chip still feels compact and elegant
-  - the new DadPad home-screen icon renders cleanly on the iPad home screen
+- User rotates the iPad left and right, both normally and with the keyboard open, and confirms DadPad remains locked in upright portrait.
 
 ## Dogfood Evidence
 - User manually tested the physical-iPad clear flow after spec `07` and confirmed the implementation is correct.
@@ -64,3 +67,6 @@
 - New spec `13` smoke at `820x1180` confirmed the hero stayed two-column, the ready chip remained inline at `96px` width, and the error chip remained inline at `279px` width with nowrap + ellipsis.
 - The generated iOS AppIcon files are now opaque (`hasAlpha: no`) after syncing `src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset` from the soft-ivory master icon.
 - The connected iPad build path is green for spec `13`: Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.
+- New spec `14` static verification confirmed both `src-tauri/gen/apple/project.yml` and `src-tauri/gen/apple/dadpad_iOS/Info.plist` now list only `UIInterfaceOrientationPortrait`.
+- New spec `14` build verification confirmed the built `DadPad.app/Info.plist` also lists only `UIInterfaceOrientationPortrait` for both orientation keys.
+- The connected iPad build path is green for spec `14`: Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.
