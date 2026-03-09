@@ -1,10 +1,10 @@
 # Progress
 
 ## Current Spec
-- `20_gmail-wordmark-button-refine`
+- `21_stronger-polish-sendability`
 
 ## Current Stage
-- Stage 3 — Green gates and physical iPad rebuild complete
+- Stage 3 — Local gates green; live model eval blocked by missing local API config
 
 ## Status
 - Spec `07_clear-ui-reset-overlay` is complete; the user verified the physical-iPad clear flow and confirmed the implementation is correct.
@@ -21,11 +21,15 @@
 - Spec `18_voice-preserving-polish` is complete; prompt/docs/tests landed, and only the optional live eval remains blocked by missing local OpenAI config.
 - Spec `19_gmail-first-email-action` is complete.
 - Spec `20_gmail-wordmark-button-refine` is complete.
+- Spec `21_stronger-polish-sendability` is complete.
 - DadPad now keeps generic `Share` for Notes/other targets and adds a separate Gmail icon button that preserves paragraphs through Gmail-first email compose.
 - Root diagnosis confirmed: DadPad hands generic share targets plain text unchanged; Gmail flattens paragraphs when it imports generic Web Share text.
-- New outcome: the supplied Gmail wordmark PNG now replaces the old envelope icon, stays centered with breathing room inside the secondary-action pill, and keeps the same Gmail-first compose behavior.
+- New outcome: `Polish` now explicitly prioritizes sendability over literal sloppiness, repairs capitalization by default, compresses rambling wording, and allows stronger sentence/paragraph restructuring while staying human.
 
 ## Last Green Commands
+- `pnpm test`
+- `pnpm build`
+- `pnpm exec tsx <<'TS' ... buildInstructions('polish', deriveStructureIntent(lowercaseApology, 'polish')) ... TS` confirming the shipped `Polish` prompt now includes assertive sendability, capitalization repair, ramble compression, and anti-corporate rules together
 - `pnpm test`
 - `pnpm build`
 - `pnpm preview --host 127.0.0.1 --port 4174`
@@ -88,11 +92,10 @@
 
 ## Blockers
 - No hard blocker.
-- Existing non-critical carryover: live prompt eval still needs an OpenAI API key in DadPad settings or `OPENAI_API_KEY`; unrelated to the Gmail button refinement.
-- Remaining product check: only your physical visual read on the new Gmail wordmark button.
+- Existing non-critical carryover: live prompt eval still needs an OpenAI API key in DadPad settings or `OPENAI_API_KEY`; model-backed output samples remain blocked until that exists locally.
 
 ## Next Step
-- User smoke: confirm the Gmail wordmark reads elegantly on-device and still feels balanced beside `Share` and `Copy`.
+- If needed later: rerun `pnpm eval:modes` with a local OpenAI key to capture real model-backed output samples against the strengthened `Polish` contract.
 
 ## Dogfood Evidence
 - User manually tested the physical-iPad clear flow after spec `07` and confirmed the implementation is correct.
@@ -128,3 +131,6 @@
 - New spec `20` regression coverage now proves the Gmail button still exists by accessible name `Gmail` and renders the tracked `gmail-wordmark` asset instead of the old envelope icon.
 - New spec `20` local dogfood confirmed the wordmark stayed centered and uncropped inside the Gmail pill at iPad width, with comfortable side padding and a restrained disabled opacity.
 - New spec `20` build/install path is green: `pnpm test` passed, `pnpm build` passed, Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.
+- New spec `21` prompt dogfood confirmed the shipped `Polish` instructions no longer say `Prefer minimal rewriting`, now say `Rewrite assertively enough to make the message naturally sendable`, and explicitly add capitalization repair, ramble compression, cleaner everyday phrasing, and stronger restructuring guidance.
+- New spec `21` local gates are green: `pnpm test` passed with 117 tests, and `pnpm build` passed.
+- New spec `21` live model eval is still externally blocked because `/Users/ryanlaubscher/Library/Application Support/DadPad/` contains `encryption.key` but no `config.enc`, so `pnpm eval:modes` cannot load an API key.
