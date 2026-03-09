@@ -1,10 +1,10 @@
 # Progress
 
 ## Current Spec
-- `19_gmail-first-email-action`
+- `20_gmail-wordmark-button-refine`
 
 ## Current Stage
-- Stage 3 — Green gates and physical iPad rebuild complete
+- Stage 2 — Wordmark asset swap, button fit refinement, and verification
 
 ## Status
 - Spec `07_clear-ui-reset-overlay` is complete; the user verified the physical-iPad clear flow and confirmed the implementation is correct.
@@ -20,10 +20,10 @@
 - Spec `17_action-dock-remap` is complete; the action dock now reads `Polish / Clear / Settings` then `Share / Copy / spacer`, and the user approved the live iPad result.
 - Spec `18_voice-preserving-polish` is complete; prompt/docs/tests landed, and only the optional live eval remains blocked by missing local OpenAI config.
 - Spec `19_gmail-first-email-action` is complete.
+- New active spec: `20_gmail-wordmark-button-refine`.
 - DadPad now keeps generic `Share` for Notes/other targets and adds a separate Gmail icon button that preserves paragraphs through Gmail-first email compose.
 - Root diagnosis confirmed: DadPad hands generic share targets plain text unchanged; Gmail flattens paragraphs when it imports generic Web Share text.
-- New outcome: Gmail button attempts Gmail compose first, falls back to `mailto:`, and keeps paragraph breaks/blank lines in the encoded email body.
-- Physical-device build path is green again on the connected iPad.
+- New target: replace the current envelope icon with the supplied Gmail wordmark PNG while keeping the same Gmail-first compose behavior and making the button fit feel calmer and more premium.
 
 ## Last Green Commands
 - `pnpm test`
@@ -82,11 +82,10 @@
 
 ## Blockers
 - No hard blocker.
-- Existing non-critical carryover: live prompt eval still needs an OpenAI API key in DadPad settings or `OPENAI_API_KEY`; unrelated to the Gmail button work.
-- Remaining product check: only the human visual/behavioral smoke in Gmail and Notes on the physical iPad.
+- Existing non-critical carryover: live prompt eval still needs an OpenAI API key in DadPad settings or `OPENAI_API_KEY`; unrelated to the Gmail button refinement.
 
 ## Next Step
-- User smoke: verify `Share` still reaches Notes/other generic targets and the Gmail icon button opens Gmail/default mail compose with preserved paragraph breaks.
+- Swap in the supplied Gmail wordmark asset, refine the button fit/opacity rules, run `pnpm test` and `pnpm build`, then rebuild/install/launch on the connected iPad for physical visual verification.
 
 ## Dogfood Evidence
 - User manually tested the physical-iPad clear flow after spec `07` and confirmed the implementation is correct.

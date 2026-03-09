@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import "./App.css";
 import dadPadLogo from "./assets/dadpad-logo.png";
-import gmailIcon from "./assets/gmail-icon.svg";
+import gmailWordmark from "./assets/gmail-wordmark.png";
 import { useDadPadController } from "./dadpad/useDadPadController";
 import { useInternetGate } from "./dadpad/useInternetGate";
 import { useViewportShell } from "./dadpad/useViewportShell";
@@ -333,8 +333,8 @@ function App() {
             title="Gmail"
           >
             <img
-              className="gmail-icon"
-              src={gmailIcon}
+              className="gmail-wordmark"
+              src={gmailWordmark}
               alt=""
               aria-hidden="true"
               draggable="false"

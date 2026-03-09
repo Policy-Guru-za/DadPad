@@ -484,13 +484,17 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  padding: 0 clamp(14px, 2.2vw, 20px);
 }
 
-.gmail-icon {
+.gmail-wordmark {
   display: block;
-  width: clamp(2rem, 3.2vw, 2.35rem);
+  width: min(100%, clamp(6.8rem, 13vw, 8.2rem));
   height: auto;
+  max-height: 2rem;
+  object-fit: contain;
+  object-position: center;
+  filter: drop-shadow(0 1px 0 rgba(61, 49, 36, 0.04));
 }
 
 .secondary-action:hover:not(:disabled) {
@@ -544,8 +548,8 @@ button:disabled {
   box-shadow: none;
 }
 
-.gmail-action:disabled .gmail-icon {
-  opacity: 0.5;
+.gmail-action:disabled .gmail-wordmark {
+  opacity: 0.62;
 }
 
 .system-action:disabled {

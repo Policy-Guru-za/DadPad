@@ -466,6 +466,9 @@ describe("DadPad app", () => {
     expect(screen.getByRole("button", { name: "Copy" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Share" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Gmail" })).toBeTruthy();
+    const gmailWordmark = document.querySelector(".gmail-wordmark");
+    expect(gmailWordmark).toBeTruthy();
+    expect((gmailWordmark as HTMLImageElement).getAttribute("src")).toContain("gmail-wordmark");
     expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
