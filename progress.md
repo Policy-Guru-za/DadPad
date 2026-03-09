@@ -4,7 +4,7 @@
 - `20_gmail-wordmark-button-refine`
 
 ## Current Stage
-- Stage 2 — Wordmark asset swap, button fit refinement, and verification
+- Stage 3 — Green gates and physical iPad rebuild complete
 
 ## Status
 - Spec `07_clear-ui-reset-overlay` is complete; the user verified the physical-iPad clear flow and confirmed the implementation is correct.
@@ -20,14 +20,20 @@
 - Spec `17_action-dock-remap` is complete; the action dock now reads `Polish / Clear / Settings` then `Share / Copy / spacer`, and the user approved the live iPad result.
 - Spec `18_voice-preserving-polish` is complete; prompt/docs/tests landed, and only the optional live eval remains blocked by missing local OpenAI config.
 - Spec `19_gmail-first-email-action` is complete.
-- New active spec: `20_gmail-wordmark-button-refine`.
+- Spec `20_gmail-wordmark-button-refine` is complete.
 - DadPad now keeps generic `Share` for Notes/other targets and adds a separate Gmail icon button that preserves paragraphs through Gmail-first email compose.
 - Root diagnosis confirmed: DadPad hands generic share targets plain text unchanged; Gmail flattens paragraphs when it imports generic Web Share text.
-- New target: replace the current envelope icon with the supplied Gmail wordmark PNG while keeping the same Gmail-first compose behavior and making the button fit feel calmer and more premium.
+- New outcome: the supplied Gmail wordmark PNG now replaces the old envelope icon, stays centered with breathing room inside the secondary-action pill, and keeps the same Gmail-first compose behavior.
 
 ## Last Green Commands
 - `pnpm test`
 - `pnpm build`
+- `pnpm preview --host 127.0.0.1 --port 4174`
+- Playwright check at `1024x1366` confirming the Gmail button remained `313px` wide while the centered wordmark rendered at `131px` width by `32px` height with no cropping
+- `pnpm tauri ios build --debug --open`
+- Xcode MCP `BuildProject` on `windowtab1` (`buildResult: The project built successfully.`)
+- `xcrun devicectl device install app --device 13A95266-ADC7-527A-9F91-4B46F268AE25 /Users/ryanlaubscher/Library/Developer/Xcode/DerivedData/dadpad-edodrgvdjgwyriepyaxktomsajmq/Build/Products/debug-iphoneos/DadPad.app`
+- `xcrun devicectl device process launch --device 13A95266-ADC7-527A-9F91-4B46F268AE25 --terminate-existing com.ryanlaubscher.dadpad`
 - `pnpm tauri ios build --debug --open`
 - Xcode MCP `BuildProject` on `windowtab1` (`buildResult: The project built successfully.`)
 - `xcrun devicectl device install app --device 13A95266-ADC7-527A-9F91-4B46F268AE25 /Users/ryanlaubscher/Library/Developer/Xcode/DerivedData/dadpad-edodrgvdjgwyriepyaxktomsajmq/Build/Products/debug-iphoneos/DadPad.app`
@@ -83,9 +89,10 @@
 ## Blockers
 - No hard blocker.
 - Existing non-critical carryover: live prompt eval still needs an OpenAI API key in DadPad settings or `OPENAI_API_KEY`; unrelated to the Gmail button refinement.
+- Remaining product check: only your physical visual read on the new Gmail wordmark button.
 
 ## Next Step
-- Swap in the supplied Gmail wordmark asset, refine the button fit/opacity rules, run `pnpm test` and `pnpm build`, then rebuild/install/launch on the connected iPad for physical visual verification.
+- User smoke: confirm the Gmail wordmark reads elegantly on-device and still feels balanced beside `Share` and `Copy`.
 
 ## Dogfood Evidence
 - User manually tested the physical-iPad clear flow after spec `07` and confirmed the implementation is correct.
@@ -118,3 +125,6 @@
 - New spec `19` diagnosis confirmed DadPad still shares plain text unchanged via `navigator.share({ text })`; Gmail paragraph flattening occurs in Gmail's target handling, not in DadPad's editor or share payload.
 - New spec `19` regression coverage now proves the dock renders `Share / Copy / Gmail`, the Gmail button is discoverable by accessible name, generic `Share` still uses `navigator.share`, Gmail compose is attempted before `mailto:`, paragraph breaks are CRLF-preserved in the encoded email body, and clear errors surface if no email compose path is available.
 - New spec `19` build/install path is green: `pnpm test` passed, `pnpm build` passed, Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.
+- New spec `20` regression coverage now proves the Gmail button still exists by accessible name `Gmail` and renders the tracked `gmail-wordmark` asset instead of the old envelope icon.
+- New spec `20` local dogfood confirmed the wordmark stayed centered and uncropped inside the Gmail pill at iPad width, with comfortable side padding and a restrained disabled opacity.
+- New spec `20` build/install path is green: `pnpm test` passed, `pnpm build` passed, Xcode MCP build passed, `devicectl` install passed, and `devicectl` launch passed for `com.ryanlaubscher.dadpad`.
