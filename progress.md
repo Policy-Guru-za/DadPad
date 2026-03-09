@@ -1,10 +1,10 @@
 # Progress
 
 ## Current Spec
-- `21_stronger-polish-sendability`
+- `22_clone-proven-polish-prompt`
 
 ## Current Stage
-- Stage 3 — Local gates green; live model eval blocked by missing local API config
+- Stage 3 — Prompt parity confirmed; local gates green
 
 ## Status
 - Spec `07_clear-ui-reset-overlay` is complete; the user verified the physical-iPad clear flow and confirmed the implementation is correct.
@@ -22,13 +22,15 @@
 - Spec `19_gmail-first-email-action` is complete.
 - Spec `20_gmail-wordmark-button-refine` is complete.
 - Spec `21_stronger-polish-sendability` is complete.
+- Spec `22_clone-proven-polish-prompt` is complete.
 - DadPad now keeps generic `Share` for Notes/other targets and adds a separate Gmail icon button that preserves paragraphs through Gmail-first email compose.
 - Root diagnosis confirmed: DadPad hands generic share targets plain text unchanged; Gmail flattens paragraphs when it imports generic Web Share text.
-- New outcome: `Polish` now explicitly prioritizes sendability over literal sloppiness, repairs capitalization by default, compresses rambling wording, and allows stronger sentence/paragraph restructuring while staying human.
+- New outcome: DadPad `Polish` now exactly matches the proven prompt templates in `tmp/Prompt-templates`, including the original `REFINE` wording and minimal GPT-5 reasoning controls.
 
 ## Last Green Commands
 - `pnpm test`
 - `pnpm build`
+- `diff -u src/providers/openaiPrompting.ts tmp/Prompt-templates/openaiPrompting.ts` (no output; prompt parity confirmed)
 - `pnpm exec tsx <<'TS' ... buildInstructions('polish', deriveStructureIntent(lowercaseApology, 'polish')) ... TS` confirming the shipped `Polish` prompt now includes assertive sendability, capitalization repair, ramble compression, and anti-corporate rules together
 - `pnpm test`
 - `pnpm build`
@@ -95,7 +97,7 @@
 - Existing non-critical carryover: live prompt eval still needs an OpenAI API key in DadPad settings or `OPENAI_API_KEY`; model-backed output samples remain blocked until that exists locally.
 
 ## Next Step
-- If needed later: rerun `pnpm eval:modes` with a local OpenAI key to capture real model-backed output samples against the strengthened `Polish` contract.
+- If requested: rebuild/install the updated DadPad app on the connected iPad so the cloned `Polish` prompt is live on-device.
 
 ## Dogfood Evidence
 - User manually tested the physical-iPad clear flow after spec `07` and confirmed the implementation is correct.
@@ -134,3 +136,5 @@
 - New spec `21` prompt dogfood confirmed the shipped `Polish` instructions no longer say `Prefer minimal rewriting`, now say `Rewrite assertively enough to make the message naturally sendable`, and explicitly add capitalization repair, ramble compression, cleaner everyday phrasing, and stronger restructuring guidance.
 - New spec `21` local gates are green: `pnpm test` passed with 117 tests, and `pnpm build` passed.
 - New spec `21` live model eval is still externally blocked because `/Users/ryanlaubscher/Library/Application Support/DadPad/` contains `encryption.key` but no `config.enc`, so `pnpm eval:modes` cannot load an API key.
+- New spec `22` prompt parity check returned an empty diff between `/src/providers/openaiPrompting.ts` and `/tmp/Prompt-templates/openaiPrompting.ts`, confirming the shipped DadPad `Polish` prompt now matches the proven template exactly.
+- New spec `22` local gates are green: `pnpm test` passed with 116 tests, and `pnpm build` passed.

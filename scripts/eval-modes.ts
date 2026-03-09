@@ -20,7 +20,6 @@ type EvalSample = {
   polishMaxFormalityDelta?: number;
   polishShouldStayProse?: boolean;
   polishShouldAddStructure?: boolean;
-  polishShouldRepairCapitalization?: boolean;
   polishBlockedPhrases?: string[];
 };
 
@@ -59,11 +58,7 @@ const EVAL_SAMPLES: EvalSample[] = [
     polishMaxFormalityDelta: 1,
     polishShouldStayProse: true,
     polishShouldAddStructure: true,
-    polishShouldRepairCapitalization: true,
     polishBlockedPhrases: [
-      "i was meaning to send this yesterday",
-      "all over the place",
-      "to be honest its not really working properly on my side",
       "regarding the holiday plan",
       "im unclear about the current plan",
       "in my view",
@@ -81,12 +76,6 @@ const EVAL_SAMPLES: EvalSample[] = [
     directEligible: true,
     scaffoldAbsent: false,
     englishInput: true,
-    polishShouldRepairCapitalization: true,
-    polishBlockedPhrases: [
-      "kind of check in",
-      "a bunch of things",
-      "maybe not fully finished",
-    ],
   },
   {
     id: "already-clean-informal",
@@ -110,7 +99,6 @@ const EVAL_SAMPLES: EvalSample[] = [
     englishInput: true,
     polishMaxFormalityDelta: 1,
     polishShouldStayProse: true,
-    polishShouldRepairCapitalization: true,
   },
   {
     id: "short-request",
@@ -143,29 +131,6 @@ const EVAL_SAMPLES: EvalSample[] = [
     polishMaxFormalityDelta: 1,
     polishShouldStayProse: true,
     polishShouldAddStructure: true,
-    polishShouldRepairCapitalization: true,
-    polishBlockedPhrases: [
-      "i still feel like a few parts are not lined up yet",
-      "i am not fully sure which version we are actually treating as final",
-    ],
-  },
-  {
-    id: "lowercase-apology",
-    label: "Lowercase rambling apology",
-    input:
-      "hi peter sorry, meant to send this ages ago but everything here has been all over the place and i keep forgetting things, then remembering them at stupid times. anyway i still need to know which version we are actually using because ive now got too many floating around and im worried im working from the wrong one.",
-    workplace: true,
-    directEligible: true,
-    scaffoldAbsent: true,
-    englishInput: true,
-    polishMaxFormalityDelta: 1,
-    polishShouldStayProse: true,
-    polishShouldRepairCapitalization: true,
-    polishBlockedPhrases: [
-      "all over the place",
-      "at stupid times",
-      "ive now got too many floating around",
-    ],
   },
   {
     id: "schedule-move",
@@ -411,15 +376,6 @@ function hasParagraphBreak(text: string): boolean {
   return BLANK_LINE_REGEX.test(text);
 }
 
-function hasCapitalizationRepairIssues(text: string): boolean {
-  const normalizedQuotes = text.replace(/[’]/g, "'");
-  return (
-    /^[^A-Za-z]*[a-z]/.test(normalizedQuotes.trim()) ||
-    /[.!?]\s+[a-z]/.test(normalizedQuotes) ||
-    /\bi\b/.test(normalizedQuotes)
-  );
-}
-
 function resolveConfigPath(...segments: string[]): string {
   if (process.platform === "darwin") {
     return path.join(os.homedir(), "Library", "Application Support", "DadPad", ...segments);
@@ -560,7 +516,6 @@ async function run(): Promise<void> {
   const polishFormalityFailures: string[] = [];
   const polishBulletFailures: string[] = [];
   const polishStructureFailures: string[] = [];
-  const polishCapitalizationFailures: string[] = [];
   const polishBlockedPhraseFailures: string[] = [];
 
   for (const { sample, outputs } of results) {
@@ -625,13 +580,6 @@ async function run(): Promise<void> {
       !hasBulletLines(outputs.polish)
     ) {
       polishStructureFailures.push(sample.id);
-    }
-
-    if (
-      sample.polishShouldRepairCapitalization &&
-      hasCapitalizationRepairIssues(outputs.polish)
-    ) {
-      polishCapitalizationFailures.push(sample.id);
     }
 
     if (sample.polishBlockedPhrases) {
@@ -702,13 +650,6 @@ async function run(): Promise<void> {
   }
 
   console.log(
-    `- polish repairs capitalization on sloppy drafts: ${polishCapitalizationFailures.length === 0 ? "PASS" : "FAIL"}`,
-  );
-  if (polishCapitalizationFailures.length > 0) {
-    console.log(`  capitalization failures: ${polishCapitalizationFailures.join(", ")}`);
-  }
-
-  console.log(
     `- polish avoids assistant-like blocked phrases on reference samples: ${polishBlockedPhraseFailures.length === 0 ? "PASS" : "FAIL"}`,
   );
   if (polishBlockedPhraseFailures.length > 0) {
@@ -724,7 +665,6 @@ async function run(): Promise<void> {
     polishFormalityFailures.length > 0 ||
     polishBulletFailures.length > 0 ||
     polishStructureFailures.length > 0 ||
-    polishCapitalizationFailures.length > 0 ||
     polishBlockedPhraseFailures.length > 0
   ) {
     process.exitCode = 1;

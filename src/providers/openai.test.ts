@@ -51,28 +51,10 @@ describe("streamTransformWithOpenAI", () => {
 
   it("injects strong mode-specific tone rules and prohibitions", () => {
     expect(buildInstructions("polish")).toContain(
-      "Make this sound like the same person, just clearer and cleaner.",
-    );
-    expect(buildInstructions("polish")).toContain(
-      "Rewrite assertively enough to make the message naturally sendable. Preserve meaning and personality, but do not preserve clumsy wording, weak phrasing, or messy structure.",
-    );
-    expect(buildInstructions("polish")).toContain(
-      "Do not make it sound corporate, elegant, templated, assistant-like, or overly polished.",
-    );
-    expect(buildInstructions("polish")).toContain(
-      "Correct capitalization by default unless lowercase styling is clearly intentional and stable throughout the input.",
-    );
-    expect(buildInstructions("polish")).not.toContain(
-      "Prefer minimal rewriting: fix what is broken, awkward, or unclear before rephrasing something that already sounds natural.",
-    );
-    expect(buildInstructions("polish")).toContain(
-      'Do not add elevated transitions or framing such as "Regarding", "Separately", "In my view", or similar phrasing unless the input already uses that register.',
-    );
-    expect(buildInstructions("polish")).not.toContain(
-      "general professional communication",
-    );
-    expect(buildInstructions("polish")).not.toContain(
       "Keep the tone neutral and polished, not especially chatty, corporate, or terse.",
+    );
+    expect(buildInstructions("polish")).toContain(
+      'Tone reference: "Could you send that over when you have a chance? Thanks."',
     );
     expect(buildInstructions("casual")).toContain(
       "Prefer everyday wording, contractions, and natural phrasing over corporate or formal wording.",
@@ -176,10 +158,7 @@ describe("streamTransformWithOpenAI", () => {
     const directInstructions = buildInstructions("direct", deriveStructureIntent(sample, "direct"));
 
     expect(polishInstructions).toContain(
-      "Keep prose as prose unless the content is naturally list-shaped or already list-like.",
-    );
-    expect(polishInstructions).toContain(
-      "Use bullets only for multiple concrete asks, options, steps, dates, issues, or comparisons when they genuinely improve scanning.",
+      "Use bullets only when multiple concrete asks or deliverables clearly make the message easier to scan.",
     );
     expect(casualInstructions).toContain(
       "Use bullets rarely; keep the output feeling like a natural message, not a memo.",
@@ -192,28 +171,28 @@ describe("streamTransformWithOpenAI", () => {
     );
   });
 
-  it("calibrates polish toward voice preservation, paragraph cleanup, and restrained bullets", () => {
+  it("calibrates polish toward the cloned neutral-professional prompt contract", () => {
     const sample =
       "Hi Peter i was meaning to send this yesterday but then totaly forgot and now everything is a bit all over the place. The meeting we had last week was useful I think but there was still a lot of stuff that wasnt really clear to me.";
     const instructions = buildInstructions("polish", deriveStructureIntent(sample, "polish"));
 
     expect(instructions).toContain(
-      "Preserve the writer's natural level of formality, directness, warmth, and personality.",
+      "Rewrite into a clear, elegant, well-structured version suitable for general professional communication.",
     );
     expect(instructions).toContain(
-      "Compress rambling phrasing, throat-clearing, duplication, and verbal clutter.",
+      "Actively improve sentence structure and paragraph flow.",
     );
     expect(instructions).toContain(
-      "Prefer sendable wording over literal wording when both mean the same thing.",
+      "Keep the tone neutral and polished, not especially chatty, corporate, or terse.",
     );
     expect(instructions).toContain(
-      "Improve paragraph flow when needed, and actively restructure sloppy text when that is what makes it sendable.",
+      "Prefer elegant, balanced paragraphs.",
     );
     expect(instructions).toContain(
-      "For sloppy multi-idea prose, prefer clean paragraph separation over long continuous blocks.",
+      "Use bullets only when multiple concrete asks or deliverables clearly make the message easier to scan.",
     );
     expect(instructions).toContain(
-      'Calibration reference (avoid): "Could you confirm the actual latest version? I have about three different copies, and they all seem somewhat different."',
+      'Tone reference: "Could you send that over when you have a chance? Thanks."',
     );
   });
 
@@ -300,7 +279,7 @@ describe("streamTransformWithOpenAI", () => {
     expect(secondRequestBody.temperature).toBeUndefined();
   });
 
-  it("uses stronger GPT-5 reasoning for polish while keeping rewrite verbosity unchanged", async () => {
+  it("uses GPT-5 rewrite controls to minimize hidden reasoning spend", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       body: {},
@@ -316,36 +295,6 @@ describe("streamTransformWithOpenAI", () => {
       apiKey: "test-key",
       inputText: "source",
       mode: "polish",
-      model: "gpt-5-nano-2025-08-07",
-      streaming: false,
-      timeoutMs: 5_000,
-      onDelta: () => undefined,
-    });
-
-    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<
-      string,
-      unknown
-    >;
-    expect(requestBody.reasoning).toEqual({ effort: "low" });
-    expect(requestBody.text).toEqual({ verbosity: "medium" });
-  });
-
-  it("keeps minimal GPT-5 reasoning for non-polish rewrite modes", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      body: {},
-      json: async () => ({
-        response: {
-          output: [{ content: [{ text: "Professional." }] }],
-        },
-      }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    await streamTransformWithOpenAI({
-      apiKey: "test-key",
-      inputText: "source",
-      mode: "professional",
       model: "gpt-5-nano-2025-08-07",
       streaming: false,
       timeoutMs: 5_000,
