@@ -20,7 +20,10 @@ import {
   composeWithGmail,
   EmailComposeUnavailableError,
 } from "../utils/email";
-import { shareText, ShareUnavailableError } from "../utils/share";
+import {
+  NotesShortcutUnavailableError,
+  openNotesShortcut,
+} from "../utils/notes";
 
 type SettingsSaveStatus = "idle" | "saving" | "saved" | "error";
 type StatusTone = "idle" | "success" | "error";
@@ -333,26 +336,25 @@ export function useDadPadController() {
     }
   };
 
-  const handleShare = async (): Promise<void> => {
+  const handleNotes = async (): Promise<void> => {
     if (isConfirmingClear) {
       return;
     }
 
     try {
-      await shareText(text);
-      applyStatus({ message: "Share sheet opened.", tone: "success" });
+      await writeClipboard(text);
+      await openNotesShortcut();
+      applyStatus({ message: "Copied text and opened Notes shortcut.", tone: "success" });
     } catch (error) {
-      if (error instanceof ShareUnavailableError) {
+      if (error instanceof NotesShortcutUnavailableError) {
         applyStatus({ message: error.message, tone: "error" });
         return;
       }
 
-      if (error instanceof DOMException && error.name === "AbortError") {
-        applyStatus({ message: "Share cancelled.", tone: "idle" });
-        return;
-      }
-
-      applyStatus({ message: "Sharing failed.", tone: "error" });
+      applyStatus({
+        message: "Clipboard write failed. Check app clipboard permissions.",
+        tone: "error",
+      });
     }
   };
 
@@ -437,7 +439,7 @@ export function useDadPadController() {
     handleClearCancel,
     handleClearConfirm,
     handleCopy,
-    handleShare,
+    handleNotes,
     handleGmail,
     handleSettingsSave,
     updateOpenAiApiKey,

@@ -1,0 +1,14 @@
+schemaVersion: 1
+enabledWorkflows:
+  - simulator
+  - ui-automation
+  - debugging
+  - logging
+  - macos
+  - project-discovery
+  - simulator-management
+  - coverage
+  - utilities
+  - device
+  - swift-package
+  - xcode-ide

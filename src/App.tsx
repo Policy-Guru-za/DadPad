@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import "./App.css";
 import dadPadLogo from "./assets/dadpad-logo.png";
 import gmailWordmark from "./assets/gmail-wordmark.png";
+import notesIcon from "./assets/notes-icon.svg";
 import { useDadPadController } from "./dadpad/useDadPadController";
 import { useInternetGate } from "./dadpad/useInternetGate";
 import { useViewportShell } from "./dadpad/useViewportShell";
@@ -54,7 +55,7 @@ function App() {
     handleClearCancel,
     handleClearConfirm,
     handleCopy,
-    handleShare,
+    handleNotes,
     handleGmail,
     handleSettingsSave,
     updateOpenAiApiKey,
@@ -310,19 +311,28 @@ function App() {
           </button>
           <button
             type="button"
-            className="secondary-action action-share"
-            onClick={() => void handleShare()}
-            disabled={actionDisabled}
-          >
-            Share
-          </button>
-          <button
-            type="button"
             className="secondary-action action-copy"
             onClick={() => void handleCopy()}
             disabled={actionDisabled}
           >
             Copy
+          </button>
+          <button
+            type="button"
+            className="secondary-action notes-action action-notes"
+            onClick={() => void handleNotes()}
+            disabled={actionDisabled}
+            aria-label="Notes"
+            title="Notes"
+          >
+            <img
+              className="notes-icon"
+              src={notesIcon}
+              alt=""
+              aria-hidden="true"
+              draggable="false"
+            />
+            <span className="notes-label">Notes</span>
           </button>
           <button
             type="button"

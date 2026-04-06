@@ -67,7 +67,6 @@ const OFFLINE_MESSAGE =
   "You are not connected to the internet. This app requires internet access.";
 
 let clipboardWriteMock: ReturnType<typeof vi.fn>;
-let shareMock: ReturnType<typeof vi.fn>;
 let scrollToMock: ReturnType<typeof vi.fn>;
 let fetchMock: ReturnType<typeof vi.fn>;
 let navigatorOnlineState: boolean;
@@ -214,15 +213,10 @@ beforeEach(() => {
   readAppSettingsMock.mockResolvedValue(TEST_SETTINGS);
   writeAppSettingsMock.mockImplementation(async (settings) => settings);
   clipboardWriteMock = vi.fn().mockResolvedValue(undefined);
-  shareMock = vi.fn().mockResolvedValue(undefined);
   scrollToMock = vi.fn();
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
     value: { writeText: clipboardWriteMock },
-  });
-  Object.defineProperty(navigator, "share", {
-    configurable: true,
-    value: shareMock,
   });
   Object.defineProperty(window, "scrollTo", {
     configurable: true,
@@ -439,7 +433,7 @@ describe("DadPad app", () => {
       expect((screen.getByRole("button", { name: "Copy" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
-      expect((screen.getByRole("button", { name: "Share" }) as HTMLButtonElement).disabled).toBe(
+      expect((screen.getByRole("button", { name: "Notes" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
       expect(
@@ -464,8 +458,11 @@ describe("DadPad app", () => {
     expect(screen.getByRole("button", { name: "Polish" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Clear" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Copy" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Share" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Notes" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Gmail" })).toBeTruthy();
+    const notesIcon = document.querySelector(".notes-icon");
+    expect(notesIcon).toBeTruthy();
+    expect((notesIcon as HTMLImageElement).getAttribute("src")).toContain("data:image/svg+xml");
     const gmailWordmark = document.querySelector(".gmail-wordmark");
     expect(gmailWordmark).toBeTruthy();
     expect((gmailWordmark as HTMLImageElement).getAttribute("src")).toContain("gmail-wordmark");
@@ -486,8 +483,8 @@ describe("DadPad app", () => {
       "Polish",
       "Clear",
       "Settings",
-      "Share",
       "Copy",
+      "Notes",
       "Gmail",
     ]);
     expect(getActionDock()).toBeTruthy();
@@ -754,7 +751,7 @@ describe("DadPad app", () => {
     expect((screen.getByRole("button", { name: "Copy" }) as HTMLButtonElement).disabled).toBe(
       true,
     );
-    expect((screen.getByRole("button", { name: "Share" }) as HTMLButtonElement).disabled).toBe(
+    expect((screen.getByRole("button", { name: "Notes" }) as HTMLButtonElement).disabled).toBe(
       true,
     );
     expect(
@@ -774,14 +771,14 @@ describe("DadPad app", () => {
     const polish = (await screen.findByRole("button", { name: "Polish" })) as HTMLButtonElement;
     const clear = screen.getByRole("button", { name: "Clear" }) as HTMLButtonElement;
     const copy = screen.getByRole("button", { name: "Copy" }) as HTMLButtonElement;
-    const share = screen.getByRole("button", { name: "Share" }) as HTMLButtonElement;
+    const notes = screen.getByRole("button", { name: "Notes" }) as HTMLButtonElement;
     const settings = screen.getByRole("button", { name: "Settings" }) as HTMLButtonElement;
 
     expect(polish.classList.contains("primary-action")).toBe(true);
     expect(polish.classList.contains("secondary-action")).toBe(false);
     expect(clear.classList.contains("secondary-action")).toBe(true);
     expect(copy.classList.contains("secondary-action")).toBe(true);
-    expect(share.classList.contains("secondary-action")).toBe(true);
+    expect(notes.classList.contains("secondary-action")).toBe(true);
     expect(clear.classList.contains("secondary-danger")).toBe(false);
     expect(settings.classList.contains("system-action")).toBe(true);
     expect(settings.classList.contains("secondary-action")).toBe(false);
@@ -833,18 +830,25 @@ describe("DadPad app", () => {
     });
   });
 
-  it("shares the current text through navigator.share", async () => {
+  it("copies the current text and opens the Notes shortcut", async () => {
+    openUrlMock.mockResolvedValueOnce(undefined);
+
     await renderApp();
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
-    await user.type(editor, "share me");
-    await user.click(screen.getByRole("button", { name: "Share" }));
+    await user.type(editor, "note me");
+    await user.click(screen.getByRole("button", { name: "Notes" }));
 
     await waitFor(() => {
-      expect(shareMock).toHaveBeenCalledWith({ text: "share me" });
+      expect(openUrlMock).toHaveBeenCalledTimes(1);
+      expect(String(openUrlMock.mock.calls[0]?.[0])).toBe(
+        "shortcuts://run-shortcut?name=Add%20to%20Notes&input=clipboard",
+      );
       expect(getStatusChip().textContent).toContain("Ready");
-      expect(getLiveStatusRegion().textContent).toContain("Share sheet opened.");
+      expect(getLiveStatusRegion().textContent).toContain(
+        "Copied text and opened Notes shortcut.",
+      );
     });
   });
 
@@ -906,26 +910,25 @@ describe("DadPad app", () => {
     });
   });
 
-  it("shows a clear error when sharing is unavailable", async () => {
-    Object.defineProperty(navigator, "share", {
-      configurable: true,
-      value: undefined,
-    });
+  it("shows a clear error when the Notes shortcut handoff cannot open", async () => {
+    openUrlMock.mockRejectedValueOnce(new Error("missing shortcut"));
 
     await renderApp();
     const user = userEvent.setup();
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
-    await user.type(editor, "share me");
-    await user.click(screen.getByRole("button", { name: "Share" }));
+    await user.type(editor, "note me");
+    await user.click(screen.getByRole("button", { name: "Notes" }));
 
     await waitFor(() => {
       expect(getStatusChip().getAttribute("data-tone")).toBe("error");
-      expect(getStatusChip().textContent).toContain("Sharing is not available on this device.");
+      expect(getStatusChip().textContent).toContain(
+        'Install the "Add to Notes" shortcut to send text to Notes.',
+      );
     });
   });
 
-  it("disables copy, clear, share, and Gmail while streaming without showing cancel", async () => {
+  it("disables copy, notes, clear, and Gmail while streaming without showing cancel", async () => {
     let resolveTransform: ((value: ReturnType<typeof createSuccessfulTransform>) => void) | null =
       null;
     streamTransformWithOpenAIMock.mockImplementationOnce(
@@ -949,7 +952,7 @@ describe("DadPad app", () => {
       expect((screen.getByRole("button", { name: "Clear" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
-      expect((screen.getByRole("button", { name: "Share" }) as HTMLButtonElement).disabled).toBe(
+      expect((screen.getByRole("button", { name: "Notes" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
       expect((screen.getByRole("button", { name: "Gmail" }) as HTMLButtonElement).disabled).toBe(

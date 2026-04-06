@@ -357,7 +357,7 @@ textarea:focus-visible {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-areas:
     "polish clear settings"
-    "share copy gmail";
+    "copy notes gmail";
   gap: 12px;
 }
 
@@ -377,8 +377,8 @@ textarea:focus-visible {
   grid-area: copy;
 }
 
-.action-share {
-  grid-area: share;
+.action-notes {
+  grid-area: notes;
 }
 
 .action-settings {
@@ -487,6 +487,26 @@ textarea:focus-visible {
   padding: 0 clamp(10px, 1.8vw, 14px);
 }
 
+.notes-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.notes-icon {
+  width: 1.9rem;
+  height: 1.9rem;
+  flex-shrink: 0;
+}
+
+.notes-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .gmail-wordmark {
   display: block;
   width: min(100%, clamp(13.25rem, 25.35vw, 16rem));
@@ -552,6 +572,11 @@ button:disabled {
   opacity: 0.62;
 }
 
+.notes-action:disabled .notes-icon,
+.notes-action:disabled .notes-label {
+  opacity: 0.68;
+}
+
 .system-action:disabled {
   background: rgba(228, 217, 200, 0.98);
   border-color: #cdbda6;
@@ -606,8 +631,8 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas:
       "polish clear"
-      "settings share"
-      "copy gmail";
+      "settings copy"
+      "notes gmail";
   }
 
   .confirm-actions {
@@ -622,8 +647,8 @@ button:disabled {
       "polish"
       "clear"
       "settings"
-      "share"
       "copy"
+      "notes"
       "gmail";
   }
 }
