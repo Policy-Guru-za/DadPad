@@ -1,12 +1,16 @@
 # Progress
 
 ## Current Spec
-- `22_clone-proven-polish-prompt`
+- `23_notes-and-email-polish-split`
 
 ## Current Stage
-- Stage 3 — Prompt parity confirmed; local gates green
+- Stage 4 — Local shell/tests green; model-backed evals blocked by missing API key
 
 ## Status
+- Spec `23_notes-and-email-polish-split` is in progress.
+- DadPad now renders `Polish for notes` in the primary slot and `Polish for email` in the former `Copy` slot.
+- `Polish for email` now routes through a dedicated conservative British email formatter prompt, buffers streamed preview locally until completion, and fails safe if the final output adds content beyond structure-only rules.
+- Local regressions, build, and browser smoke are green; only the model-backed eval scripts remain blocked by missing local OpenAI credentials.
 - Spec `07_clear-ui-reset-overlay` is complete; the user verified the physical-iPad clear flow and confirmed the implementation is correct.
 - Spec `08_theme-preview-html` is complete and the user selected Warm Sand as the production direction.
 - Spec `09_warm-sand-bottom-bar-reflow` is complete.
@@ -26,8 +30,14 @@
 - DadPad now keeps generic `Share` for Notes/other targets and adds a separate Gmail icon button that preserves paragraphs through Gmail-first email compose.
 - Root diagnosis confirmed: DadPad hands generic share targets plain text unchanged; Gmail flattens paragraphs when it imports generic Web Share text.
 - New outcome: DadPad `Polish` now exactly matches the proven prompt templates in `tmp/Prompt-templates`, including the original `REFINE` wording and minimal GPT-5 reasoning controls.
+- Current objective: rename the existing action to `Polish for notes`, replace `Copy` with `Polish for email`, and ship a conservative British email formatter that fails safe when the output adds content beyond structure-only rules.
 
 ## Last Green Commands
+- `pnpm test`
+- `pnpm build`
+- `pnpm exec tsx -e "import('./scripts/eval-modes.ts').then(() => console.log('eval-modes import ok'))"`
+- `pnpm exec tsx -e "import('./scripts/eval-structure.ts').then(() => console.log('eval-structure import ok'))"`
+- `agent-browser` local preview smoke with a temporary Tauri settings stub plus mocked OpenAI streaming confirming both `Polish for notes` and `Polish for email` commit the expected output in the Warm Sand dock
 - `pnpm test`
 - `pnpm build`
 - `diff -u src/providers/openaiPrompting.ts tmp/Prompt-templates/openaiPrompting.ts` (no output; prompt parity confirmed)
@@ -94,12 +104,14 @@
 
 ## Blockers
 - No hard blocker.
+- Current external blocker: `pnpm eval:modes` and `pnpm eval:structure` still require a real `OPENAI_API_KEY` or saved DadPad app config; both commands stop immediately with `No OpenAI API key found. Set OPENAI_API_KEY or save one in the app settings first.`
 - Existing non-critical carryover: live prompt eval still needs an OpenAI API key in DadPad settings or `OPENAI_API_KEY`; model-backed output samples remain blocked until that exists locally.
 
 ## Next Step
-- If requested: rebuild/install the updated DadPad app on the connected iPad so the cloned `Polish` prompt is live on-device.
+- If an API key is provided locally, run `pnpm eval:modes` and `pnpm eval:structure`; after that, optionally install the updated build on the connected iPad for live review.
 
 ## Dogfood Evidence
+- New spec `23` browser smoke against the production preview with a temporary in-page Tauri config stub and mocked OpenAI stream confirmed the Warm Sand dock order `Polish for notes / Clear / Settings` then `Polish for email / Notes / Gmail`, plus successful end-to-end notes/email polish commits in the single editor.
 - User manually tested the physical-iPad clear flow after spec `07` and confirmed the implementation is correct.
 - All five theme preview files were opened through a local static server and browser-smoked in Playwright.
 - Smoke confirmed zero console errors, five working theme-nav links, two preview states per file, desktop two-column layout, and iPad-like stacked layout.

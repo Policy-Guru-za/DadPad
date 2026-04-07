@@ -135,7 +135,7 @@ function inferTargetShape(
       return "paragraphs";
     }
 
-    if (mode === "polish" || mode === "casual") {
+    if (mode === "polish" || mode === "casual" || mode === "email") {
       return "paragraphs";
     }
 

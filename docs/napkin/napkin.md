@@ -1,6 +1,7 @@
 # Napkin
 
 ## Corrections
+- 2026-04-07 | self | The first email-output validator rejected legitimate cleanup of punctuation-free dictated drafts because it treated newly restored sentence boundaries as invented content | For DadPad email validation, only apply sentence-count growth limits when the source already contains sentence punctuation; raw dictation needs room for punctuation repair.
 - 2026-03-08 | self | DadPad still rotated into landscape even after the UI had been tuned for portrait because the native generated Apple config still explicitly advertised landscape and upside-down support | For orientation policy on this repo, fix `src-tauri/gen/apple/project.yml` and `src-tauri/gen/apple/dadpad_iOS/Info.plist` first, then verify the built app plist instead of treating rotation as a CSS/layout problem.
 - 2026-03-08 | self | Assumed iPad portrait would behave like a desktop-ish width, but the physical CSS viewport dropped into the `max-width: 860px` breakpoint and turned the readiness chip into a full-width banner | For DadPad hero layout, treat iPad portrait as a tablet/mobile breakpoint target; keep the chip inline until true phone widths and make the chip intrinsically sized with explicit `justify-self`.
 - 2026-03-08 | self | `pnpm tauri icon` regenerated the generic bundle icons from the new master mark, but the generated iOS `AppIcon.appiconset` in `src-tauri/gen/apple` still needed an explicit no-alpha sync before the home-screen icon was truly correct | After DadPad icon refreshes, verify representative `AppIcon.appiconset` files with `sips -g hasAlpha` and, if needed, rewrite the generated Apple icon catalog directly from the opaque master icon before the final Xcode build.
@@ -45,6 +46,7 @@
 - User is the only one who commits changes; never auto-commit.
 
 ## Patterns That Work
+- For local DadPad browser smoke outside the native shell, inject a temporary `window.__TAURI_INTERNALS__.invoke` stub and mock `window.fetch` in `agent-browser` so settings-gated and streaming-gated flows can be dogfooded without rebuilding onto iPad first.
 - For standalone preview HTML that should open cleanly in-browser, inline a small data-URI favicon so local smoke checks stay free of missing-asset console noise.
 - For local iPad-width smoke of this Tauri app without a native shell, run a preview server and stub `window.__TAURI_INTERNALS__.invoke` in Playwright so UI regressions can be checked before rebuilding onto the device.
 - For DadPad-native identity cutover on this repo, regenerate `src-tauri/gen/apple` from a clean derived tree after updating the canonical Tauri/package/Rust slug inputs; otherwise stale `polishpad.xcodeproj` outputs can linger even when bundle metadata is already DadPad-native.

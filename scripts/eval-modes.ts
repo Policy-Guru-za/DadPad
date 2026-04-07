@@ -7,6 +7,7 @@ import {
   DEFAULT_OPENAI_MODEL,
   type OpenAITransformMode,
 } from "../src/providers/openaiPrompting";
+import { validateEmailOutput } from "../src/providers/emailOutputValidation";
 import { streamTransformWithOpenAI } from "../src/providers/openai";
 
 type EvalSample = {
@@ -233,7 +234,13 @@ const EVAL_SAMPLES: EvalSample[] = [
   },
 ];
 
-const MODES: OpenAITransformMode[] = ["polish", "casual", "professional", "direct"];
+const DISTINCTNESS_MODES: OpenAITransformMode[] = [
+  "polish",
+  "casual",
+  "professional",
+  "direct",
+];
+const MODES: OpenAITransformMode[] = [...DISTINCTNESS_MODES, "email"];
 const BULLET_LINE_REGEX = /^\s*(?:[-*•]|\d+[.)])\s+\S/m;
 const BLANK_LINE_REGEX = /\n\s*\n/;
 const GREETING_REGEX = /^(hi|hello|dear)\b/i;
@@ -459,9 +466,13 @@ function printSimilarityMatrix(outputs: EvalOutput): void {
     ["polish", "casual"],
     ["polish", "professional"],
     ["polish", "direct"],
+    ["polish", "email"],
     ["casual", "professional"],
     ["casual", "direct"],
+    ["casual", "email"],
     ["professional", "direct"],
+    ["professional", "email"],
+    ["direct", "email"],
   ];
 
   for (const [left, right] of pairs) {
@@ -511,6 +522,9 @@ async function run(): Promise<void> {
   let directEligibleCount = 0;
   let directShorterCount = 0;
   const professionalScaffoldingFailures: string[] = [];
+  const emailScaffoldingFailures: string[] = [];
+  const emailValidationFailures: string[] = [];
+  const emailStructureFailures: string[] = [];
   const casualFormalityFailures: string[] = [];
   const languageFailures: string[] = [];
   const polishFormalityFailures: string[] = [];
@@ -519,7 +533,7 @@ async function run(): Promise<void> {
   const polishBlockedPhraseFailures: string[] = [];
 
   for (const { sample, outputs } of results) {
-    const normalizedOutputs = MODES.map((mode) => ({
+    const normalizedOutputs = DISTINCTNESS_MODES.map((mode) => ({
       mode,
       normalized: normalizeText(outputs[mode]),
     }));
@@ -547,6 +561,23 @@ async function run(): Promise<void> {
 
     if (sample.scaffoldAbsent && hasInventedEmailScaffolding(outputs.professional)) {
       professionalScaffoldingFailures.push(sample.id);
+    }
+
+    if (sample.scaffoldAbsent && hasInventedEmailScaffolding(outputs.email)) {
+      emailScaffoldingFailures.push(sample.id);
+    }
+
+    const emailValidation = validateEmailOutput(sample.input, outputs.email);
+    if (!emailValidation.ok) {
+      emailValidationFailures.push(`${sample.id}: ${emailValidation.error}`);
+    }
+
+    if (
+      sample.polishShouldAddStructure &&
+      !hasParagraphBreak(outputs.email) &&
+      !hasBulletLines(outputs.email)
+    ) {
+      emailStructureFailures.push(sample.id);
     }
 
     if (
@@ -615,6 +646,27 @@ async function run(): Promise<void> {
   }
 
   console.log(
+    `- email adds no new scaffolding when the source lacks it: ${emailScaffoldingFailures.length === 0 ? "PASS" : "FAIL"}`,
+  );
+  if (emailScaffoldingFailures.length > 0) {
+    console.log(`  scaffolding failures: ${emailScaffoldingFailures.join(", ")}`);
+  }
+
+  console.log(
+    `- email passes the structure-only validation guard: ${emailValidationFailures.length === 0 ? "PASS" : "FAIL"}`,
+  );
+  if (emailValidationFailures.length > 0) {
+    console.log(`  validation failures: ${emailValidationFailures.join(", ")}`);
+  }
+
+  console.log(
+    `- email adds paragraph structure where needed: ${emailStructureFailures.length === 0 ? "PASS" : "FAIL"}`,
+  );
+  if (emailStructureFailures.length > 0) {
+    console.log(`  structure failures: ${emailStructureFailures.join(", ")}`);
+  }
+
+  console.log(
     `- casual less formal than professional on workplace inputs: ${casualFormalityFailures.length === 0 ? "PASS" : "FAIL"}`,
   );
   if (casualFormalityFailures.length > 0) {
@@ -660,6 +712,9 @@ async function run(): Promise<void> {
     identicalFailures.length > 0 ||
     directShorterRate < 0.8 ||
     professionalScaffoldingFailures.length > 0 ||
+    emailScaffoldingFailures.length > 0 ||
+    emailValidationFailures.length > 0 ||
+    emailStructureFailures.length > 0 ||
     casualFormalityFailures.length > 0 ||
     languageFailures.length > 0 ||
     polishFormalityFailures.length > 0 ||

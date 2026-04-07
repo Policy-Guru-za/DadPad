@@ -1,9 +1,10 @@
 import type { MarkdownIntent } from "../agentPrompts/markdown";
 import type { StructureIntent } from "../structuring/plainText";
+import { buildEmailFormatterInstructions } from "./emailFormatterPrompt";
 
 export const DEFAULT_OPENAI_MODEL = "gpt-5-nano-2025-08-07";
 
-export type RewriteTransformMode = "polish" | "casual" | "professional" | "direct";
+export type RewriteTransformMode = "polish" | "casual" | "professional" | "direct" | "email";
 export type MarkdownPreset = "universal" | "codex" | "claude";
 export type MarkdownTransformMode = `agent-${MarkdownPreset}`;
 export type OpenAITransformMode = RewriteTransformMode | MarkdownTransformMode;
@@ -177,6 +178,16 @@ export const MODE_PROMPT_SPECS: Record<RewriteTransformMode, ModePromptSpec> = {
       "When there are 2 or more asks, steps, or deliverables, prefer bullets over dense prose.",
     ],
   },
+  email: {
+    label: "EMAIL FORMAT",
+    textVerbosity: "medium",
+    styleRules: [
+      "Format as a conservative British-style professional email without changing the underlying copy.",
+    ],
+    structureRules: [
+      "Preserve the source as prose unless it is already clearly list-shaped.",
+    ],
+  },
 };
 
 export const MARKDOWN_PRESET_SPECS: Record<MarkdownPreset, MarkdownPresetSpec> = {
@@ -346,6 +357,10 @@ function buildRewriteInstructions(
   mode: RewriteTransformMode,
   structureIntent?: StructureIntent,
 ): string {
+  if (mode === "email") {
+    return buildEmailFormatterInstructions(structureIntent);
+  }
+
   const promptSpec = MODE_PROMPT_SPECS[mode];
   const instructions = [
     REWRITE_PROMPT_INTRO,

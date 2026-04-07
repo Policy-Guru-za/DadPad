@@ -47,6 +47,16 @@ describe("smart structuring helpers", () => {
     expect(intent.isolateRequest).toBe(true);
   });
 
+  it("keeps email mode in paragraphs for compact multi-ask prose", () => {
+    const intent = deriveStructureIntent(
+      "Can you send me the latest budget, let me know which version is current, and tell me if we are still meeting tomorrow? I have three different drafts and I do not know which one is right.",
+      "email",
+    );
+
+    expect(intent.targetShape).toBe("paragraphs");
+    expect(intent.isolateRequest).toBe(true);
+  });
+
   it("allows hybrid structure for explicitly list-shaped polish content", () => {
     const intent = deriveStructureIntent(
       "Before Friday I need three things: the final budget, confirmation from ops on staffing, and a yes or no on whether we are moving the launch review.",

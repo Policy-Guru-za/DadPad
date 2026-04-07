@@ -38,12 +38,13 @@ function App() {
   const {
     text,
     isStreaming,
+    activeTransform,
     editorReset,
     isConfirmingClear,
     isSettingsOpen,
     isSettingsLoaded,
     apiKeyMissing,
-    polishDisabled,
+    transformDisabled,
     settingsDraft,
     settingsSaveStatus,
     settingsMessage,
@@ -54,7 +55,6 @@ function App() {
     handleClear,
     handleClearCancel,
     handleClearConfirm,
-    handleCopy,
     handleNotes,
     handleGmail,
     handleSettingsSave,
@@ -287,10 +287,10 @@ function App() {
           <button
             type="button"
             className="primary-action action-polish"
-            onClick={() => void handleTransform()}
-            disabled={polishDisabled || isConnectivityBlocked}
+            onClick={() => void handleTransform("notes")}
+            disabled={transformDisabled || isConnectivityBlocked}
           >
-            {isStreaming ? "Polishing…" : "Polish"}
+            {isStreaming && activeTransform === "notes" ? "Polishing…" : "Polish for notes"}
           </button>
           <button
             type="button"
@@ -311,11 +311,11 @@ function App() {
           </button>
           <button
             type="button"
-            className="secondary-action action-copy"
-            onClick={() => void handleCopy()}
-            disabled={actionDisabled}
+            className="primary-action action-email"
+            onClick={() => void handleTransform("email")}
+            disabled={transformDisabled || isConnectivityBlocked}
           >
-            Copy
+            {isStreaming && activeTransform === "email" ? "Polishing…" : "Polish for email"}
           </button>
           <button
             type="button"

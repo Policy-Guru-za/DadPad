@@ -16,6 +16,7 @@ import {
   readAppSettings,
   writeAppSettings,
 } from "../settings/config";
+import { validateEmailOutput } from "../providers/emailOutputValidation";
 import {
   composeWithGmail,
   EmailComposeUnavailableError,
@@ -27,6 +28,7 @@ import {
 
 type SettingsSaveStatus = "idle" | "saving" | "saved" | "error";
 type StatusTone = "idle" | "success" | "error";
+type PolishVariant = "notes" | "email";
 
 type StatusState = {
   message: string;
@@ -42,6 +44,38 @@ export type EditorResetState = {
 
 const READY_MESSAGE = "Ready.";
 const MISSING_API_KEY_MESSAGE = "Add your OpenAI API key to start.";
+
+const TRANSFORM_CONFIG: Record<
+  PolishVariant,
+  {
+    mode: "polish" | "email";
+    emptyMessage: string;
+    pendingMessage: string;
+    successMessage: string;
+    livePreview: boolean;
+    forceSmartStructuring?: boolean;
+    temperatureOverride?: number;
+    validateOutput?: typeof validateEmailOutput;
+  }
+> = {
+  notes: {
+    mode: "polish",
+    emptyMessage: "Add text before polishing.",
+    pendingMessage: "Polishing…",
+    successMessage: "Polished.",
+    livePreview: true,
+  },
+  email: {
+    mode: "email",
+    emptyMessage: "Add text before polishing for email.",
+    pendingMessage: "Polishing for email…",
+    successMessage: "Polished for email.",
+    livePreview: false,
+    forceSmartStructuring: true,
+    temperatureOverride: 0,
+    validateOutput: validateEmailOutput,
+  },
+};
 
 function getRestingStatus(openaiApiKey: string): StatusState {
   return openaiApiKey.trim().length > 0
@@ -95,12 +129,13 @@ function mapProviderError(error: unknown): string {
     return error.message;
   }
 
-  return "Polish failed. Original text restored.";
+  return "Rewrite failed. Original text restored.";
 }
 
 export function useDadPadController() {
   const [text, setText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [activeTransform, setActiveTransform] = useState<PolishVariant | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [editorReset, setEditorReset] = useState<EditorResetState>({
     version: 0,
@@ -122,7 +157,7 @@ export function useDadPadController() {
   const undoCheckpointRef = useRef<string | null>(null);
 
   const apiKeyMissing = settings.openaiApiKey.trim().length === 0;
-  const polishDisabled =
+  const transformDisabled =
     isStreaming ||
     isConfirmingClear ||
     !isSettingsLoaded ||
@@ -190,14 +225,15 @@ export function useDadPadController() {
     setText(nextText);
   };
 
-  const handleTransform = async (): Promise<void> => {
+  const handleTransform = async (variant: PolishVariant = "notes"): Promise<void> => {
     if (isStreaming || isConfirmingClear) {
       return;
     }
 
+    const transformConfig = TRANSFORM_CONFIG[variant];
     const sourceText = text;
     if (!sourceText.trim()) {
-      applyStatus({ message: "Add text before polishing.", tone: "error" });
+      applyStatus({ message: transformConfig.emptyMessage, tone: "error" });
       return;
     }
 
@@ -218,31 +254,39 @@ export function useDadPadController() {
     abortControllerRef.current = controller;
     undoCheckpointRef.current = sourceText;
     setCanUndo(false);
+    setActiveTransform(variant);
     setIsStreaming(true);
-    setText("");
-    applyStatus({ message: "Polishing…", tone: "idle" });
+    if (transformConfig.livePreview) {
+      setText("");
+    }
+    applyStatus({ message: transformConfig.pendingMessage, tone: "idle" });
 
     try {
       const result = await streamTransformWithOpenAI({
         apiKey,
         inputText: encoded.encodedText,
-        mode: "polish",
+        mode: transformConfig.mode,
         model: settings.model,
-        temperature: settings.temperature,
+        temperature: transformConfig.temperatureOverride ?? settings.temperature,
         streaming: settings.streaming,
-        smartStructuring: settings.smartStructuring,
+        smartStructuring: transformConfig.forceSmartStructuring || settings.smartStructuring,
         signal: controller.signal,
         onRetrying: () => {
           streamedOutput = "";
-          setText("");
+          if (transformConfig.livePreview) {
+            setText("");
+          }
         },
         onDelta: (delta) => {
           streamedOutput += delta;
-          setText(streamedOutput);
+          if (transformConfig.livePreview) {
+            setText(streamedOutput);
+          }
         },
       });
 
-      const normalizedOutput = settings.smartStructuring
+      const normalizedOutput =
+        transformConfig.forceSmartStructuring || settings.smartStructuring
         ? normalizeStructuredPlainText(result.outputText)
         : result.outputText;
       const decodedText = shouldProtect
@@ -256,9 +300,16 @@ export function useDadPadController() {
         }
       }
 
+      if (transformConfig.validateOutput) {
+        const validation = transformConfig.validateOutput(sourceText, decodedText);
+        if (!validation.ok) {
+          throw new OpenAIProviderError("unknown", validation.error);
+        }
+      }
+
       setText(decodedText);
       setCanUndo(true);
-      applyStatus({ message: "Polished.", tone: "success" });
+      applyStatus({ message: transformConfig.successMessage, tone: "success" });
     } catch (error) {
       setText(undoCheckpointRef.current ?? sourceText);
       undoCheckpointRef.current = null;
@@ -272,6 +323,7 @@ export function useDadPadController() {
     } finally {
       abortControllerRef.current = null;
       setIsStreaming(false);
+      setActiveTransform(null);
     }
   };
 
@@ -318,22 +370,6 @@ export function useDadPadController() {
 
     setIsConfirmingClear(false);
     resetToReadyState("dismissKeyboard");
-  };
-
-  const handleCopy = async (): Promise<void> => {
-    if (isConfirmingClear) {
-      return;
-    }
-
-    try {
-      await writeClipboard(text);
-      applyStatus({ message: "Copied.", tone: "success" });
-    } catch {
-      applyStatus({
-        message: "Clipboard write failed. Check app clipboard permissions.",
-        tone: "error",
-      });
-    }
   };
 
   const handleNotes = async (): Promise<void> => {
@@ -419,13 +455,14 @@ export function useDadPadController() {
   return {
     text,
     isStreaming,
+    activeTransform,
     canUndo,
     editorReset,
     isConfirmingClear,
     isSettingsOpen,
     isSettingsLoaded,
     apiKeyMissing,
-    polishDisabled,
+    transformDisabled,
     settingsDraft,
     settingsSaveStatus,
     settingsMessage,
@@ -438,7 +475,6 @@ export function useDadPadController() {
     handleClear,
     handleClearCancel,
     handleClearConfirm,
-    handleCopy,
     handleNotes,
     handleGmail,
     handleSettingsSave,
