@@ -359,7 +359,7 @@ textarea:focus-visible {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-areas:
     "polish clear settings"
-    "email notes gmail";
+    "notes gmail .";
   gap: 12px;
 }
 
@@ -373,10 +373,6 @@ textarea:focus-visible {
 
 .action-clear {
   grid-area: clear;
-}
-
-.action-email {
-  grid-area: email;
 }
 
 .action-notes {
@@ -633,8 +629,8 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas:
       "polish clear"
-      "settings email"
-      "notes gmail";
+      "notes gmail"
+      "settings .";
   }
 
   .confirm-actions {
@@ -649,7 +645,6 @@ button:disabled {
       "polish"
       "clear"
       "settings"
-      "email"
       "notes"
       "gmail";
   }

@@ -38,7 +38,6 @@ function App() {
   const {
     text,
     isStreaming,
-    activeTransform,
     editorReset,
     isConfirmingClear,
     isSettingsOpen,
@@ -287,10 +286,10 @@ function App() {
           <button
             type="button"
             className="primary-action action-polish"
-            onClick={() => void handleTransform("notes")}
+            onClick={() => void handleTransform()}
             disabled={transformDisabled || isConnectivityBlocked}
           >
-            {isStreaming && activeTransform === "notes" ? "Polishing…" : "Polish for notes"}
+            {isStreaming ? "Polishing…" : "Polish"}
           </button>
           <button
             type="button"
@@ -308,14 +307,6 @@ function App() {
             aria-pressed={isSettingsOpen}
           >
             {settingsButtonLabel}
-          </button>
-          <button
-            type="button"
-            className="primary-action action-email"
-            onClick={() => void handleTransform("email")}
-            disabled={transformDisabled || isConnectivityBlocked}
-          >
-            {isStreaming && activeTransform === "email" ? "Polishing…" : "Polish for email"}
           </button>
           <button
             type="button"

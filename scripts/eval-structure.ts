@@ -23,8 +23,8 @@ type EvalSample = {
 
 type EvalOutput = Record<OpenAITransformMode, string>;
 
-const MODES: OpenAITransformMode[] = ["polish", "casual", "professional", "direct", "email"];
-const PARAGRAPH_MODES: OpenAITransformMode[] = ["polish", "casual", "professional", "email"];
+const MODES: OpenAITransformMode[] = ["polish", "casual", "professional", "direct"];
+const PARAGRAPH_MODES: OpenAITransformMode[] = ["polish", "casual", "professional"];
 const BULLET_MODES: OpenAITransformMode[] = ["professional", "direct"];
 const BULLET_LINE_REGEX = /^\s*(?:[-*•]|\d+[.)])\s+\S/m;
 const GREETING_REGEX = /^\s*(?:hi|hello|hey|dear)\b/im;

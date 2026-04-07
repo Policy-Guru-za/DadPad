@@ -16,7 +16,6 @@ import {
   readAppSettings,
   writeAppSettings,
 } from "../settings/config";
-import { validateEmailOutput } from "../providers/emailOutputValidation";
 import {
   composeWithGmail,
   EmailComposeUnavailableError,
@@ -28,7 +27,6 @@ import {
 
 type SettingsSaveStatus = "idle" | "saving" | "saved" | "error";
 type StatusTone = "idle" | "success" | "error";
-type PolishVariant = "notes" | "email";
 
 type StatusState = {
   message: string;
@@ -44,38 +42,6 @@ export type EditorResetState = {
 
 const READY_MESSAGE = "Ready.";
 const MISSING_API_KEY_MESSAGE = "Add your OpenAI API key to start.";
-
-const TRANSFORM_CONFIG: Record<
-  PolishVariant,
-  {
-    mode: "polish" | "email";
-    emptyMessage: string;
-    pendingMessage: string;
-    successMessage: string;
-    livePreview: boolean;
-    forceSmartStructuring?: boolean;
-    temperatureOverride?: number;
-    validateOutput?: typeof validateEmailOutput;
-  }
-> = {
-  notes: {
-    mode: "polish",
-    emptyMessage: "Add text before polishing.",
-    pendingMessage: "Polishing…",
-    successMessage: "Polished.",
-    livePreview: true,
-  },
-  email: {
-    mode: "email",
-    emptyMessage: "Add text before polishing for email.",
-    pendingMessage: "Polishing for email…",
-    successMessage: "Polished for email.",
-    livePreview: false,
-    forceSmartStructuring: true,
-    temperatureOverride: 0,
-    validateOutput: validateEmailOutput,
-  },
-};
 
 function getRestingStatus(openaiApiKey: string): StatusState {
   return openaiApiKey.trim().length > 0
@@ -135,7 +101,6 @@ function mapProviderError(error: unknown): string {
 export function useDadPadController() {
   const [text, setText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [activeTransform, setActiveTransform] = useState<PolishVariant | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [editorReset, setEditorReset] = useState<EditorResetState>({
     version: 0,
@@ -225,15 +190,14 @@ export function useDadPadController() {
     setText(nextText);
   };
 
-  const handleTransform = async (variant: PolishVariant = "notes"): Promise<void> => {
+  const handleTransform = async (): Promise<void> => {
     if (isStreaming || isConfirmingClear) {
       return;
     }
 
-    const transformConfig = TRANSFORM_CONFIG[variant];
     const sourceText = text;
     if (!sourceText.trim()) {
-      applyStatus({ message: transformConfig.emptyMessage, tone: "error" });
+      applyStatus({ message: "Add text before polishing.", tone: "error" });
       return;
     }
 
@@ -254,39 +218,31 @@ export function useDadPadController() {
     abortControllerRef.current = controller;
     undoCheckpointRef.current = sourceText;
     setCanUndo(false);
-    setActiveTransform(variant);
     setIsStreaming(true);
-    if (transformConfig.livePreview) {
-      setText("");
-    }
-    applyStatus({ message: transformConfig.pendingMessage, tone: "idle" });
+    setText("");
+    applyStatus({ message: "Polishing…", tone: "idle" });
 
     try {
       const result = await streamTransformWithOpenAI({
         apiKey,
         inputText: encoded.encodedText,
-        mode: transformConfig.mode,
+        mode: "polish",
         model: settings.model,
-        temperature: transformConfig.temperatureOverride ?? settings.temperature,
+        temperature: settings.temperature,
         streaming: settings.streaming,
-        smartStructuring: transformConfig.forceSmartStructuring || settings.smartStructuring,
+        smartStructuring: settings.smartStructuring,
         signal: controller.signal,
         onRetrying: () => {
           streamedOutput = "";
-          if (transformConfig.livePreview) {
-            setText("");
-          }
+          setText("");
         },
         onDelta: (delta) => {
           streamedOutput += delta;
-          if (transformConfig.livePreview) {
-            setText(streamedOutput);
-          }
+          setText(streamedOutput);
         },
       });
 
-      const normalizedOutput =
-        transformConfig.forceSmartStructuring || settings.smartStructuring
+      const normalizedOutput = settings.smartStructuring
         ? normalizeStructuredPlainText(result.outputText)
         : result.outputText;
       const decodedText = shouldProtect
@@ -300,16 +256,9 @@ export function useDadPadController() {
         }
       }
 
-      if (transformConfig.validateOutput) {
-        const validation = transformConfig.validateOutput(sourceText, decodedText);
-        if (!validation.ok) {
-          throw new OpenAIProviderError("unknown", validation.error);
-        }
-      }
-
       setText(decodedText);
       setCanUndo(true);
-      applyStatus({ message: transformConfig.successMessage, tone: "success" });
+      applyStatus({ message: "Polished.", tone: "success" });
     } catch (error) {
       setText(undoCheckpointRef.current ?? sourceText);
       undoCheckpointRef.current = null;
@@ -323,7 +272,6 @@ export function useDadPadController() {
     } finally {
       abortControllerRef.current = null;
       setIsStreaming(false);
-      setActiveTransform(null);
     }
   };
 
@@ -455,7 +403,6 @@ export function useDadPadController() {
   return {
     text,
     isStreaming,
-    activeTransform,
     canUndo,
     editorReset,
     isConfirmingClear,

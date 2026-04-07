@@ -425,14 +425,11 @@ describe("DadPad app", () => {
       expect(screen.getByText(OFFLINE_MESSAGE)).toBeTruthy();
       expect(editor.readOnly).toBe(true);
       expect(
-        (screen.getByRole("button", { name: "Polish for notes" }) as HTMLButtonElement).disabled,
+        (screen.getByRole("button", { name: "Polish" }) as HTMLButtonElement).disabled,
       ).toBe(true);
       expect((screen.getByRole("button", { name: "Clear" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
-      expect(
-        (screen.getByRole("button", { name: "Polish for email" }) as HTMLButtonElement).disabled,
-      ).toBe(true);
       expect((screen.getByRole("button", { name: "Notes" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
@@ -455,9 +452,8 @@ describe("DadPad app", () => {
       "The ultimate helper to ensure that RCML is finally understood in written form.",
     );
     expect(strapline.closest("em")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Polish for notes" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Polish" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Clear" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Polish for email" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Notes" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Gmail" })).toBeTruthy();
     const notesIcon = document.querySelector(".notes-icon");
@@ -479,14 +475,7 @@ describe("DadPad app", () => {
     expect(getStatusChip().textContent).toContain("Ready");
     expect(getStatusChipDot().classList.contains("ready-dot")).toBe(true);
     expect(getStatusChipDot().classList.contains("error-dot")).toBe(false);
-    expect(getActionBarLabels()).toEqual([
-      "Polish for notes",
-      "Clear",
-      "Settings",
-      "Polish for email",
-      "Notes",
-      "Gmail",
-    ]);
+    expect(getActionBarLabels()).toEqual(["Polish", "Clear", "Settings", "Notes", "Gmail"]);
     expect(getActionDock()).toBeTruthy();
     expect(getAppMain()).toBeTruthy();
     expect(getEditorPanel()).toBeTruthy();
@@ -567,10 +556,7 @@ describe("DadPad app", () => {
       expect(getStatusChip().textContent).toContain("Add your OpenAI API key to start.");
       expect(getStatusChipDot().classList.contains("error-dot")).toBe(true);
       expect(
-        (screen.getByRole("button", { name: "Polish for notes" }) as HTMLButtonElement).disabled,
-      ).toBe(true);
-      expect(
-        (screen.getByRole("button", { name: "Polish for email" }) as HTMLButtonElement).disabled,
+        (screen.getByRole("button", { name: "Polish" }) as HTMLButtonElement).disabled,
       ).toBe(true);
     });
   });
@@ -613,7 +599,7 @@ describe("DadPad app", () => {
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
     await user.type(editor, "rough draft");
-    await user.click(screen.getByRole("button", { name: "Polish for notes" }));
+    await user.click(screen.getByRole("button", { name: "Polish" }));
 
     await waitFor(() => {
       expect(editor.value).toBe("Polished text.");
@@ -621,74 +607,6 @@ describe("DadPad app", () => {
       expect(getLiveStatusRegion().textContent).toContain("Polished.");
       expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
       expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
-    });
-  });
-
-  it("buffers email polish until the final validated result is ready", async () => {
-    const deferred = createDeferred<ReturnType<typeof createSuccessfulTransform>>();
-    streamTransformWithOpenAIMock.mockImplementationOnce(async ({ mode, onDelta }) => {
-      expect(mode).toBe("email");
-      onDelta("Dear team,\n\nPreview only");
-      return await deferred.promise;
-    });
-
-    await renderApp();
-    const user = userEvent.setup();
-    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
-
-    await user.type(
-      editor,
-      "dear team can you send the signed draft today i need it before the review thanks",
-    );
-    await user.click(screen.getByRole("button", { name: "Polish for email" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe(
-        "dear team can you send the signed draft today i need it before the review thanks",
-      );
-      expect(getLiveStatusRegion().textContent).toContain("Polishing for email…");
-      expect(
-        (screen.getByRole("button", { name: "Polishing…" }) as HTMLButtonElement).disabled,
-      ).toBe(true);
-    });
-
-    await act(async () => {
-      deferred.resolve(
-        createSuccessfulTransform(
-          "Dear team,\n\nCan you send the signed draft today? I need it before the review.\n\nThanks,",
-        ),
-      );
-    });
-
-    await waitFor(() => {
-      expect(editor.value).toBe(
-        "Dear team,\n\nCan you send the signed draft today? I need it before the review.\n\nThanks,",
-      );
-      expect(getStatusChip().textContent).toContain("Ready");
-      expect(getLiveStatusRegion().textContent).toContain("Polished for email.");
-    });
-  });
-
-  it("restores the original draft when email polish invents extra content", async () => {
-    streamTransformWithOpenAIMock.mockResolvedValueOnce(
-      createSuccessfulTransform(
-        "Can you send the signed draft today?\n\nPlease let me know if you have any questions.\n\nKind regards,",
-      ),
-    );
-
-    await renderApp();
-    const user = userEvent.setup();
-    const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
-
-    await user.type(editor, "can you send the signed draft today");
-    await user.click(screen.getByRole("button", { name: "Polish for email" }));
-
-    await waitFor(() => {
-      expect(editor.value).toBe("can you send the signed draft today");
-      expect(getStatusChip().getAttribute("data-tone")).toBe("error");
-      expect(getStatusChip().textContent).toContain(
-        "Email polish added content beyond structure-only rules.",
-      );
     });
   });
 
@@ -814,14 +732,11 @@ describe("DadPad app", () => {
     await user.click(screen.getByRole("button", { name: "Clear" }));
 
     expect(
-      (screen.getByRole("button", { name: "Polish for notes" }) as HTMLButtonElement).disabled,
+      (screen.getByRole("button", { name: "Polish" }) as HTMLButtonElement).disabled,
     ).toBe(true);
     expect((screen.getByRole("button", { name: "Clear" }) as HTMLButtonElement).disabled).toBe(
       true,
     );
-    expect(
-      (screen.getByRole("button", { name: "Polish for email" }) as HTMLButtonElement).disabled,
-    ).toBe(true);
     expect((screen.getByRole("button", { name: "Notes" }) as HTMLButtonElement).disabled).toBe(
       true,
     );
@@ -836,19 +751,16 @@ describe("DadPad app", () => {
     );
   });
 
-  it("keeps both polish buttons styled as primary actions while preserving the secondary/system treatments", async () => {
+  it("keeps Polish styled as the primary action while preserving the secondary/system treatments", async () => {
     await renderApp();
 
-    const polish = (await screen.findByRole("button", { name: "Polish for notes" })) as HTMLButtonElement;
+    const polish = (await screen.findByRole("button", { name: "Polish" })) as HTMLButtonElement;
     const clear = screen.getByRole("button", { name: "Clear" }) as HTMLButtonElement;
-    const email = screen.getByRole("button", { name: "Polish for email" }) as HTMLButtonElement;
     const notes = screen.getByRole("button", { name: "Notes" }) as HTMLButtonElement;
     const settings = screen.getByRole("button", { name: "Settings" }) as HTMLButtonElement;
 
     expect(polish.classList.contains("primary-action")).toBe(true);
     expect(polish.classList.contains("secondary-action")).toBe(false);
-    expect(email.classList.contains("primary-action")).toBe(true);
-    expect(email.classList.contains("secondary-action")).toBe(false);
     expect(clear.classList.contains("secondary-action")).toBe(true);
     expect(notes.classList.contains("secondary-action")).toBe(true);
     expect(clear.classList.contains("secondary-danger")).toBe(false);
@@ -1001,12 +913,9 @@ describe("DadPad app", () => {
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
     await user.type(editor, "busy");
-    await user.click(screen.getByRole("button", { name: "Polish for notes" }));
+    await user.click(screen.getByRole("button", { name: "Polish" }));
 
     await waitFor(() => {
-      expect(
-        (screen.getByRole("button", { name: "Polish for email" }) as HTMLButtonElement).disabled,
-      ).toBe(true);
       expect((screen.getByRole("button", { name: "Clear" }) as HTMLButtonElement).disabled).toBe(
         true,
       );
@@ -1036,7 +945,7 @@ describe("DadPad app", () => {
     const editor = (await screen.findByLabelText("Your text")) as HTMLTextAreaElement;
 
     await user.type(editor, "rough");
-    await user.click(screen.getByRole("button", { name: "Polish for notes" }));
+    await user.click(screen.getByRole("button", { name: "Polish" }));
 
     await waitFor(() => {
       expect(getStatusChip().getAttribute("data-tone")).toBe("error");

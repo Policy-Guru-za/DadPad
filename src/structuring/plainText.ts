@@ -21,7 +21,7 @@ const SIGN_OFF_REGEX =
 const REQUEST_REGEX =
   /\b(?:can you|could you|would you|please|need you to|send|share|provide|review|confirm|approve|reply|respond|let me know|tell me|update|outline|schedule|move)\b/gi;
 const CLOSING_REGEX =
-  /\b(?:thank you|thanks|appreciate it|appreciated|look forward|hope this|let me know if you have any questions)\b/i;
+  /\b(?:thank you|thanks|appreciate it|appreciated|look forward|hope this|let me know if you have any questions|kind regards|best regards|regards|sincerely|yours sincerely|yours faithfully)\b(?:[\s,]+[A-Za-z][A-Za-z .'-]+)?\s*$/i;
 const MULTI_ITEM_REQUEST_REGEX =
   /\b(?:send|share|provide|review|confirm|approve|reply|respond|update|outline|schedule|move|let me know|tell me)\b.*(?:,\s*|\band\b|\bor\b).*\b(?:send|share|provide|review|confirm|approve|reply|respond|update|outline|schedule|move|let me know|tell me)\b/i;
 const EXPLICIT_LIST_SHAPE_REGEX =
@@ -135,7 +135,7 @@ function inferTargetShape(
       return "paragraphs";
     }
 
-    if (mode === "polish" || mode === "casual" || mode === "email") {
+    if (mode === "polish" || mode === "casual") {
       return "paragraphs";
     }
 

@@ -47,10 +47,10 @@ describe("smart structuring helpers", () => {
     expect(intent.isolateRequest).toBe(true);
   });
 
-  it("keeps email mode in paragraphs for compact multi-ask prose", () => {
+  it("keeps email-shaped polish prose in paragraphs for compact multi-ask prose", () => {
     const intent = deriveStructureIntent(
       "Can you send me the latest budget, let me know which version is current, and tell me if we are still meeting tomorrow? I have three different drafts and I do not know which one is right.",
-      "email",
+      "polish",
     );
 
     expect(intent.targetShape).toBe("paragraphs");
@@ -96,6 +96,16 @@ describe("smart structuring helpers", () => {
     expect(intent.isolateRequest).toBe(true);
     expect(intent.isolateClosing).toBe(false);
     expect(intent.inferredContentType).toBe("note");
+  });
+
+  it("detects sign-off tails in dense email-style prose", () => {
+    const intent = deriveStructureIntent(
+      "Hi Jonathan I wanted to follow up on the plan and suggest a working session next week please let me know your availability kind regards Michael",
+      "polish",
+    );
+
+    expect(intent.inferredContentType).toBe("email");
+    expect(intent.isolateClosing).toBe(true);
   });
 
   it("normalizes whitespace and bullet spacing without changing paragraph text", () => {

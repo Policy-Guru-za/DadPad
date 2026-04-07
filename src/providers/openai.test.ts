@@ -33,7 +33,7 @@ describe("streamTransformWithOpenAI", () => {
   });
 
   it("builds distinct instructions for every mode from the centralized prompt map", () => {
-    const modes: RewriteTransformMode[] = ["polish", "casual", "professional", "direct", "email"];
+    const modes: RewriteTransformMode[] = ["polish", "casual", "professional", "direct"];
     const instructionSet = new Set(
       modes.map((mode) =>
         buildInstructions(
@@ -73,12 +73,6 @@ describe("streamTransformWithOpenAI", () => {
     );
     expect(buildInstructions("direct")).toContain(
       "When the input is already short or clean, still compress and simplify instead of only correcting punctuation or swapping synonyms.",
-    );
-    expect(buildInstructions("email")).toContain(
-      "This is a structure-only pass. Keep the writer's wording, meaning, tone, and order of ideas as intact as possible.",
-    );
-    expect(buildInstructions("email")).toContain(
-      "Do not add any new sentences, facts, pleasantries, greetings, sign-offs, subject lines, placeholder names, or calls to action that are not already present in the source.",
     );
   });
 
@@ -132,9 +126,6 @@ describe("streamTransformWithOpenAI", () => {
     expect(buildUserInput("polish", "source")).toBe(
       "Rewrite the text below.\n\n[BEGIN TEXT]\nsource\n[END TEXT]",
     );
-    expect(buildUserInput("email", "source")).toBe(
-      "Rewrite the text below.\n\n[BEGIN TEXT]\nsource\n[END TEXT]",
-    );
   });
 
   it("adds structure guidance only when smart structuring is enabled", () => {
@@ -165,8 +156,6 @@ describe("streamTransformWithOpenAI", () => {
       deriveStructureIntent(sample, "professional"),
     );
     const directInstructions = buildInstructions("direct", deriveStructureIntent(sample, "direct"));
-    const emailInstructions = buildInstructions("email", deriveStructureIntent(sample, "email"));
-
     expect(polishInstructions).toContain(
       "Use bullets only when multiple concrete asks or deliverables clearly make the message easier to scan.",
     );
@@ -178,9 +167,6 @@ describe("streamTransformWithOpenAI", () => {
     );
     expect(directInstructions).toContain(
       "When there are 2 or more asks, steps, or deliverables, prefer bullets over dense prose.",
-    );
-    expect(emailInstructions).toContain(
-      "Keep the body in prose paragraphs. Do not introduce bullets unless the source is already clearly list-like.",
     );
   });
 
@@ -206,23 +192,6 @@ describe("streamTransformWithOpenAI", () => {
     );
     expect(instructions).toContain(
       'Tone reference: "Could you send that over when you have a chance? Thanks."',
-    );
-  });
-
-  it("calibrates email mode toward conservative British email formatting without content invention", () => {
-    const sample =
-      "dear team can you send the signed draft today i need it before the review thanks";
-    const instructions = buildInstructions("email", deriveStructureIntent(sample, "email"));
-
-    expect(instructions).toContain("Mode: EMAIL FORMAT");
-    expect(instructions).toContain(
-      "Do not paraphrase, summarize, intensify, soften, or replace plain wording with more polished corporate phrasing.",
-    );
-    expect(instructions).toContain(
-      "Prefer British professional email conventions for spacing, paragraphing, and punctuation, but do not swap dialect or vocabulary unless a correction is genuinely required.",
-    );
-    expect(instructions).toContain(
-      "If the source already contains a salutation or sign-off, keep it and place it cleanly on its own line or paragraph.",
     );
   });
 

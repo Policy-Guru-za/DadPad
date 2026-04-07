@@ -1,16 +1,19 @@
 # Progress
 
 ## Current Spec
-- `23_notes-and-email-polish-split`
+- `25_equal-size-dock-grid`
 
 ## Current Stage
-- Stage 4 — Local shell/tests green; model-backed evals blocked by missing API key
+- Stage 3 — Equal-size dock grid shipped; local gates, browser smoke, and physical-iPad reinstall are green
 
 ## Status
-- Spec `23_notes-and-email-polish-split` is in progress.
-- DadPad now renders `Polish for notes` in the primary slot and `Polish for email` in the former `Copy` slot.
-- `Polish for email` now routes through a dedicated conservative British email formatter prompt, buffers streamed preview locally until completion, and fails safe if the final output adds content beyond structure-only rules.
-- Local regressions, build, and browser smoke are green; only the model-backed eval scripts remain blocked by missing local OpenAI credentials.
+- Spec `25_equal-size-dock-grid` is complete.
+- The dock is now rebalanced so `Notes` sits directly under `Polish`, `Gmail` sits directly under `Clear`, and every visible dock button shares the same size.
+- Spec `24_restore-single-polish` is complete.
+- Spec `23_notes-and-email-polish-split` is superseded after user confirmation that the standard `Polish` flow already works best for notes, emails, and letters.
+- DadPad now renders a single primary `Polish` action alongside `Clear`, `Settings`, `Notes`, and `Gmail`.
+- The email-only rewrite mode, formatter prompt, validation/retry rails, and related eval/test plumbing have been removed.
+- Local regressions, build, eval-script import checks, and browser smoke are green; only the full model-backed eval scripts remain externally blocked by missing local OpenAI credentials.
 - Spec `07_clear-ui-reset-overlay` is complete; the user verified the physical-iPad clear flow and confirmed the implementation is correct.
 - Spec `08_theme-preview-html` is complete and the user selected Warm Sand as the production direction.
 - Spec `09_warm-sand-bottom-bar-reflow` is complete.
@@ -30,9 +33,27 @@
 - DadPad now keeps generic `Share` for Notes/other targets and adds a separate Gmail icon button that preserves paragraphs through Gmail-first email compose.
 - Root diagnosis confirmed: DadPad hands generic share targets plain text unchanged; Gmail flattens paragraphs when it imports generic Web Share text.
 - New outcome: DadPad `Polish` now exactly matches the proven prompt templates in `tmp/Prompt-templates`, including the original `REFINE` wording and minimal GPT-5 reasoning controls.
-- Current objective: rename the existing action to `Polish for notes`, replace `Copy` with `Polish for email`, and ship a conservative British email formatter that fails safe when the output adds content beyond structure-only rules.
+- Current objective: wait for user review of the refreshed equal-size dock layout on the physical iPad.
 
 ## Last Green Commands
+- `pnpm test`
+- `pnpm build`
+- `pnpm preview --host 127.0.0.1 --port 4176`
+- `agent-browser` local preview smoke confirming button boxes for `Polish`, `Clear`, `Settings`, `Notes`, and `Gmail` all measured `345x62`, with `Notes` at the lower-left cell and `Gmail` at the lower-middle cell
+- `XcodeBuildMCP clean` for iOS
+- `pnpm tauri ios build --debug`
+- `xcrun devicectl device install app --device 13A95266-ADC7-527A-9F91-4B46F268AE25 /Users/ryanlaubscher/Projects/DadPad/src-tauri/gen/apple/build/arm64/DadPad.ipa`
+- `xcrun devicectl device process launch --device 13A95266-ADC7-527A-9F91-4B46F268AE25 --terminate-existing com.ryanlaubscher.dadpad`
+- `pnpm test`
+- `pnpm build`
+- `pnpm exec tsx -e "import('./scripts/eval-modes.ts').then(() => console.log('eval-modes import ok'))"`
+- `pnpm exec tsx -e "import('./scripts/eval-structure.ts').then(() => console.log('eval-structure import ok'))"`
+- `pnpm preview --host 127.0.0.1 --port 4175`
+- `agent-browser` local preview smoke confirming the visible dock order `Polish / Clear / Settings / Notes / Gmail` with no `Polish for email` button present
+- `pnpm test`
+- `pnpm build`
+- `pnpm exec tsx -e "import('./scripts/eval-modes.ts').then(() => console.log('eval-modes import ok'))"`
+- `pnpm exec tsx -e "import('./scripts/eval-structure.ts').then(() => console.log('eval-structure import ok'))"`
 - `pnpm test`
 - `pnpm build`
 - `pnpm exec tsx -e "import('./scripts/eval-modes.ts').then(() => console.log('eval-modes import ok'))"`
@@ -108,9 +129,12 @@
 - Existing non-critical carryover: live prompt eval still needs an OpenAI API key in DadPad settings or `OPENAI_API_KEY`; model-backed output samples remain blocked until that exists locally.
 
 ## Next Step
-- If an API key is provided locally, run `pnpm eval:modes` and `pnpm eval:structure`; after that, optionally install the updated build on the connected iPad for live review.
+- If an API key is provided locally, run `pnpm eval:modes` and `pnpm eval:structure`; otherwise wait for user review or an iPad install request.
 
 ## Dogfood Evidence
+- New spec `25` browser smoke against the production preview confirmed `Polish`, `Clear`, `Settings`, `Notes`, and `Gmail` all render at the same `345x62` footprint, with `Notes` directly beneath `Polish` and `Gmail` directly beneath `Clear`.
+- The refreshed clean build was exported to `src-tauri/gen/apple/build/arm64/DadPad.ipa`, installed onto Ryan’s iPad (6), and launched successfully via `devicectl`.
+- New spec `24` browser smoke against the production preview confirmed the visible dock now shows `Polish / Clear / Settings / Notes / Gmail`, the setup card remains intact, and no `Polish for email` action is rendered.
 - New spec `23` browser smoke against the production preview with a temporary in-page Tauri config stub and mocked OpenAI stream confirmed the Warm Sand dock order `Polish for notes / Clear / Settings` then `Polish for email / Notes / Gmail`, plus successful end-to-end notes/email polish commits in the single editor.
 - User manually tested the physical-iPad clear flow after spec `07` and confirmed the implementation is correct.
 - All five theme preview files were opened through a local static server and browser-smoked in Playwright.
